@@ -47,21 +47,8 @@ namespace SpringUtil
 		/// </returns>
 		public static bool IsInteger(object number)
 		{
-			return (number is Int32 || number is Int16 || number is Int64 || number is UInt32
-				|| number is UInt16 || number is UInt64 || number is Byte || number is SByte);
-		}
-
-		/// <summary>
-		/// Determines whether the supplied <paramref name="number"/> is a decimal number.
-		/// </summary>
-		/// <param name="number">The object to check.</param>
-		/// <returns>
-		/// <see lang="true"/> if the supplied <paramref name="number"/> is a decimal number.
-		/// </returns>
-		public static bool IsDecimal(object number)
-		{
-
-			return (number is Single || number is Double || number is Decimal);
+			return (number is Int32 || number is Int64 || number is UInt32 || number is UInt64 
+				|| number is Int16 || number is UInt16 || number is Byte || number is SByte);
 		}
 
 		/// <summary>
@@ -81,54 +68,6 @@ namespace SpringUtil
 		}
 
 		/// <summary>
-		/// Determines whether the supplied <paramref name="number"/> can be converted to an integer.
-		/// </summary>
-		/// <param name="number">The object to check.</param>
-		/// <returns>
-		/// <see lang="true"/> if the supplied <paramref name="number"/> can be converted to an integer.
-		/// </returns>
-		public static bool CanConvertToInteger(object number)
-		{
-			TypeConverter converter = TypeDescriptor.GetConverter(number);
-			return (converter.CanConvertTo(typeof(Int32))
-				|| converter.CanConvertTo(typeof(Int16))
-				|| converter.CanConvertTo(typeof(Int64))
-				|| converter.CanConvertTo(typeof(UInt16))
-				|| converter.CanConvertTo(typeof(UInt64))
-				|| converter.CanConvertTo(typeof(Byte))
-				|| converter.CanConvertTo(typeof(SByte))
-				   );
-		}
-
-		/// <summary>
-		/// Determines whether the supplied <paramref name="number"/> can be converted to an integer.
-		/// </summary>
-		/// <param name="number">The object to check.</param>
-		/// <returns>
-		/// <see lang="true"/> if the supplied <paramref name="number"/> can be converted to an integer.
-		/// </returns>
-		public static bool CanConvertToDecimal(object number)
-		{
-			TypeConverter converter = TypeDescriptor.GetConverter(number);
-			return (converter.CanConvertTo(typeof(Single))
-				|| converter.CanConvertTo(typeof(Double))
-				|| converter.CanConvertTo(typeof(Decimal))
-				   );
-		}
-
-		/// <summary>
-		/// Determines whether the supplied <paramref name="number"/> can be converted to a number.
-		/// </summary>
-		/// <param name="number">The object to check.</param>
-		/// <returns>
-		/// 	<c>true</c> if the specified object is decimal number; otherwise, <c>false</c>.
-		/// </returns>
-		public static bool CanConvertToNumber(object number)
-		{
-			return (CanConvertToInteger(number) || CanConvertToDecimal(number));
-		}
-
-		/// <summary>
 		/// Is the supplied <paramref name="number"/> equal to zero (0)?
 		/// </summary>
 		/// <param name="number">The number to check.</param>
@@ -139,16 +78,18 @@ namespace SpringUtil
 		{
 			if (number is Int32)
 				return ((Int32)number) == 0;
-			else if (number is Int16)
-				return ((Int16)number) == 0;
+			else if (number is Decimal)
+				return ((Decimal)number) == 0m;
 			else if (number is Int64)
 				return ((Int64)number) == 0;
-			else if (number is UInt16)
-				return ((UInt16)number) == 0;
 			else if (number is UInt32)
 				return ((UInt32)number) == 0;
 			else if (number is UInt64)
 				return (Convert.ToDecimal(number) == 0);
+			else if (number is Int16)
+				return ((Int16)number) == 0;
+			else if (number is UInt16)
+				return ((UInt16)number) == 0;
 			else if (number is Byte)
 				return ((Byte)number) == 0;
 			else if (number is SByte)
@@ -157,8 +98,6 @@ namespace SpringUtil
 				return ((Single)number) == 0f;
 			else if (number is Double)
 				return ((Double)number) == 0d;
-			else if (number is Decimal)
-				return ((Decimal)number) == 0m;
 			return false;
 		}
 
@@ -174,10 +113,12 @@ namespace SpringUtil
 		{
 			if (number is Int32)
 				return -((Int32)number);
-			else if (number is Int16)
-				return -((Int16)number);
+			else if (number is Decimal)
+				return -((Decimal)number);
 			else if (number is Int64)
 				return -((Int64)number);
+			else if (number is Int16)
+				return -((Int16)number);
 			else if (number is UInt16)
 				return -((Int32)number);
 			else if (number is UInt32)
@@ -192,8 +133,6 @@ namespace SpringUtil
 				return -((Single)number);
 			else if (number is Double)
 				return -((Double)number);
-			else if (number is Decimal)
-				return -((Decimal)number);
 			else
 			{
 				if (number != null)
@@ -369,16 +308,18 @@ namespace SpringUtil
 
 			if (n is Int32)
 				return (Int32)m + (Int32)n;
-			else if (n is Int16)
-				return (Int16)m + (Int16)n;
+			else if (n is Decimal)
+				return (Decimal)m + (Decimal)n;
 			else if (n is Int64)
 				return (Int64)m + (Int64)n;
-			else if (n is UInt16)
-				return (UInt16)m + (UInt16)n;
 			else if (n is UInt32)
 				return (UInt32)m + (UInt32)n;
 			else if (n is UInt64)
 				return (UInt64)m + (UInt64)n;
+			else if (n is Int16)
+				return (Int16)m + (Int16)n;
+			else if (n is UInt16)
+				return (UInt16)m + (UInt16)n;
 			else if (n is Byte)
 				return (Byte)m + (Byte)n;
 			else if (n is SByte)
@@ -387,8 +328,6 @@ namespace SpringUtil
 				return (Single)m + (Single)n;
 			else if (n is Double)
 				return (Double)m + (Double)n;
-			else if (n is Decimal)
-				return (Decimal)m + (Decimal)n;
 			else
 			{
 				throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported numeric types.", m, n));
@@ -406,16 +345,18 @@ namespace SpringUtil
 
 			if (n is Int32)
 				return (Int32)m - (Int32)n;
-			else if (n is Int16)
-				return (Int16)m - (Int16)n;
+			else if (n is Decimal)
+				return (Decimal)m - (Decimal)n;
 			else if (n is Int64)
 				return (Int64)m - (Int64)n;
-			else if (n is UInt16)
-				return (UInt16)m - (UInt16)n;
 			else if (n is UInt32)
 				return (UInt32)m - (UInt32)n;
 			else if (n is UInt64)
 				return (UInt64)m - (UInt64)n;
+			else if (n is Int16)
+				return (Int16)m - (Int16)n;
+			else if (n is UInt16)
+				return (UInt16)m - (UInt16)n;
 			else if (n is Byte)
 				return (Byte)m - (Byte)n;
 			else if (n is SByte)
@@ -424,8 +365,6 @@ namespace SpringUtil
 				return (Single)m - (Single)n;
 			else if (n is Double)
 				return (Double)m - (Double)n;
-			else if (n is Decimal)
-				return (Decimal)m - (Decimal)n;
 			else
 			{
 				throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported numeric types.", m, n));
@@ -443,16 +382,18 @@ namespace SpringUtil
 
 			if (n is Int32)
 				return (Int32)m * (Int32)n;
-			else if (n is Int16)
-				return (Int16)m * (Int16)n;
+			else if (n is Decimal)
+				return (Decimal)m * (Decimal)n;
 			else if (n is Int64)
 				return (Int64)m * (Int64)n;
-			else if (n is UInt16)
-				return (UInt16)m * (UInt16)n;
 			else if (n is UInt32)
 				return (UInt32)m * (UInt32)n;
 			else if (n is UInt64)
 				return (UInt64)m * (UInt64)n;
+			else if (n is Int16)
+				return (Int16)m * (Int16)n;
+			else if (n is UInt16)
+				return (UInt16)m * (UInt16)n;
 			else if (n is Byte)
 				return (Byte)m * (Byte)n;
 			else if (n is SByte)
@@ -461,8 +402,6 @@ namespace SpringUtil
 				return (Single)m * (Single)n;
 			else if (n is Double)
 				return (Double)m * (Double)n;
-			else if (n is Decimal)
-				return (Decimal)m * (Decimal)n;
 			else
 			{
 				throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported numeric types.", m, n));
@@ -480,16 +419,18 @@ namespace SpringUtil
 
 			if (n is Int32)
 				return (Int32)m / (Int32)n;
-			else if (n is Int16)
-				return (Int16)m / (Int16)n;
+			else if (n is Decimal)
+				return (Decimal)m / (Decimal)n;
 			else if (n is Int64)
 				return (Int64)m / (Int64)n;
-			else if (n is UInt16)
-				return (UInt16)m / (UInt16)n;
 			else if (n is UInt32)
 				return (UInt32)m / (UInt32)n;
 			else if (n is UInt64)
 				return (UInt64)m / (UInt64)n;
+			else if (n is Int16)
+				return (Int16)m / (Int16)n;
+			else if (n is UInt16)
+				return (UInt16)m / (UInt16)n;
 			else if (n is Byte)
 				return (Byte)m / (Byte)n;
 			else if (n is SByte)
@@ -498,8 +439,6 @@ namespace SpringUtil
 				return (Single)m / (Single)n;
 			else if (n is Double)
 				return (Double)m / (Double)n;
-			else if (n is Decimal)
-				return (Decimal)m / (Decimal)n;
 			else
 			{
 				throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported numeric types.", m, n));
@@ -517,16 +456,18 @@ namespace SpringUtil
 
 			if (n is Int32)
 				return (Int32)m % (Int32)n;
-			else if (n is Int16)
-				return (Int16)m % (Int16)n;
+			else if (n is Decimal)
+				return (Decimal)m % (Decimal)n;
 			else if (n is Int64)
 				return (Int64)m % (Int64)n;
-			else if (n is UInt16)
-				return (UInt16)m % (UInt16)n;
 			else if (n is UInt32)
 				return (UInt32)m % (UInt32)n;
 			else if (n is UInt64)
 				return (UInt64)m % (UInt64)n;
+			else if (n is Int16)
+				return (Int16)m % (Int16)n;
+			else if (n is UInt16)
+				return (UInt16)m % (UInt16)n;
 			else if (n is Byte)
 				return (Byte)m % (Byte)n;
 			else if (n is SByte)
@@ -535,8 +476,6 @@ namespace SpringUtil
 				return (Single)m % (Single)n;
 			else if (n is Double)
 				return (Double)m % (Double)n;
-			else if (n is Decimal)
-				return (Decimal)m % (Decimal)n;
 			else
 			{
 				throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported numeric types.", m, n));
@@ -587,6 +526,18 @@ namespace SpringUtil
 			{
 				m = Convert.ChangeType(m, rightTypeCode);
 			}
+		}
+
+		/// <summary>
+		/// Determines whether the supplied <paramref name="number"/> is a decimal number.
+		/// </summary>
+		/// <param name="number">The object to check.</param>
+		/// <returns>
+		/// <see lang="true"/> if the supplied <paramref name="number"/> is a decimal number.
+		/// </returns>
+		private static bool IsDecimal(object number)
+		{
+			return (number is Single || number is Double || number is Decimal);
 		}
 
 		#region Constructor (s) / Destructor

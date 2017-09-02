@@ -35,6 +35,9 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Xml" />
+    <Reference Include="SystemBridge20To35">
+      <HintPath>H:\ExperimentalProjects\SpringExpressions\SpringExpressions\References\SystemBridge20To35.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Collections\CaseInsensitiveHashtable.cs" />
@@ -93,6 +96,8 @@
     <Compile Include="Expressions\ExpressionEvaluator.cs" />
     <Compile Include="Expressions\ExpressionListNode.cs" />
     <Compile Include="Expressions\FunctionNode.cs" />
+    <Compile Include="Expressions\GenericProcessors\DecimalProcessor.cs" />
+    <Compile Include="Expressions\GenericProcessors\IntProcessor.cs" />
     <Compile Include="Expressions\HexLiteralNode.cs" />
     <Compile Include="Expressions\IExpression.cs" />
     <Compile Include="Expressions\IndexerNode.cs" />

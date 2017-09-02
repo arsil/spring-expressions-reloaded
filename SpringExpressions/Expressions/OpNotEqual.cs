@@ -22,6 +22,8 @@ using System;
 using System.Runtime.Serialization;
 using SpringUtil;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -45,14 +47,45 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
-        /// <summary>
-        /// Returns a value for the logical inequality operator node.
-        /// </summary>
-        /// <param name="context">Context to evaluate expressions against.</param>
-        /// <param name="evalContext">Current expression evaluation context.</param>
-        /// <returns>Node's value.</returns>
-        protected override object Get(object context, EvaluationContext evalContext)
+
+
+		protected override LExpression GetExpressionTreeIfPossible(
+			LExpression contextExpression,
+			LExpression evalContext)
+		{
+			var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, evalContext);
+			var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, evalContext);
+
+			if (leftExpression == null || rightExpression == null)
+				return null;
+
+			if (leftExpression.Type == typeof(bool) && rightExpression.Type == typeof(bool))
+				return LExpression.NotEqual(leftExpression, rightExpression);
+
+			if (leftExpression.Type == typeof(string) || rightExpression.Type == typeof(string))
+				return LExpression.NotEqual(leftExpression, rightExpression);
+
+
+			// TODO: porównanie z nulle-em, czyli objectem! jak to zrobiæ!
+			// TODO: bo... bo trzeba pewnie equals odpaliæ! pytanie tylko na czym!
+			// TODO: tutaj null-a nie rozpoznamy! bo nie mamy wartoœci! tej!
+
+			//TODO: brak obs³ugi np. stringów... czy charów... czy innych takich! to samo przy Less i innych operatorach!
+
+			// numeric comparision - we do not support other types
+			return CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+				leftExpression,
+				rightExpression,
+				LExpression.NotEqual);
+		}
+
+	    /// <summary>
+		/// Returns a value for the logical inequality operator node.
+		/// </summary>
+		/// <param name="context">Context to evaluate expressions against.</param>
+		/// <param name="evalContext">Current expression evaluation context.</param>
+		/// <returns>Node's value.</returns>
+		protected override object Get(object context, EvaluationContext evalContext)
         {
             object leftVal = GetLeftValue( context, evalContext );
             object rightVal = GetRightValue( context, evalContext );

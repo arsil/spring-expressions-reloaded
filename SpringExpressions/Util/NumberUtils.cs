@@ -51,14 +51,27 @@ namespace SpringUtil
 				|| number is Int16 || number is UInt16 || number is Byte || number is SByte);
         }
 
-        /// <summary>
-        /// Determines whether the supplied <paramref name="number"/> is of numeric type.
-        /// </summary>
-        /// <param name="number">The object to check.</param>
-        /// <returns>
-        /// 	<c>true</c> if the specified object is of numeric type; otherwise, <c>false</c>.
-        /// </returns>
-        public static bool IsNumber(object number)
+		/// <summary>
+		/// Determines whether the supplied <paramref name="number"/> is an integer.
+		/// </summary>
+		/// <param name="number">The object to check.</param>
+		/// <returns>
+		/// <see lang="true"/> if the supplied <paramref name="number"/> is an integer.
+		/// </returns>
+		public static bool IsInteger(Type number)
+		{
+			return (number == typeof(Int32))|| number == typeof(Int64) || number == typeof(UInt32) || number == typeof(UInt64)
+				|| number == typeof(Int16) || number == typeof(UInt16) || number == typeof(Byte) || number == typeof(SByte);
+		}
+
+		/// <summary>
+		/// Determines whether the supplied <paramref name="number"/> is of numeric type.
+		/// </summary>
+		/// <param name="number">The object to check.</param>
+		/// <returns>
+		/// 	<c>true</c> if the specified object is of numeric type; otherwise, <c>false</c>.
+		/// </returns>
+		public static bool IsNumber(object number)
         {
             var isNumber = (IsInteger(number) || IsNativeDecimal(number));
             if (!isNumber && number != null)
@@ -333,8 +346,34 @@ namespace SpringUtil
                 throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported numeric types.", m, n));
             }
         }
+/*
+	    public static bool AddIfPossible(object m, object n, out object result)
+	    {
+		    var mConv = m as IConvertible;
+		    var nConv = n as IConvertible;
 
-        /// <summary>
+		    if (mConv != null && nConv != null)
+		    {
+			    var mTc = mConv.GetTypeCode();
+				var nTc = nConv.GetTypeCode();
+
+				if (mTc != nTc)
+					throw new Exception("NotImplemented");
+
+			    switch (nTc)
+			    {
+					case TypeCode.Int32:
+					    result = (Int32) m + (Int32) n;
+					    return true;
+			    }
+
+			}
+
+		    result = null;
+		    return false;
+	    }
+*/
+	    /// <summary>
         /// Subtracts the specified numbers.
         /// </summary>
         /// <param name="m">The first number.</param>
@@ -505,16 +544,16 @@ namespace SpringUtil
             if (leftTypeCode == TypeCode.Object && m != null)
             {
                 var mConverter = TypeDescriptor.GetConverter(m);
-                m = mConverter.ConvertTo(m, typeof(Decimal));
-                leftTypeCode = Convert.GetTypeCode(m);
+                m = mConverter.ConvertTo(m, typeof(decimal));
+                leftTypeCode = TypeCode.Decimal;
             }
 
             if (rightTypeCode == TypeCode.Object && n != null)
             {
                 var nConverter = TypeDescriptor.GetConverter(n);
-                n = nConverter.ConvertTo(n, typeof(Decimal));
-                rightTypeCode = Convert.GetTypeCode(n);
-            }
+                n = nConverter.ConvertTo(n, typeof(decimal));
+				rightTypeCode = TypeCode.Decimal;
+			}
 
 
             if (leftTypeCode > rightTypeCode)

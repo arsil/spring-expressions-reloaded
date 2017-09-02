@@ -21,6 +21,8 @@
 using System;
 using System.Runtime.Serialization;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -87,5 +89,98 @@ namespace SpringExpressions
         {
             return GetValue(Right, context, evalContext);
         }
+
+
+
+
+	    protected LExpression CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+			LExpression leftExpression,
+			LExpression rightExpression,
+			Func<
+			    LExpression,
+			    LExpression,
+			    System.Linq.Expressions.BinaryExpression> binaryFunctionCreator)
+	    {
+			var leftExpressionType = leftExpression.Type;
+			var rightExpressionType = rightExpression.Type;
+
+			var leftTypeCode = (int)System.Type.GetTypeCode(leftExpressionType);
+
+			// For Char, Boolean, DBNull, Object, Empty, DateTime and String
+			if (leftTypeCode < 5 || leftTypeCode > 15)
+			    return null;
+
+// TODO: konwersja user-typów
+// TODO: przetestowaæ dziwne rzutowania... np z double na decimal
+
+			if (leftExpressionType != rightExpressionType)
+			{
+				// types are different
+				var rightTypeCode = (int)System.Type.GetTypeCode(rightExpressionType);
+
+				// For Char, Boolean, DBNull, Object, Empty, DateTime and String
+				if (rightTypeCode < 5 || rightTypeCode > 15)
+					return null;
+
+				if (leftTypeCode > rightTypeCode)
+				{
+					// left has bigger precision
+					rightExpression = LExpression.Convert(
+						rightExpression, leftExpressionType);
+				}
+				else
+				{
+					leftExpression = LExpression.Convert(
+						leftExpression, rightExpressionType);
+				}
+			}
+
+			return binaryFunctionCreator(leftExpression, rightExpression);
+		}
+
+
+		// todo: co np. z try catch - gdy siê czegoœ nie da skompilowaæ?
+		// todo: czyli fallback na star¹ obs³ugê!
+		// todo: jakoœ to trzeba zrobiæ!
+
+
+
+
+		protected LExpression CreateBinaryExpressionForAllNumericTypesEvaluatingChildren(
+			LExpression contextExpression, 
+			LExpression evalContext,
+			Func<
+				LExpression, 
+				LExpression, 
+				System.Linq.Expressions.BinaryExpression> binaryFunctionCreator)
+	    {
+			var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, evalContext);
+			var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, evalContext);
+
+			if (leftExpression != null && rightExpression != null)
+			{
+				return CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+					leftExpression,
+					rightExpression,
+					binaryFunctionCreator);
+			}
+
+			return null;
+
+
+			// todo: co jeœli zwróci³y null-e? przecie¿ to mo¿e oznaczaæ, i¿ odpalaj¹
+			// todo: funkcje zwracaj¹ce objecty... i co wtedy? 
+			// todo: czy próbujemy emitowaæ call do czegoœ takiego? czy to ma sens?
+
+			// todo: w sumie to chyba jest jeden expression do wyemitowania?
+			// todo: pewnie mo¿na, tylko dostaniemy na twarz object i co z nim zrobiæ? jak dodaæ?
+
+			// todo: dupa... to nie jest constant...  wiêc nie ma to sensu...
+			// todo: raczej wywo³anie metody powinno sprawdziæ, czy jest sta³ego typu i wtedy
+			// todo: wyemitowaæ odpowiedni¹ konwersjê do typu prostego! tak sobie myœlê!
+
+			// jak dostaniemy na ryja dwa objecty, to w ogóle bêdziê klêska...
+
+		}
     }
 }

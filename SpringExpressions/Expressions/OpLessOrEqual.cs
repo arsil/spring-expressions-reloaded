@@ -23,6 +23,8 @@ using System.Collections;
 using System.Runtime.Serialization;
 using SpringUtil;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -46,7 +48,31 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
+
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression, 
+            LExpression evalContext)
+        {
+            var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, evalContext);
+            var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, evalContext);
+
+            if (leftExpression == null || rightExpression == null)
+                return null;
+
+            if (leftExpression.Type == typeof(bool) && rightExpression.Type == typeof(bool))
+            {
+                return LExpression.LessThanOrEqual(
+                    leftExpression,
+                    rightExpression);
+            }
+
+            // numeric comparision - we do not support other types
+            return CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+                leftExpression,
+                rightExpression,
+                LExpression.LessThanOrEqual);
+        }
+
         /// <summary>
         /// Returns a value for the logical "less than or equal" operator node.
         /// </summary>

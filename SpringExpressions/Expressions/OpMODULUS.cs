@@ -22,6 +22,8 @@ using System;
 using System.Runtime.Serialization;
 using SpringUtil;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -45,7 +47,16 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
+
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression, LExpression evalContext)
+        {
+            return CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+                contextExpression,
+                evalContext,
+                LExpression.Modulo);
+        }
+
         /// <summary>
         /// Returns a value for the arithmetic modulus operator node.
         /// </summary>

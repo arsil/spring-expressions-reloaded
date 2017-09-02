@@ -20,7 +20,10 @@
 
 using System;
 using System.Globalization;
+using System.Linq.Expressions;
 using System.Runtime.Serialization;
+
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
@@ -32,6 +35,7 @@ namespace SpringExpressions
     public class RealLiteralNode : BaseNode
     {
         private object nodeValue;
+        private ConstantExpression constantExpression;
 
         /// <summary>
         /// Create a new instance
@@ -89,6 +93,49 @@ namespace SpringExpressions
             }
 
             return nodeValue;
+        }
+
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+        {
+			// todo: locki?
+			// todo: dupa blada... blada... blada...
+			// todo: czy czasami to cudo nie bêdzie chyba odpalane dok³adnie raz? albo czy nie powinno byæ odpalane dok³adnie raz?
+
+			if (constantExpression == null)
+            {
+                string n = this.getText();
+                char lastChar = n.ToLower()[n.Length - 1];
+                if (Char.IsDigit(lastChar))
+                {
+                    double value = double.Parse(n, NumberFormatInfo.InvariantInfo);
+                    constantExpression
+                        = LExpression.Constant(value, typeof(double));
+                }
+                else
+                {
+                    n = n.Substring(0, n.Length - 1);
+                    if (lastChar == 'm')
+                    {
+                        decimal value = decimal.Parse(n, NumberFormatInfo.InvariantInfo);
+                        constantExpression
+                            = LExpression.Constant(value, typeof(decimal));
+                    }
+                    else if (lastChar == 'f')
+                    {
+                        float value = float.Parse(n, NumberFormatInfo.InvariantInfo);
+                        constantExpression
+                            = LExpression.Constant(value, typeof(float));
+                    }
+                    else
+                    {
+                        double value = double.Parse(n, NumberFormatInfo.InvariantInfo);
+                        constantExpression
+                            = LExpression.Constant(value, typeof(double));
+                    }
+                }
+            }
+
+            return constantExpression;
         }
     }
 }

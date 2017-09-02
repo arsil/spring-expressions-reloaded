@@ -19,7 +19,10 @@
 #endregion
 
 using System;
+using System.Linq.Expressions;
 using System.Runtime.Serialization;
+
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
@@ -83,6 +86,22 @@ namespace SpringExpressions
             }
 
             return nodeValue;
+        }
+
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+        {
+            string n = getText();
+
+            try
+            {
+                int value = Int32.Parse(n);
+                return LExpression.Constant(value, typeof(int));
+            }
+            catch (OverflowException)
+            {
+                long value = Int64.Parse(n);
+                return LExpression.Constant(value, typeof(long));
+            }
         }
     }
 }

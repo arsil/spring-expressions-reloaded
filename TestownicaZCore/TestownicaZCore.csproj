@@ -40,8 +40,13 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AddOperationsHelper.cs" />
+    <Compile Include="CodeTimers.cs" />
+    <Compile Include="MathHelperIntType.cs" />
+    <Compile Include="NumberUtils.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SpringExpressionsAttributeContext.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SpringExpressions\SpringExpressions.csproj">

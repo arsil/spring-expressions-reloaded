@@ -22,6 +22,8 @@ using System;
 using System.Runtime.Serialization;
 using SpringUtil;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -44,6 +46,22 @@ namespace SpringExpressions
         protected OpUnaryPlus(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
+        }
+
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+        {
+            // TODO: konwersja user-typów
+
+            var operandExpression = GetExpressionTreeIfPossible((BaseNode)getFirstChild(),
+                contextExpression, evalContext);
+
+            var leftTypeCode = (int)System.Type.GetTypeCode(operandExpression.Type);
+
+            // For Char, Boolean, DBNull, Object, Empty, DateTime and String
+            if (leftTypeCode < 5 || leftTypeCode > 15)
+                return null;
+
+            return operandExpression;
         }
 
         /// <summary>

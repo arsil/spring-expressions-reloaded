@@ -20,9 +20,13 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
 using System.Runtime.Serialization;
 using SpringCore.TypeResolution;
 using SpringExpressions.Parser.antlr.collections;
+
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
@@ -49,13 +53,69 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Creates new instance of the type defined by this node.
-        /// </summary>
-        /// <param name="context">Context to evaluate expressions against.</param>
-        /// <param name="evalContext">Current expression evaluation context.</param>
-        /// <returns>Node's value.</returns>
-        protected override object Get(object context, EvaluationContext evalContext)
+	    protected override LExpression GetExpressionTreeIfPossible(
+			LExpression contextExpression, LExpression evalContext)
+	    {
+			if (arrayType == null)
+			{
+				lock (this)
+				{
+					if (arrayType == null)
+					{
+						arrayType = TypeResolutionUtils.ResolveType(getText());
+					}
+				}
+			}
+
+			AST rankRoot = getFirstChild();
+			int dimensions = rankRoot.getNumberOfChildren();
+
+			if (dimensions > 0)
+			{
+				int i = 0;
+				AST rankNode = rankRoot.getFirstChild();
+				var args = new List<LExpression>();
+				while (rankNode != null)
+				{
+					args.Add(GetExpressionTreeIfPossible((BaseNode)rankNode, contextExpression, evalContext));
+					rankNode = rankNode.getNextSibling();
+				}
+				return LExpression.NewArrayBounds(arrayType, args);
+			}
+
+		    AST valuesRoot = getFirstChild().getNextSibling();
+		    if (valuesRoot != null)
+		    {
+			    var arrayExpression = GetExpressionTreeIfPossible((BaseNode) valuesRoot,
+				    contextExpression,
+				    evalContext);
+			    var arrayExpressonType = arrayExpression.Type;
+
+			    if (arrayExpressonType.IsGenericType
+					&& arrayExpressonType.GetGenericTypeDefinition() == typeof(List<>))
+			    {
+				    // typed List
+				    var toArrayListMi = arrayExpressonType.GetMethod("ToArray");
+				    return LExpression.Call(arrayExpression, toArrayListMi);
+			    }
+				// TODO: to mo¿e byæ te¿ ArrayList z Objectami... póki co tego nie obs³ugujemy... chyba?
+			    // jeœli lista, to super prosto... bo ToArrayJest ju¿ zrobione
+			    //var result = LExpression.NewArrayInit(arrayExpression.Type, arra)
+//					ArrayList values = (ArrayList)GetValue(((BaseNode)valuesRoot), context, evalContext);
+			    //				return values.ToArray(arrayType);
+			    return null;
+		    }
+
+		    return null;
+	    }
+
+		/// <summary>
+		/// Creates new instance of the type defined by this node.
+		/// </summary>
+		/// <param name="context">Context to evaluate expressions against.</param>
+		/// <param name="evalContext">Current expression evaluation context.</param>
+		/// <returns>Node's value.</returns>
+		protected override object Get(object context, EvaluationContext evalContext)
         {
             if (arrayType == null)
             {

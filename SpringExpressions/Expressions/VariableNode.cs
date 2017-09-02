@@ -21,6 +21,8 @@
 using System;
 using System.Runtime.Serialization;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -45,7 +47,37 @@ namespace SpringExpressions
         {
         }
         
-        /// <summary>
+
+		// todo: bieda polega na tym, i¿ tracimy tutaj informacje o zwracanym typie...
+		// todo: na etapie kompilacji nie mamy nawet tego typu! i to jest super smutne!
+		// todo: byæ mo¿e nie ma sensu tego przerabiaæ na kompilowane wyra¿enie...
+/* - bieda 
+	    protected override LExpression GetExpressionTreeIfPossible(
+			LExpression contextExpression, 
+			LExpression evalContext)
+	    {
+			// todo: bieda... bo stracimy typ... kurwa... co za bieda... ale dowcip... kurwa.. .bieda. totalna!
+			// todo: i po co myœmy to robili... 
+			string varName = getText();
+			if (varName == "this")
+			{
+				// zwraca object
+				return evalContext.ThisContext;
+			}
+			else if (varName == "root")
+			{
+				// zwraca object
+				return evalContext.RootContext;
+			}
+
+			// te¿ zwraca object
+			return evalContext.Variables[varName];
+
+			return base.GetExpressionTreeIfPossible(contextExpression, evalContext);
+	    }
+*/
+
+	    /// <summary>
         /// Returns value of the variable represented by this node.
         /// </summary>
         /// <param name="context">Context to evaluate expressions against.</param>

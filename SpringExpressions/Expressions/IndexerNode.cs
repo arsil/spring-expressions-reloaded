@@ -27,6 +27,8 @@ using SpringCore;
 using SpringUtil;
 using SpringReflection.Dynamic;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -57,7 +59,61 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
+
+
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+        {
+            var node = getFirstChild();
+            var arguments = new List<LExpression>();
+            var argumentsTypes = new List<Type>();
+
+            while (node != null)
+            {
+                //if (node.getFirstChild() is LambdaExpressionNode)
+                //{
+                //	argList.Add((BaseNode)node.getFirstChild());
+                //}
+                //else if (node is NamedArgumentNode)
+                //{
+                //	namedArgs.Add(node.getText(), node);
+                //}
+                //else
+
+                var arg = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, evalContext);
+                if (arg == null)
+                    return null;
+
+                arguments.Add(arg);
+                argumentsTypes.Add(arg.Type);
+
+                node = node.getNextSibling();
+            }
+
+            // TODO: mo¿e pobranie arraya? tylko trzeba przetestowaæ, czy nie stracimy typu!.. .bo jak przez object, to syf!
+	        if (contextExpression.Type.IsArray)
+	        {
+		        return LExpression.ArrayIndex(
+			        contextExpression,
+			        arguments);
+	        }
+
+	        var indexerPropertyName = GetIndexerPropertyName(contextExpression.Type);
+            var methodName = "get_" + indexerPropertyName;
+
+            var methodInfo
+                = contextExpression.Type.GetMethod(
+                    methodName,
+                    BINDING_FLAGS | BindingFlags.FlattenHierarchy,
+                    null,
+                    argumentsTypes.ToArray(),
+                    null);
+
+            if (methodInfo == null)
+                return null;
+
+            return LExpression.Call(contextExpression, methodInfo, arguments);
+        }
+
         /// <summary>
         /// Returns node's value for the given context.
         /// </summary>
@@ -276,17 +332,7 @@ namespace SpringExpressions
                     {
                         Type contextType = context.GetType();
                         Type[] argTypes = ReflectionUtils.GetTypes(indices);
-                        string defaultMember = "Item";
-                        object[] atts = contextType.GetCustomAttributes(typeof(DefaultMemberAttribute), true);
-                        if (atts != null && atts.Length > 0)
-                        {
-                            defaultMember = ((DefaultMemberAttribute) atts[0]).MemberName;
-                        }
-                        PropertyInfo indexerProperty = contextType.GetProperty(defaultMember, BINDING_FLAGS, null, null, argTypes, null);
-                        if (indexerProperty == null)
-                        {
-                            throw new ArgumentException("Indexer property with specified number and types of arguments does not exist.");
-                        }
+                        var indexerProperty = GetIndexerPropertyInfo(contextType, argTypes);
 
                         indexer = new SafeProperty(indexerProperty);
                     }
@@ -294,6 +340,36 @@ namespace SpringExpressions
             }
 
             return indices;
+        }
+
+        private static PropertyInfo GetIndexerPropertyInfo(Type contextType, Type[] argTypes)
+        {
+            var defaultMember = GetIndexerPropertyName(contextType);
+
+            PropertyInfo indexerProperty = contextType.GetProperty(defaultMember,
+                BINDING_FLAGS,
+                null,
+                null,
+                argTypes,
+                null);
+
+            if (indexerProperty == null)
+            {
+                throw new ArgumentException(
+                    "Indexer property with specified number and types of arguments does not exist.");
+            }
+            return indexerProperty;
+        }
+
+        private static string GetIndexerPropertyName(Type contextType)
+        {
+            string defaultMember = "Item";
+            object[] atts = contextType.GetCustomAttributes(typeof(DefaultMemberAttribute), true);
+            if (atts.Length > 0)
+            {
+                defaultMember = ((DefaultMemberAttribute) atts[0]).MemberName;
+            }
+            return defaultMember;
         }
     }
 }

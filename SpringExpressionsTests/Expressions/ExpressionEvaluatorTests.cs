@@ -2237,6 +2237,8 @@ namespace SpringExpressions
             Assert.AreEqual(typeof(Int32).FullName, ExpressionEvaluator.GetValue(null, "Int32.FullName"));
             Assert.AreEqual(typeof(Int32).FullName, ExpressionEvaluator.GetValue(null, "T(System.Int32).FullName"));
             Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "Int32.IsSubclassOf(Int64)"));
+            Assert.IsTrue((bool) ExpressionEvaluator.GetValue(null, "T(System.Object).Equals(1, 1)"));
+
 
             TypeRegistry.RegisterType(typeof(FooType));
             Assert.AreEqual(FooType.One, ExpressionEvaluator.GetValue(null, "FooType.One"));

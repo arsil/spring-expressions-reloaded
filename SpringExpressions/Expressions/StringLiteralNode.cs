@@ -19,7 +19,10 @@
 #endregion
 
 using System;
+using System.Linq.Expressions;
 using System.Runtime.Serialization;
+
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
@@ -30,10 +33,10 @@ namespace SpringExpressions
     [Serializable]
     public class StringLiteralNode : BaseNode
     {
-        /// <summary>
-        /// Create a new instance
-        /// </summary>
-        public StringLiteralNode():base()
+		/// <summary>
+		/// Create a new instance
+		/// </summary>
+		public StringLiteralNode():base()
         {
         }
 
@@ -63,5 +66,10 @@ namespace SpringExpressions
         {
             return this.getText();
         }
-    }
+
+		protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+		{
+			return LExpression.Constant(this.getText(), typeof(string));
+		}
+	}
 }

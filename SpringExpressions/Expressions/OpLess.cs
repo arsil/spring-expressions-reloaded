@@ -22,6 +22,8 @@ using System;
 using System.Runtime.Serialization;
 using SpringUtil;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -34,7 +36,7 @@ namespace SpringExpressions
         /// <summary>
         /// Create a new instance
         /// </summary>
-        public OpLess():base()
+        public OpLess()
         {
         }
 
@@ -44,6 +46,30 @@ namespace SpringExpressions
         protected OpLess(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
+        }
+
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression, 
+            LExpression evalContext)
+        {
+            var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, evalContext);
+            var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, evalContext);
+
+            if (leftExpression == null || rightExpression == null)
+                return null;
+
+            if (leftExpression.Type == typeof(bool) && rightExpression.Type == typeof(bool))
+            {
+                return LExpression.LessThan(
+                    leftExpression,
+                    rightExpression);
+            }
+
+            // numeric comparision - we do not support other types
+            return CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+                leftExpression,
+                rightExpression,
+                LExpression.LessThan);
         }
 
         /// <summary>

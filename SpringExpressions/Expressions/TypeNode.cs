@@ -23,6 +23,8 @@ using System.Runtime.Serialization;
 using SpringCore.TypeResolution;
 using SpringExpressions.Parser.antlr.collections;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -48,6 +50,19 @@ namespace SpringExpressions
         protected TypeNode(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
+        }
+
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+        {
+            if (type == null)
+            {
+                lock (this)
+                {
+                    type = TypeResolutionUtils.ResolveType(getText());
+                }
+            }
+
+            return LExpression.Constant(type, typeof(Type));
         }
 
         /// <summary>

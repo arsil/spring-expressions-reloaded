@@ -32,6 +32,8 @@ using SpringReflection.Dynamic;
 using SpringUtil;
 using StringUtils = SpringUtil.StringUtils;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -278,15 +280,34 @@ namespace SpringExpressions
             return result;
         }
 
-        /// <summary>
-        /// Evaluates this expression for the specified root object and sets 
-        /// value of the last node.
-        /// </summary>
-        /// <param name="context">Context to evaluate expressions against.</param>
-        /// <param name="evalContext">Current expression evaluation context.</param>
-        /// <param name="newValue">Value to set last node to.</param>
-        /// <exception cref="NotSupportedException">If navigation expression is empty.</exception>
-        protected override void Set( object context, EvaluationContext evalContext, object newValue )
+	    protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+	    {
+ // todo: napisane na kolanie ale chyba dziaa...... fajno jest, hej ho, hej ho!
+			LExpression currentExpression = contextExpression;
+
+			var node = (BaseNode)getFirstChild();
+		    while (node != null)
+		    {
+				currentExpression = GetExpressionTreeIfPossible(
+					node, currentExpression, evalContext);
+
+			    node = (BaseNode) node.getNextSibling();
+				if (currentExpression == null)
+					return null;
+			}
+
+			return currentExpression;
+	    }
+
+		/// <summary>
+		/// Evaluates this expression for the specified root object and sets 
+		/// value of the last node.
+		/// </summary>
+		/// <param name="context">Context to evaluate expressions against.</param>
+		/// <param name="evalContext">Current expression evaluation context.</param>
+		/// <param name="newValue">Value to set last node to.</param>
+		/// <exception cref="NotSupportedException">If navigation expression is empty.</exception>
+		protected override void Set( object context, EvaluationContext evalContext, object newValue )
         {
             object target = context;
 

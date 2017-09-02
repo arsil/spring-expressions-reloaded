@@ -24,6 +24,8 @@ using System.Runtime.Serialization;
 using SpringCollections;
 using SpringUtil;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -36,7 +38,7 @@ namespace SpringExpressions
         /// <summary>
         /// Create a new instance
         /// </summary>
-        public OpSUBTRACT():base()
+        public OpSUBTRACT()
         {
         }
 
@@ -47,7 +49,17 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
+
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression, 
+            LExpression evalContext)
+        {
+            return CreateBinaryExpressionForAllNumericTypesEvaluatingChildren(
+                contextExpression,
+                evalContext,
+                LExpression.Subtract);
+        }
+
         /// <summary>
         /// Returns a value for the arithmetic subtraction operator node.
         /// </summary>

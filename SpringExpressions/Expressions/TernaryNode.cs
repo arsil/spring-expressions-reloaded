@@ -22,6 +22,8 @@ using System;
 using System.Runtime.Serialization;
 using SpringExpressions.Parser.antlr.collections;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -85,6 +87,26 @@ namespace SpringExpressions
             {
                 return GetValue(falseExp, context, evalContext);
             }
+        }
+
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+        {
+            AST node = getFirstChild();
+            var conditionExpression = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, evalContext);
+            if (conditionExpression == null)
+                return null;
+
+			node = node.getNextSibling();
+            var trueExpression = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, evalContext);
+            if (trueExpression == null)
+                return null;
+
+            node = node.getNextSibling();
+            var falseExpression = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, evalContext);
+            if (falseExpression == null)
+                return null;
+
+            return LExpression.Condition(conditionExpression, trueExpression, falseExpression);
         }
     }
 }

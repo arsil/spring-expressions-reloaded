@@ -28,6 +28,8 @@ using SpringCore.TypeResolution;
 using SpringUtil;
 using SpringReflection.Dynamic;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -64,6 +66,52 @@ namespace SpringExpressions
         protected ConstructorNode(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
+        }
+
+
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+        {
+            var arguments = new List<LExpression>();
+            var argumentsTypes = new List<Type>();
+
+            var node = getFirstChild();
+
+            while (node != null)
+            {
+                //if (node.getFirstChild() is LambdaExpressionNode)
+                //{
+                //	argList.Add((BaseNode)node.getFirstChild());
+                //}
+                //else if (node is NamedArgumentNode)
+                //{
+                //	namedArgs.Add(node.getText(), node);
+                //}
+                //else
+
+                var arg = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, evalContext);
+                if (arg == null)
+                    return null;
+
+                arguments.Add(arg);
+                argumentsTypes.Add(arg.Type);
+
+                node = node.getNextSibling();
+            }
+
+            Type objectType = GetObjectType(getText().Trim());
+            if (objectType == null)
+                return null;
+
+            var constructorInfo = objectType.GetConstructor(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                argumentsTypes.ToArray(),
+                null);
+
+            if (constructorInfo == null)
+                return null;
+
+            return LExpression.New(constructorInfo, arguments);
         }
 
         /// <summary>

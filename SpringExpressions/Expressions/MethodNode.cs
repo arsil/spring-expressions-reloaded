@@ -21,11 +21,17 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Data;
+using System.Globalization;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.Serialization;
+using SpringExpressions.Expressions.GenericProcessors;
 using SpringExpressions.Processors;
 using SpringUtil;
 using SpringReflection.Dynamic;
+
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
@@ -86,7 +92,138 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
+	    protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+	    {
+// todo: byæ mo¿e trzeba to lockowaæ!
+			string methodName = getText();
+
+		    var instance = contextExpression;
+
+			var node = this.getFirstChild();
+			var arguments = new List<LExpression>();
+		    var argumentsTypes = new List<Type>();
+
+			while (node != null)
+			{
+				//if (node.getFirstChild() is LambdaExpressionNode)
+				//{
+				//	argList.Add((BaseNode)node.getFirstChild());
+				//}
+				//else if (node is NamedArgumentNode)
+				//{
+				//	namedArgs.Add(node.getText(), node);
+				//}
+				//else
+
+				var arg = GetExpressionTreeIfPossible((BaseNode) node, contextExpression, evalContext);
+				if (arg == null)
+					return null;
+
+				arguments.Add(arg);
+				argumentsTypes.Add(arg.Type);
+
+				node = node.getNextSibling();
+			}
+
+		    if (typeof(IEnumerable<decimal>).IsAssignableFrom(instance.Type))
+		    {
+				// this is a strongly typed collection <decimal>
+
+				var decProcMethodInfo = typeof(DecimalProcessor).GetMethod(methodName);
+				if (decProcMethodInfo != null)
+			    {
+				    var result = LExpression.Call(decProcMethodInfo, contextExpression);
+				    return result;
+			    }
+		    }
+			else if (typeof(IEnumerable<int>).IsAssignableFrom(instance.Type))
+			{
+				// this is a strongly typed collection <int>
+
+				var decProcMethodInfo = typeof(IntProcessor).GetMethod(methodName);
+				if (decProcMethodInfo != null)
+				{
+					var result = LExpression.Call(decProcMethodInfo, contextExpression);
+					return result;
+				}
+			}
+
+			// todo: obs³ugiwaæ inne typy?
+			// todo: statyczne metody! -------------- statyczne metody! -----------------------------------------------------------------------------------------------
+			   // todo: teoretycznie statyczne metody dzia³aj¹:)
+
+		    MethodInfo methodInfo = null;
+
+
+			var contextExpressionType = contextExpression.Type;
+
+			if (contextExpressionType == typeof(Type)
+				&& contextExpression.NodeType == ExpressionType.Constant)
+			{
+				// System.Type or underlaying type (e.g. Int32)
+				contextExpressionType = (Type)((ConstantExpression)contextExpression).Value;
+				instance = null;
+
+				// try inner type (e.g. Int32)
+				methodInfo = contextExpressionType.GetMethod(methodName,
+					BINDING_FLAGS | BindingFlags.FlattenHierarchy,
+					null, argumentsTypes.ToArray(), null);
+
+				if (methodInfo == null)
+				{
+					// not found - going back to System.Type
+					contextExpressionType = contextExpression.Type;
+					instance = contextExpression;
+				}
+
+			}
+
+			   // todo: statyczne metody! tej!
+			   // todO: teoretycznie dzia³aj¹... 
+
+			// todo: to co nie dzia³a, to null-owe parametry (np. ToString('dummy', null))...
+			// todo: bo null jest u nas zawsze typu Object, a metoda oczekuje np. IFormatProvider!
+			// todo: musielibyœmy typy weryfikowaæ i null-e zawsze castowaæ na poprawny typ!
+			// todo: czyli wyszukiwaæ metod po liczbie paramametrów i odpowiednio odsiewaæ po
+			// todo: znanych typach argumentow (nie-nullowych)!
+
+		    if (methodInfo == null)
+		    {
+			    methodInfo
+				    = contextExpressionType.GetMethod(
+					    methodName,
+					    BINDING_FLAGS | BindingFlags.FlattenHierarchy,
+					    null,
+					    argumentsTypes.ToArray(),
+					    null);
+
+		    }
+
+		    if (methodInfo == null && methodName == "date")
+		    {
+				// common date() method...
+			    if (arguments.Count == 1)
+			    {
+				    methodInfo = dateTimeParseMi;
+			    }
+			    else if (arguments.Count == 2)
+			    {
+				    methodInfo = dateTimeParseExactMi;
+					arguments.Add(LExpression.Constant(
+						CultureInfo.InvariantCulture, typeof(CultureInfo)));
+			    }
+
+			    // static method
+			    instance = null;
+		    }
+
+		    if (methodInfo == null)
+			    return null;
+
+			return LExpression.Call(instance, methodInfo, arguments);
+	    }
+
+	    /// <summary>
         /// Returns node's value for the given context.
         /// </summary>
         /// <param name="context">Context to evaluate expressions against.</param>
@@ -290,5 +427,19 @@ namespace SpringExpressions
                 , 607, 613, 617, 619, 631, 641, 643, 647, 653, 659
                 , 661, 673, 677, 683, 691, 701, 709, 719, 727, 733
             };
-    }
+
+	    private static MethodInfo dateTimeParseMi = typeof(DateTime)
+			.GetMethod("Parse",
+		    BINDING_FLAGS,
+		    null,
+		    new [] {typeof(string)},
+		    null);
+
+		private static MethodInfo dateTimeParseExactMi = typeof(DateTime)
+			.GetMethod("ParseExact",
+			BINDING_FLAGS,
+			null,
+			new[] { typeof(string), typeof(string), typeof(CultureInfo) },
+			null);
+	}
 }

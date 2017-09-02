@@ -20,9 +20,12 @@
 
 using System;
 using System.Collections;
+using System.Reflection;
 using System.Runtime.Serialization;
 using SpringCollections;
 using SpringUtil;
+
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
@@ -47,7 +50,39 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
+
+
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+        {
+// TODO: dodanie char + char daje inta...!
+
+            var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, evalContext);
+            var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, evalContext);
+
+            if (leftExpression != null && rightExpression != null)
+            {
+                var exp = CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+                    leftExpression,
+                    rightExpression,
+                    LExpression.Add);
+
+                if (exp != null)
+                    return exp;
+
+
+                // one of exp is a string expression - we use Concat
+                if (leftExpression.Type == typeof(string) || rightExpression.Type == typeof(string))
+                {
+                    
+                    return LExpression.Call(
+                        StrConcatObjObjMethodInfo,
+                        leftExpression, rightExpression);
+                }
+            }
+
+            return null;
+        }
+
         /// <summary>
         /// Returns a value for the arithmetic addition operator node.
         /// </summary>
@@ -63,6 +98,7 @@ namespace SpringExpressions
             {
                 return NumberUtils.Add(left, right);
             }
+
             else if (left is DateTime && (right is TimeSpan || right is string || NumberUtils.IsNumber(right)))
             {
                 if (NumberUtils.IsNumber(right))
@@ -115,5 +151,9 @@ namespace SpringExpressions
                                             + "'.");
             }
         }
+
+        private static readonly MethodInfo StrConcatObjObjMethodInfo
+            = typeof(string).GetMethod("Concat", new[] { typeof(object), typeof(object) });
+
     }
 }

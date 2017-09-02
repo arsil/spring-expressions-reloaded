@@ -24,6 +24,8 @@ using System.Runtime.Serialization;
 using SpringCollections;
 using SpringUtil;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -33,10 +35,10 @@ namespace SpringExpressions
     [Serializable]
     public class OpMULTIPLY : BinaryOperator
     {
-        /// <summary>
-        /// Create a new instance
-        /// </summary>
-        public OpMULTIPLY():base()
+		/// <summary>
+		/// Create a new instance
+		/// </summary>
+		public OpMULTIPLY():base()
         {
         }
 
@@ -47,16 +49,25 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
-        /// <summary>
-        /// Returns a value for the arithmetic multiplication operator node.
-        /// </summary>
-        /// <param name="context">Context to evaluate expressions against.</param>
-        /// <param name="evalContext">Current expression evaluation context.</param>
-        /// <returns>Node's value.</returns>
-        protected override object Get(object context, EvaluationContext evalContext)
+
+
+		protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+		{
+// TODO: póki co obs³ugujemy tylko numeryczne mno¿enie! czy jakoœ mo¿e wykrywaæ takie bajery...?
+			return CreateBinaryExpressionForAllNumericTypesEvaluatingChildren(
+				contextExpression,
+				evalContext,
+				LExpression.Multiply);
+		}
+		/// <summary>
+		/// Returns a value for the arithmetic multiplication operator node.
+		/// </summary>
+		/// <param name="context">Context to evaluate expressions against.</param>
+		/// <param name="evalContext">Current expression evaluation context.</param>
+		/// <returns>Node's value.</returns>
+		protected override object Get(object context, EvaluationContext evalContext)
         {
-            object left = GetLeftValue( context, evalContext );
+			object left = GetLeftValue( context, evalContext );
             object right = GetRightValue( context, evalContext );
 
             if (NumberUtils.IsNumber(left) && NumberUtils.IsNumber(right))

@@ -21,6 +21,8 @@
 using System;
 using System.Runtime.Serialization;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -44,7 +46,12 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
+
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+        {
+            return LExpression.Constant(null);
+        }
+
         /// <summary>
         /// Returns a value for the null literal node.
         /// </summary>

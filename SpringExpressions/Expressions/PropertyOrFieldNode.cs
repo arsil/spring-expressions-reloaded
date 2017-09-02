@@ -23,6 +23,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.Remoting;
 using System.Runtime.Serialization;
@@ -35,6 +36,8 @@ using SpringUtil;
 using SpringReflection.Dynamic;
 
 #endregion
+
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
@@ -240,6 +243,95 @@ namespace SpringExpressions
                 {
                     return accessor.Get(context);
                 }
+            }
+        }
+
+
+        protected override LExpression GetExpressionTreeIfPossible(
+			LExpression contextExpression, 
+			LExpression evalContext)
+        {
+            // TODO: odczyt const-ów! jak to zrobiæ! bo nie chc¹ siê emitowaæ! kurwa! co za gówno!
+
+
+            // TODO: czy lock jest potrzebny? tutaj? chyba nie?
+            // TODO: czy czasami nie bêdzie tak, ¿e kompilacja ZAWSZE bêdzie w locku???
+            lock (this)
+            {
+                IValueAccessor acc = null;
+                var name = getText();
+
+                var finalContextExpression = contextExpression;
+
+                var contextExpressionType = contextExpression.Type;
+                if (contextExpressionType == typeof(Type)
+                    && contextExpression.NodeType == ExpressionType.Constant)
+                {
+                    // System.Type or type that it represents (e.g. Int32)
+                    contextExpressionType = (Type)((ConstantExpression)contextExpression).Value;
+                    finalContextExpression = null;
+
+                    // try inner type (e.g. Int32)
+                    acc = GetPropertyOrFieldAccessor(contextExpressionType, name, BINDING_FLAGS);
+                    if (acc == null)
+                    {
+                        // not found - going back to System.Type
+                        contextExpressionType = contextExpression.Type;
+                        finalContextExpression = contextExpression;
+                    }
+                }
+
+                if (acc == null)
+                    acc = GetPropertyOrFieldAccessor(contextExpressionType, name, BINDING_FLAGS);
+
+                var propertyAcc = acc as PropertyValueAccessor;
+
+                if (propertyAcc != null)
+                {
+                    return LExpression.Property(
+                        finalContextExpression,
+                        (PropertyInfo) propertyAcc.MemberInfo);
+                }
+
+                var fieldAcc = acc as FieldValueAccessor;
+                if (fieldAcc != null)
+                {
+                    if (fieldAcc.FieldInfo.IsStatic && fieldAcc.FieldInfo.IsLiteral)
+                    {
+                        // const field - have to JIT a value!
+                        object fieldValue = fieldAcc.Get(null);
+
+                        return LExpression.Constant(
+                            fieldValue,
+                            fieldAcc.FieldInfo.FieldType);
+                    }
+
+
+                    return LExpression.Field(
+                        finalContextExpression,
+                        (FieldInfo)fieldAcc.MemberInfo);
+                }
+
+                // final call - Type!
+                {
+                    var type = TypeResolutionUtils.ResolveType(name);
+                    if (type != null)
+                    {
+//                        if (!type.IsValueType)
+//                        {
+                            return LExpression.Constant(type, typeof(Type));
+//                        }
+//                        else
+//                        {
+//                            return
+//                                LExpression.Convert(
+//                                    LExpression.Constant(type, typeof(Type)),
+//                                    typeof(object));
+//                        }
+                    }
+                }
+
+                return null;
             }
         }
 
@@ -618,6 +710,11 @@ namespace SpringExpressions
                 get { return property.PropertyInfo; }
             }
 
+            public PropertyInfo PropertyInfo
+            {
+                get { return property.PropertyInfo; }
+            }
+
             public override bool RequiresRefresh(Type contextType)
             {
                 return this.contextType != contextType;
@@ -672,6 +769,9 @@ namespace SpringExpressions
             {
                 get { return field.FieldInfo; }
             }
+
+            public FieldInfo FieldInfo
+            {  get { return field.FieldInfo; } }
 
             public override bool RequiresRefresh(Type contextType)
             {

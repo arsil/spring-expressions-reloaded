@@ -19,9 +19,11 @@
 #endregion
 
 using System;
+using System.Reflection;
 using System.Runtime.Serialization;
 using SpringCore.TypeResolution;
 using SpringExpressions;
+using Expression = System.Linq.Expressions.Expression;
 
 // do not change the namespace!
 namespace SpringContext.Support
@@ -47,14 +49,40 @@ namespace SpringContext.Support
             : base(info, context)
         {
         }
-        
-        /// <summary>
-        /// Returns a value for the integer literal node.
-        /// </summary>
-        /// <param name="context">Context to evaluate expressions against.</param>
-        /// <param name="evalContext">Current expression evaluation context.</param>
-        /// <returns>Node's value.</returns>
-        protected override object Get(object context, EvaluationContext evalContext)
+
+	    protected override Expression GetExpressionTreeIfPossible(Expression contextExpression, Expression evalContext)
+	    {
+			if (getNumberOfChildren() == 2)
+			{
+				string typeName = getFirstChild().getText();
+				string objectName = getFirstChild().getNextSibling().getText();
+
+				var type = TypeResolutionUtils.ResolveType(typeName);
+
+				return Expression.Convert(
+					Expression.Call(
+						createObjectMi, Expression.Constant(type), Expression.Constant(objectName)), type);
+			}
+			else
+			{
+				string typeName = getFirstChild().getText();
+				var type = TypeResolutionUtils.ResolveType(typeName);
+
+				return Expression.Convert(
+					Expression.Call(
+						createObjectMi, Expression.Constant(type), Expression.Constant(
+							null, typeof(string))), type);
+			}
+
+		}
+
+		/// <summary>
+		/// Returns a value for the integer literal node.
+		/// </summary>
+		/// <param name="context">Context to evaluate expressions against.</param>
+		/// <param name="evalContext">Current expression evaluation context.</param>
+		/// <returns>Node's value.</returns>
+		protected override object Get(object context, EvaluationContext evalContext)
         {
             if (getNumberOfChildren() == 2)
             {
@@ -74,5 +102,9 @@ namespace SpringContext.Support
                 return ReferenceObjectFactory.InvokeCreateObject(type, null);
             }
         }
+
+	    private MethodInfo createObjectMi =
+		    typeof(ReferenceObjectFactory).GetMethod("InvokeCreateObject", 
+				BindingFlags.NonPublic | BindingFlags.Static);
     }
 }

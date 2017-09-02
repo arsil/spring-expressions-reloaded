@@ -22,6 +22,8 @@ using System;
 using System.Runtime.Serialization;
 using SpringUtil;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -53,8 +55,25 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
-        /// <summary>
+
+
+	    protected override LExpression GetExpressionTreeIfPossible(
+			LExpression contextExpression, 
+			LExpression evalContext)
+	    {
+			var operandExpression = GetExpressionTreeIfPossible((BaseNode)getFirstChild(),
+				contextExpression, evalContext);
+
+			var leftTypeCode = (int)System.Type.GetTypeCode(operandExpression.Type);
+
+			// For Char, DBNull, Object, Empty, DateTime and String
+			if (leftTypeCode < 3 || leftTypeCode > 15 || leftTypeCode == 4)
+				return null;
+
+			return LExpression.Not(operandExpression);
+		}
+
+	    /// <summary>
         /// Returns a value for the logical NOT operator node.
         /// </summary>
         /// <param name="context">Context to evaluate expressions against.</param>

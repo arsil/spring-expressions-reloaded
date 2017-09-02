@@ -22,6 +22,8 @@ using System;
 using System.Runtime.Serialization;
 using SpringUtil;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -53,7 +55,39 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
+
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression, 
+            LExpression evalContext)
+        {
+            var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, evalContext);
+            var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, evalContext);
+
+            if (leftExpression == null || rightExpression == null)
+                return null;
+
+            if (leftExpression.Type == typeof(bool) && rightExpression.Type == typeof(bool))
+            {
+                // logical OR on boolean expressions
+                return LExpression.OrElse(
+                    leftExpression,
+                    rightExpression);
+            }
+
+            if (NumberUtils.IsInteger(leftExpression.Type)
+                && NumberUtils.IsInteger(rightExpression.Type))
+            {
+                // bitwise OR for integer types
+                return CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+                    leftExpression,
+                    rightExpression,
+                    LExpression.Or);
+            }
+
+            // enums or conversions not supported
+            return null;
+        }
+
         /// <summary>
         /// Returns a value for the logical OR operator node.
         /// </summary>

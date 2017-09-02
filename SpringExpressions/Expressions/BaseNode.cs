@@ -21,7 +21,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Runtime.Serialization;
+
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
@@ -89,18 +92,21 @@ namespace SpringExpressions
             /// Gets/Sets the root context of the current evaluation
             /// </summary>
             public object RootContext;
-            /// <summary>
-            /// Gets the type of the <see cref="RootContext"/>
-            /// </summary>
-            public Type RootContextType { get { return (RootContext == null) ? null : RootContext.GetType(); } }
+
+			/// <summary>
+			/// Gets/Sets global variables of the current evaluation
+			/// </summary>
+			public IDictionary<string, object> Variables;
+
+			/// <summary>
+			/// Gets the type of the <see cref="RootContext"/>
+			/// </summary>
+			public Type RootContextType { get { return (RootContext == null) ? null : RootContext.GetType(); } }
             /// <summary>
             /// Gets/Sets the current context of the current evaluation
             /// </summary>
             public object ThisContext;
-            /// <summary>
-            /// Gets/Sets global variables of the current evaluation
-            /// </summary>
-            public IDictionary<string, object> Variables;
+
             /// <summary>
             /// Gets/Sets local variables of the current evaluation
             /// </summary>
@@ -118,10 +124,19 @@ namespace SpringExpressions
                 this.Variables = globalVariables;
             }
 
-            /// <summary>
-            /// Switches current ThisContext.
-            /// </summary>
-            public IDisposable SwitchThisContext()
+			public void Reuse(object rootContext, IDictionary<string, object> globalVariables)
+			{
+				this.RootContext = rootContext;
+				this.ThisContext = rootContext;
+				this.Variables = globalVariables;
+				this.LocalVariables = null;
+			}
+
+
+			/// <summary>
+			/// Switches current ThisContext.
+			/// </summary>
+			public IDisposable SwitchThisContext()
             {
                 return new ThisContextHolder(this);
             }
@@ -137,10 +152,15 @@ namespace SpringExpressions
 
         #endregion
 
-        /// <summary>
-        /// Create a new instance
-        /// </summary>
-        public BaseNode()
+	    private EvaluationContext _lastEvaluationContext;
+ //	    private Func<object, object> _compiledExpression;
+		private Func<object, EvaluationContext, object> _compiledExpression;
+
+
+		/// <summary>
+		/// Create a new instance
+		/// </summary>
+		public BaseNode()
         { }
 
         /// <summary>
@@ -167,22 +187,124 @@ namespace SpringExpressions
         /// <returns>Node's value.</returns>
         public object GetValue(object context)
         {
-            return GetValue(context, null);
-        }
+			return GetValue(context, null);
 
-        /// <summary>
-        /// Returns node's value for the given context.
-        /// </summary>
-        /// <param name="context">Object to evaluate node against.</param>
-        /// <param name="variables">Expression variables map.</param>
-        /// <returns>Node's value.</returns>
-        public object GetValue(object context, IDictionary<string, object> variables)
+		}
+
+		/// <summary>
+		/// Returns node's value for the given context.
+		/// </summary>
+		/// <param name="context">Object to evaluate node against.</param>
+		/// <param name="variables">Expression variables map.</param>
+		/// <returns>Node's value.</returns>
+		public object GetValue(object context, IDictionary<string, object> variables)
         {
-            EvaluationContext evalContext = new EvaluationContext(context, variables);
-            return Get(context, evalContext);
+			     // todo: oczywiœcie ten lock jest z dupy...
+//	        lock (this)
+	        {
+
+
+		        if (_compiledExpression == null)
+		        {
+					if (_lastEvaluationContext != null)
+						_lastEvaluationContext.Reuse(context, variables);
+					else
+						_lastEvaluationContext = new EvaluationContext(context, variables);
+
+					// todo: zapamiêtujemy zbudowane expression!
+					// todo: zapamiêtujemy funkcjê, która dostaje na ryja obecta! z contextem!
+					// todo: i go rzutuje!
+					LExpression getContextExpression;
+			        var ctxParam = LExpression.Parameter(typeof(object), "context");
+
+			        if (context == null)
+				        getContextExpression = LExpression.Constant(null);
+			        else
+				        getContextExpression = LExpression.Convert(ctxParam,
+					        context.GetType());
+
+					var getEvalContextExpression = LExpression.Parameter(
+						typeof(EvaluationContext), "evalContext");
+
+
+					var exp = GetExpressionTreeIfPossible(getContextExpression, getEvalContextExpression);
+
+			        exp = LExpression.Convert(exp, typeof(object));
+
+			        //var convExp = System.Linq.Expressions.Expression.Convert(expr, typeof(object));
+
+					Expression<Func<object, EvaluationContext, object>> lambda
+				        = LExpression.Lambda<Func<object, EvaluationContext, object>>(exp, ctxParam, getEvalContextExpression);
+
+					// no i co dalej... jak 
+					// todo: co z lastEvaluationContext? mo¿e nie jest potrzebny? oto jest pytanie!
+					// todo: mo¿emy go tutaj przekazaæ... albo po prostu utworzyæ w œrodku... 
+					// todo: pytanie, czy mo¿emy do na rz¹danie utworzyæ? kurde... raczej nie...
+					_compiledExpression = lambda.Compile();
+		        }
+
+				return _compiledExpression(context, _lastEvaluationContext);
+
+     // todo: jeœli siê coœ wyjeba³o albo null, to oczywiœcie wychodzimy i jedziemy star¹, woln¹ œcie¿k¹....
+
+		        return Get(context, _lastEvaluationContext);
+			}
         }
 
-        /// <summary>
+	    private object _compiledExpressionAsObject;
+
+
+  // todo: oczywiœcie bez sensu jest robiæ tyle GetXXXValue... totalnie bez sensu....
+
+	    public T GetValue<T>(object context, IDictionary<string, object> variables)
+	    {
+		    if (_compiledExpressionAsObject == null)
+		    {
+				// todo: zapamiêtujemy zbudowane expression!
+				// todo: zapamiêtujemy funkcjê, która dostaje na ryja obecta! z contextem!
+				// todo: i go rzutuje!
+				LExpression getContextExpression;
+				var ctxParam = LExpression.Parameter(typeof(object), "context");
+
+				if (context == null)
+					getContextExpression = LExpression.Constant(null);
+				else
+					getContextExpression = LExpression.Convert(ctxParam,
+						context.GetType());
+
+				var getEvalContextExpression = LExpression.Parameter(
+					typeof(EvaluationContext), "evalContext");
+
+// todo: problem: w EvalContext nie mamy ju¿ typowanego roota... i to jest s³abe... kurde...
+// todo: czy da siê to jakoœ za³atwiæ... bo dostêp do roota móg³by byæ... ale potrzebowalibyœmy
+// todo: exp... dla roota... a mo¿e to powinno jeszcze inaczej dzia³aæ...  mo¿e do GetExpressionTree powinniœmy
+// todo: przeka¿a epression? do wyci¹gniêcia roota? mo¿e to jednak powinien byæ inny evalContext!!!!!!!!!!!!!!!
+// todO:: pewnie powinien to byæ inny eval context....  
+
+				var exp = GetExpressionTreeIfPossible(getContextExpression, getEvalContextExpression);
+
+				Expression<Func<object, EvaluationContext, T>> lambda
+					= LExpression.Lambda<Func<object, EvaluationContext, T>>(exp, ctxParam, getEvalContextExpression);
+
+
+
+				// no i co dalej... jak 
+				// todo: co z lastEvaluationContext? mo¿e nie jest potrzebny? oto jest pytanie!
+				// todo: mo¿emy go tutaj przekazaæ... albo po prostu utworzyæ w œrodku... 
+				// todo: pytanie, czy mo¿emy do na rz¹danie utworzyæ? kurde... raczej nie...
+				_compiledExpressionAsObject = lambda.Compile();
+
+			}
+
+			if (_lastEvaluationContext != null)
+				_lastEvaluationContext.Reuse(context, variables);
+			else
+				_lastEvaluationContext = new EvaluationContext(context, variables);
+
+			return ((Func<object, EvaluationContext, T>) _compiledExpressionAsObject)(context, _lastEvaluationContext);
+	    }
+
+	    /// <summary>
         /// Returns node's value for the given context.
         /// </summary>
         /// <returns>Node's value.</returns>
@@ -261,5 +383,20 @@ namespace SpringExpressions
         {
             node.Set(context, evalContext, newValue);
         }
+
+		protected LExpression GetExpressionTreeIfPossible(
+			BaseNode node, LExpression contextExpression, LExpression evalContext)
+		{
+			return node.GetExpressionTreeIfPossible(contextExpression, evalContext);
+		}
+
+		protected virtual LExpression GetExpressionTreeIfPossible(
+			LExpression contextExpression, LExpression evalContext)
+	    {
+		    return null;
+	    }
+
+		     // todo: funkcja, która na twarz dostaje kontext i go zwraca... taki dowcip...
+			 // todo: i jest dalej rootem do budowania!
     }
 }
