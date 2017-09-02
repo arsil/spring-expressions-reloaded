@@ -1,0 +1,2677 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Core.Types</name>
+    </assembly>
+    <members>
+        <member name="T:Core.Types.AbnormalProgramTerminationException">
+            <summary>
+            Klasa bazowa dla wyjątków programu. Większość z nich będzie zamykać
+            program, ale najpierw użytkownik powinien zostać poinformowany,
+            co się dzieje.
+            </summary>
+        </member>
+        <member name="M:Core.Types.AbnormalProgramTerminationException.#ctor(System.String)">
+            <summary>
+            Konstruktor wymagający informacji o przyczynie wyjątku.
+            </summary>
+            <param name="message">przyczyna</param>
+        </member>
+        <member name="M:Core.Types.AbnormalProgramTerminationException.#ctor(System.String,System.Exception)">
+            <summary>
+             Konstruktor wymagający informacji o przyczynie wyjątku.
+             Pozwala przekazać wyjątek źródłowy.
+            </summary>
+            <param name="message">przyczyna</param>
+            <param name="inner">wyjątek początkowy</param>
+        </member>
+        <member name="T:Core.Types.Autofac2Adaptation.Autofac2AdaptationExtensions">
+            <summary>
+            Adaptacja do interface'u Autofac2
+            </summary>
+        </member>
+        <member name="M:Core.Types.Autofac2Adaptation.Autofac2AdaptationExtensions.WithParameter(Autofac.Registrars.IReflectiveRegistrar,Autofac.Parameter)">
+            <summary>
+            Configure an explicit value for a constructor parameter.
+            </summary>
+            <returns>A registration builder allowing further configuration of the component.</returns>
+        </member>
+        <member name="M:Core.Types.Autofac2Adaptation.Autofac2AdaptationExtensions.SingleInstance(Autofac.Registrars.IReflectiveRegistrar)">
+            <summary>Singleton</summary>
+        </member>
+        <member name="M:Core.Types.Autofac2Adaptation.Autofac2AdaptationExtensions.SingleInstance(Autofac.Registrars.IGenericRegistrar)">
+            <summary>Singleton</summary>
+        </member>
+        <member name="M:Core.Types.Autofac2Adaptation.Autofac2AdaptationExtensions.SingleInstance``1(Autofac.Registrars.IConcreteRegistrar{``0})">
+            <summary>Singleton</summary>
+        </member>
+        <member name="M:Core.Types.Autofac2Adaptation.Autofac2AdaptationExtensions.InstancePerDependency(Autofac.Registrars.IReflectiveRegistrar)">
+            <summary>InstancePerDependency</summary>
+        </member>
+        <member name="M:Core.Types.Autofac2Adaptation.Autofac2AdaptationExtensions.InstancePerDependency(Autofac.Registrars.IGenericRegistrar)">
+            <summary>InstancePerDependency</summary>
+        </member>
+        <member name="M:Core.Types.Autofac2Adaptation.Autofac2AdaptationExtensions.InstancePerDependency``1(Autofac.Registrars.IConcreteRegistrar{``0})">
+            <summary>InstancePerDependency</summary>
+        </member>
+        <member name="M:Core.Types.Autofac2Adaptation.Autofac2AdaptationExtensions.InstancePerLifetimeScope(Autofac.Registrars.IGenericRegistrar)">
+            <summary>InstancePerLifetimeScope</summary>
+        </member>
+        <member name="M:Core.Types.Autofac2Adaptation.Autofac2AdaptationExtensions.InstancePerLifetimeScope(Autofac.Registrars.IReflectiveRegistrar)">
+            <summary>InstancePerLifetimeScope</summary>
+        </member>
+        <member name="M:Core.Types.Autofac2Adaptation.Autofac2AdaptationExtensions.InstancePerLifetimeScope``1(Autofac.Registrars.IConcreteRegistrar{``0})">
+            <summary>InstancePerLifetimeScope</summary>
+        </member>
+        <member name="M:Core.Types.Autofac2Adaptation.Autofac2AdaptationExtensions.Named``1(Autofac.Registrars.IReflectiveRegistrar,System.String)">
+            <summary>InstancePerLifetimeScope</summary>
+        </member>
+        <member name="M:Core.Types.Autofac2Adaptation.Autofac2AdaptationExtensions.Named``2(Autofac.Registrars.IConcreteRegistrar{``1},System.String)">
+            <summary>InstancePerLifetimeScope</summary>
+        </member>
+        <member name="M:Core.Types.Autofac2Adaptation.Autofac2AdaptationExtensions.PreserveExistingDefaults(Autofac.Registrars.IReflectiveRegistrar)">
+            <summary>PreserveExistingDefaults</summary>
+        </member>
+        <member name="M:Core.Types.Autofac2Adaptation.Autofac2AdaptationExtensions.PreserveExistingDefaults``1(Autofac.Registrars.IConcreteRegistrar{``0})">
+            <summary>PreserveExistingDefaults</summary>
+        </member>
+        <member name="T:Core.Types.Decimal2">
+            <summary>
+            Przechowuje liczbę z dokładnością 2 miejsc po przecinku.
+            </summary>
+        </member>
+        <member name="M:Core.Types.Decimal2.#ctor(System.Decimal)">
+            <summary>
+            Tworzy nowy obiekt Decimal2. Początkowa wartość Decimal
+            musi być znormalizowana. Dlatego jest prywatny!!!
+            </summary>
+            <param name="d">początkowa wartość liczbowa
+            do przechowywania</param>
+        </member>
+        <member name="M:Core.Types.Decimal2.Normalize">
+            <summary>
+            Normalizuje przechowywaną wartość liczbową.
+            </summary>
+        </member>
+        <member name="M:Core.Types.Decimal2.ToString(System.String,System.IFormatProvider)">
+            <summary>
+            String reprezentujacy obiekt, sformatowany wedlug podanych parametrow.
+            </summary>
+        </member>
+        <member name="M:Core.Types.Decimal2.ToString">
+            <summary>
+            String reprezentujacy obiekt.
+            </summary>
+        </member>
+        <member name="M:Core.Types.Decimal2.ToFullPrecisionString">
+            <summary>
+            Konwertuje decimala do stringa w taki sposób, iż zawiera on
+            zawsze maksymalną możliwą liczbę miejsc po przecinku
+            (nawet gdy liczba jest całkowita). Przykład: 1.0 zostanie
+            skonwertowany do 1.00
+            </summary>
+            <returns>string odpowiadający obiektowi decimal</returns>
+        </member>
+        <member name="M:Core.Types.Decimal2.ToShortestString">
+            <summary>
+            Zwraca krótki łańcuch znakowy reprezentujący liczbę. Dla liczby
+            całkowitej będzie to liczba całkowita (bez kropki), zaś dla liczby
+            zawierającej część ułamkową będzie to liczba zawierająca część
+            ułamkową sforamtowaną do dwóch miejsc po przecinku
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Core.Types.Decimal2.ToInvariantString">
+            <summary>
+            Zwraca łańcuch invariant (niezależny od ustawień lokali)
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Core.Types.Decimal2.op_Implicit(System.Int32)~Core.Types.Decimal2">
+            <summary>
+            Niejawne rzutowanie z int na Decimal2.
+            </summary>
+            <param name="i">wartość typu int</param>
+            <returns>wartość typu Decimal2</returns>
+        </member>
+        <member name="M:Core.Types.Decimal2.op_Explicit(System.Decimal)~Core.Types.Decimal2">
+            <summary>
+            Jawne rzutowanie z Decimal na Decimal2.
+            </summary>
+            <param name="d">wartość typu Decimal</param>
+            <returns>wartość typu Decimal2</returns>
+        </member>
+        <member name="M:Core.Types.Decimal2.op_Explicit(System.Double)~Core.Types.Decimal2">
+            <summary>
+            Jawne rzutowanie z double na Decimal2.
+            </summary>
+            <param name="d">wartość typu double</param>
+            <returns>wartość typu Decimal2</returns>
+        </member>
+        <member name="M:Core.Types.Decimal2.op_Explicit(Core.Types.Decimal3)~Core.Types.Decimal2">
+            <summary>
+            Jawne rzutowanie z Decimal3 na Decimal2.
+            </summary>
+            <param name="d">wartość typu Decimal3</param>
+            <returns>wartość typu Decimal2</returns>
+        </member>
+        <member name="M:Core.Types.Decimal2.op_Explicit(Core.Types.Decimal4)~Core.Types.Decimal2">
+            <summary>
+            Jawne rzutowanie z Decimal4 na Decimal2.
+            </summary>
+            <param name="d">wartość typu Decimal4</param>
+            <returns>wartość typu Decimal2</returns>
+        </member>
+        <member name="M:Core.Types.Decimal2.op_Implicit(Core.Types.Decimal2)~System.Decimal">
+            <summary>
+            Niejawne rzutowanie z Decimal2 na Decimal.
+            </summary>
+            <param name="d">wartość typu Decimal2</param>
+            <returns>wartość typu Decimal</returns>
+        </member>
+        <member name="M:Core.Types.Decimal2.op_Addition(Core.Types.Decimal2,Core.Types.Decimal2)">
+            <summary>
+            Przeładowany operator dodawania.
+            </summary>
+            <param name="d1">argument 1</param>
+            <param name="d2">argument 2</param>
+            <returns>wynik</returns>
+        </member>
+        <member name="M:Core.Types.Decimal2.op_Subtraction(Core.Types.Decimal2,Core.Types.Decimal2)">
+            <summary>
+            Przeładowany operator odejmowania.
+            </summary>
+            <param name="d1">argument 1</param>
+            <param name="d2">argument 2</param>
+            <returns>wynik</returns>
+        </member>
+        <member name="M:Core.Types.Decimal2.op_UnaryNegation(Core.Types.Decimal2)">
+            <summary>
+            Operator negacji
+            </summary>
+            <param name="d">operand</param>
+        </member>
+        <member name="M:Core.Types.Decimal2.op_Equality(Core.Types.Decimal2,Core.Types.Decimal2)">
+            <summary>
+            Operator równości, deleguje do Decimal
+            </summary>
+            <param name="d1">operand 1</param>
+            <param name="d2">operand 2</param>
+        </member>
+        <member name="M:Core.Types.Decimal2.op_Inequality(Core.Types.Decimal2,Core.Types.Decimal2)">
+            <summary>
+            Operator nierówności, deleguje do Decimal
+            </summary>
+            <param name="d1">operand 1</param>
+            <param name="d2">operand 2</param>
+        </member>
+        <member name="M:Core.Types.Decimal2.GetHashCode">
+            <summary>
+            Wartość hashowa (delegowana do Decimal).
+            </summary>
+        </member>
+        <member name="M:Core.Types.Decimal2.Equals(System.Object)">
+            <summary>
+            Sprawdza, czy podany obiekt jest Decimal2 o takiej same wartości.
+            </summary>
+            <param name="obj">obiekt do porównania</param>
+        </member>
+        <member name="M:Core.Types.Decimal2.ToDBStorageType">
+            <summary>
+            Zwraca bazodanową reprezentację przechowywanej liczby (lub wartości
+            pustej) - liczbę typu Int64, która jest 100 razy większa
+            niż liczba przechowywana.
+            </summary>
+            <returns>Bazodanowa reprezentacja przechowywanej liczby</returns>
+        </member>
+        <member name="M:Core.Types.Decimal2.FromDBStorageType(System.Int64)">
+            <summary>
+            Tworzy nowy obiekt przechowujący liczbę odczytają z jej bazodanowej
+            reprezentacji podanej jako parametr.
+            </summary>
+            <param name="storage">Bazodanowa reprezentacja liczby Decimal2</param>
+            <returns>Nowy obiekt Decimal2 przechowujący podaną liczbę</returns>
+        </member>
+        <member name="M:Core.Types.Decimal2.ParseInvariant(System.String)">
+            <summary>
+            Parsuje Decimal2 z łańcucha znakowego przy użyciu neutralnej kultury
+            (separatorem dziesiętnym jest znak kropki).
+            </summary>
+            <param name="text">Tekst do sparsowania</param>
+            <returns>obiekt klasy Decimal2</returns>
+        </member>
+        <member name="M:Core.Types.Decimal2.ConvertWithRoundingUp(System.Decimal)">
+            <summary>
+            Konwertuje wartość z Decimal do Decimal2, zaokrąglając na ostatnim
+            miejscu w górę (tzn. 0.012 zostanie skonwertowane do 0.02).
+            </summary>
+            <param name="value">Wartość Decimal</param>
+            <returns>Wartość Decimal2</returns>
+        </member>
+        <member name="M:Core.Types.Decimal2.ConvertWithRoundingDown(System.Decimal)">
+            <summary>
+            Konwertuje wartość z Decimal do Decimal2, zaokrąglając na ostatnim
+            miejscu w dół (tzn. 0.012 zostanie skonwertowane do 0.01).
+            </summary>
+            <param name="value">Wartość Decimal</param>
+            <returns>Wartość Decimal2</returns>
+        </member>
+        <member name="F:Core.Types.Decimal2.Zero">
+            <summary>Zwraca wartość 0.00</summary>
+        </member>
+        <member name="F:Core.Types.Decimal2.One">
+            <summary>Zwraca wartość 1.00</summary>
+        </member>
+        <member name="F:Core.Types.Decimal2.Const_0_01">
+            <summary>Zwraca wartość 0.01</summary>
+        </member>
+        <member name="F:Core.Types.Decimal2.Const_100">
+            <summary>Zwraca wartość 100</summary>
+        </member>
+        <member name="F:Core.Types.Decimal2.MaxValue">
+            <summary>Zwraca wartość maksymalną możliwą do reprezentacji</summary>
+        </member>
+        <member name="F:Core.Types.Decimal2.MinValue">
+            <summary>Zwraca wartość minimalną możliwą do reprezentacji</summary>
+        </member>
+        <member name="T:Core.Types.Decimal3">
+            <summary>
+            Przechowuje liczbę z dokładnością 3 miejsc po przecinku.
+            </summary>
+        </member>
+        <member name="M:Core.Types.Decimal3.#ctor(System.Decimal)">
+            <summary>
+            Tworzy nowy obiekt Decimal3. Początkowa wartość Decimal
+            musi być znormalizowana.
+            </summary>
+            <param name="d">początkowa wartość liczbowa
+            do przechowywania</param>
+        </member>
+        <member name="M:Core.Types.Decimal3.Normalize">
+            <summary>
+            Normalizuje przechowywaną wartość liczbową.
+            </summary>
+        </member>
+        <member name="M:Core.Types.Decimal3.ToString(System.String,System.IFormatProvider)">
+            <summary>
+            String reprezentujacy obiekt, sformatowany wedlug podanych parametrow.
+            </summary>
+        </member>
+        <member name="M:Core.Types.Decimal3.ToString">
+            <summary>
+            String reprezentujacy obiekt.
+            </summary>
+        </member>
+        <member name="M:Core.Types.Decimal3.ToFullPrecisionString">
+            <summary>
+            Konwertuje decimala do stringa w taki sposób, iż zawiera on
+            zawsze maksymalną możliwą liczbę miejsc po przecinku
+            (nawet gdy liczba jest całkowita). Przykład: 1.0 zostanie
+            skonwertowany do 1.000
+            </summary>
+            <returns>string odpowiadający obiektowi decimal</returns>
+        </member>
+        <member name="M:Core.Types.Decimal3.ToShortestString">
+            <summary>
+            Zwraca krótki łańcuch znakowy reprezentujący liczbę. Dla liczby
+            całkowitej będzie to liczba całkowita (bez kropki), zaś dla liczby
+            zawierającej część ułamkową będzie to liczba zawierająca część
+            ułamkową sforamtowaną do trzech miejsc po przecinku
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Core.Types.Decimal3.ToInvariantString">
+            <summary>
+            Zwraca łańcuch invariant (niezależny od ustawień lokali)
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Core.Types.Decimal3.op_Implicit(System.Int32)~Core.Types.Decimal3">
+            <summary>
+            Niejawne rzutowanie z int na Decimal3.
+            </summary>
+            <param name="i">wartość typu int</param>
+            <returns>wartość typu Decimal3</returns>
+        </member>
+        <member name="M:Core.Types.Decimal3.op_Explicit(System.Double)~Core.Types.Decimal3">
+            <summary>
+            Jawne rzutowanie z double na Decimal3.
+            </summary>
+            <param name="d">wartość typu double</param>
+            <returns>wartość typu Decimal3</returns>
+        </member>
+        <member name="M:Core.Types.Decimal3.op_Explicit(System.Decimal)~Core.Types.Decimal3">
+            <summary>
+            Jawne rzutowanie z Decimal na Decimal3.
+            </summary>
+            <param name="d">wartość typu Decimal</param>
+            <returns>wartość typu Decimal3</returns>
+        </member>
+        <member name="M:Core.Types.Decimal3.op_Explicit(Core.Types.Decimal2)~Core.Types.Decimal3">
+            <summary>
+            Jawne rzutowanie z Decimal2 na Decimal3.
+            </summary>
+            <remarks>
+            UWAGA! Nie może być niejawne rzutowanie bo może to powodować błędy przy obliczeniach.
+            Np. (Decimal2)(quantity * unitPrice) było liczone przez rzutowanie unitPrice z D2 na D3,
+            mnożenie zwracało D3 i to było rzutowane do D2 (podwójne zaokrąglanie) a powinno być
+            liczone jako mnożenie dwóch Decimal'i i rzutowanie na D2
+            Test case: 0.501 (Decimal3) razy 19.99 (Decimal2) rzutowane na D2 ma dawać 10.01 a nie 10.02
+            </remarks>
+            <param name="d">wartość typu Decimal2</param>
+            <returns>wartość typu Decimal3</returns>
+        </member>
+        <member name="M:Core.Types.Decimal3.op_Explicit(Core.Types.Decimal4)~Core.Types.Decimal3">
+            <summary>
+            Jawne rzutowanie z Decimal4 na Decimal3.
+            </summary>
+            <param name="d">wartość typu Decimal4</param>
+            <returns>wartość typu Decimal3</returns>
+        </member>
+        <member name="M:Core.Types.Decimal3.op_Implicit(Core.Types.Decimal3)~System.Decimal">
+            <summary>
+            Niejawne rzutowanie z Decimal3 na Decimal.
+            </summary>
+            <param name="d">wartość typu Decimal3</param>
+            <returns>wartość typu Decimal</returns>
+        </member>
+        <member name="M:Core.Types.Decimal3.op_Addition(Core.Types.Decimal3,Core.Types.Decimal3)">
+            <summary>
+            Przeładowany operator dodawania.
+            </summary>
+            <param name="d1">argument 1</param>
+            <param name="d2">argument 2</param>
+            <returns>wynik</returns>
+        </member>
+        <member name="M:Core.Types.Decimal3.op_Subtraction(Core.Types.Decimal3,Core.Types.Decimal3)">
+            <summary>
+            Przeładowany operator odejmowania.
+            </summary>
+            <param name="d1">argument 1</param>
+            <param name="d2">argument 2</param>
+            <returns>wynik</returns>
+        </member>
+        <member name="M:Core.Types.Decimal3.op_UnaryNegation(Core.Types.Decimal3)">
+            <summary>
+            Operator negacji
+            </summary>
+            <param name="d">operand</param>
+        </member>
+        <member name="M:Core.Types.Decimal3.op_Equality(Core.Types.Decimal3,Core.Types.Decimal3)">
+            <summary>
+            Operator równości, deleguje do Decimal
+            </summary>
+            <param name="d1">operand 1</param>
+            <param name="d2">operand 2</param>
+        </member>
+        <member name="M:Core.Types.Decimal3.op_Inequality(Core.Types.Decimal3,Core.Types.Decimal3)">
+            <summary>
+            Operator nierówności, deleguje do Decimal
+            </summary>
+            <param name="d1">operand 1</param>
+            <param name="d2">operand 2</param>
+        </member>
+        <member name="M:Core.Types.Decimal3.GetHashCode">
+            <summary>
+            Wartość hashowa (delegowana do Decimal).
+            </summary>
+        </member>
+        <member name="M:Core.Types.Decimal3.Equals(System.Object)">
+            <summary>
+            Sprawdza, czy podany obiekt jest Decimal3 o takiej same wartości.
+            </summary>
+            <param name="obj">obiekt do porównania</param>
+        </member>
+        <member name="M:Core.Types.Decimal3.ToDBStorageType">
+            <summary>
+            Zwraca bazodanową reprezentację przechowywanej liczby (lub wartości
+            pustej) - liczbę typu Int64, która jest 1000 razy większa
+            niż liczba przechowywana.
+            </summary>
+            <returns>Bazodanowa reprezentacja przechowywanej liczby</returns>
+        </member>
+        <member name="M:Core.Types.Decimal3.FromDBStorageType(System.Int64)">
+            <summary>
+            Tworzy nowy obiekt przechowujący liczbę odczytają z jej bazodanowej
+            reprezentacji podanej jako parametr.
+            </summary>
+            <param name="storage">Bazodanowa reprezentacja liczby Decimal3</param>
+            <returns>Nowy obiekt Decimal3 przechowujący podaną liczbę</returns>
+        </member>
+        <member name="M:Core.Types.Decimal3.ParseInvariant(System.String)">
+            <summary>
+            Parsuje Decimal3 z łańcucha znakowego przy użyciu neutralnej kultury
+            (separatorem dziesiętnym jest znak kropki).
+            </summary>
+            <param name="text">Tekst do sparsowania</param>
+            <returns>obiekt klasy Decimal3</returns>
+        </member>
+        <member name="M:Core.Types.Decimal3.ConvertWithRoundingUp(System.Decimal)">
+            <summary>
+            Konwertuje wartość z Decimal do Decimal3, zaokrąglając na ostatnim
+            miejscu w górę (tzn. 0.0012 zostanie skonwertowane do 0.002).
+            </summary>
+            <param name="value">Wartość Decimal</param>
+            <returns>Wartość Decimal3</returns>
+        </member>
+        <member name="M:Core.Types.Decimal3.ConvertWithRoundingDown(System.Decimal)">
+            <summary>
+            Konwertuje wartość z Decimal do Decimal3, zaokrąglając na ostatnim
+            miejscu w dół (tzn. 0.0012 zostanie skonwertowane do 0.001).
+            </summary>
+            <param name="value">Wartość Decimal</param>
+            <returns>Wartość Decimal3</returns>
+        </member>
+        <member name="F:Core.Types.Decimal3.Zero">
+            <summary>Zwraca wartość 0.000</summary>
+        </member>
+        <member name="F:Core.Types.Decimal3.One">
+            <summary>Zwraca wartość 1.000</summary>
+        </member>
+        <member name="F:Core.Types.Decimal3.Const_0_001">
+            <summary>Zwraca wartość 0.001</summary>
+        </member>
+        <member name="F:Core.Types.Decimal3.Const_1000">
+            <summary>Zwraca wartość 1000</summary>
+        </member>
+        <member name="F:Core.Types.Decimal3.MaxValue">
+            <summary>Zwraca wartość maksymalną możliwą do reprezentacji</summary>
+        </member>
+        <member name="F:Core.Types.Decimal3.MinValue">
+            <summary>Zwraca wartość minimalną możliwą do reprezentacji</summary>
+        </member>
+        <member name="T:Core.Types.Decimal4">
+            <summary>
+            Przechowuje liczbę z dokładnością 4 miejsc po przecinku.
+            </summary>
+        </member>
+        <member name="M:Core.Types.Decimal4.#ctor(System.Decimal)">
+            <summary>
+            Tworzy nowy obiekt Decimal4. Początkowa wartość Decimal
+            musi być znormalizowana.
+            </summary>
+            <param name="d">początkowa wartość liczbowa
+            do przechowywania</param>
+        </member>
+        <member name="M:Core.Types.Decimal4.Normalize">
+            <summary>
+            Normalizuje przechowywaną wartość liczbową.
+            </summary>
+        </member>
+        <member name="M:Core.Types.Decimal4.ToString(System.String,System.IFormatProvider)">
+            <summary>
+            String reprezentujacy obiekt, sformatowany wedlug podanych parametrow.
+            </summary>
+        </member>
+        <member name="M:Core.Types.Decimal4.ToString">
+            <summary>
+            String reprezentujacy obiekt.
+            </summary>
+        </member>
+        <member name="M:Core.Types.Decimal4.ToFullPrecisionString">
+            <summary>
+            Konwertuje decimala do stringa w taki sposób, iż zawiera on
+            zawsze maksymalną możliwą liczbę miejsc po przecinku
+            (nawet gdy liczba jest całkowita). Przykład: 1.0 zostanie
+            skonwertowany do 1.0000
+            </summary>
+            <returns>string odpowiadający obiektowi decimal</returns>
+        </member>
+        <member name="M:Core.Types.Decimal4.ToShortestString">
+            <summary>
+            Zwraca krótki łańcuch znakowy reprezentujący liczbę. Dla liczby
+            całkowitej będzie to liczba całkowita (bez kropki), zaś dla liczby
+            zawierającej część ułamkową będzie to liczba zawierająca część
+            ułamkową sforamtowaną do czterech miejsc po przecinku
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Core.Types.Decimal4.ToInvariantString">
+            <summary>
+            Zwraca łańcuch invariant (niezależny od ustawień lokali)
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Core.Types.Decimal4.op_Implicit(System.Int32)~Core.Types.Decimal4">
+            <summary>
+            Niejawne rzutowanie z int na Decimal4.
+            </summary>
+            <param name="i">wartość typu int</param>
+            <returns>wartość typu Decimal4</returns>
+        </member>
+        <member name="M:Core.Types.Decimal4.op_Explicit(System.Double)~Core.Types.Decimal4">
+            <summary>
+            Jawne rzutowanie z double na Decimal4.
+            </summary>
+            <param name="d">wartość typu double</param>
+            <returns>wartość typu Decimal4</returns>
+        </member>
+        <member name="M:Core.Types.Decimal4.op_Explicit(System.Decimal)~Core.Types.Decimal4">
+            <summary>
+            Jawne rzutowanie z Decimal na Decimal4.
+            </summary>
+            <param name="d">wartość typu Decimal</param>
+            <returns>wartość typu Decimal4</returns>
+        </member>
+        <member name="M:Core.Types.Decimal4.op_Explicit(Core.Types.Decimal2)~Core.Types.Decimal4">
+            <summary>
+            Jawne rzutowanie z Decimal2 na Decimal4.
+            </summary>
+            <remarks>
+            UWAGA! Nie może być niejawne rzutowanie bo może to powodować błędy przy obliczeniach.
+            Np. (Decimal2)(quantity * unitPrice) było liczone przez rzutowanie unitPrice z D2 na D3,
+            mnożenie zwracało D3 i to było rzutowane do D2 (podwójne zaokrąglanie) a powinno być
+            liczone jako mnożenie dwóch Decimal'i i rzutowanie na D2
+            Test case: 0.501 (Decimal3) razy 19.99 (Decimal2) rzutowane na D2 ma dawać 10.01 a nie 10.02
+            </remarks>
+            <param name="d">wartość typu Decimal2</param>
+            <returns>wartość typu Decimal4</returns>
+        </member>
+        <member name="M:Core.Types.Decimal4.op_Explicit(Core.Types.Decimal3)~Core.Types.Decimal4">
+            <summary>
+            Jawne rzutowanie z Decimal3 na Decimal4.
+            </summary>
+            <remarks>
+            UWAGA! Nie może być niejawne rzutowanie bo może to powodować błędy przy obliczeniach.
+            Np. (Decimal2)(quantity * unitPrice) było liczone przez rzutowanie unitPrice z D2 na D3,
+            mnożenie zwracało D3 i to było rzutowane do D2 (podwójne zaokrąglanie) a powinno być
+            liczone jako mnożenie dwóch Decimal'i i rzutowanie na D2
+            Test case: 0.501 (Decimal3) razy 19.99 (Decimal2) rzutowane na D2 ma dawać 10.01 a nie 10.02
+            </remarks>
+            <param name="d">wartość typu Decimal3</param>
+            <returns>wartość typu Decimal4</returns>
+        </member>
+        <member name="M:Core.Types.Decimal4.op_Implicit(Core.Types.Decimal4)~System.Decimal">
+            <summary>
+            Niejawne rzutowanie z Decimal4 na Decimal.
+            </summary>
+            <param name="d">wartość typu Decimal4</param>
+            <returns>wartość typu Decimal</returns>
+        </member>
+        <member name="M:Core.Types.Decimal4.op_Addition(Core.Types.Decimal4,Core.Types.Decimal4)">
+            <summary>
+            Przeładowany operator dodawania.
+            </summary>
+            <param name="d1">argument 1</param>
+            <param name="d2">argument 2</param>
+            <returns>wynik</returns>
+        </member>
+        <member name="M:Core.Types.Decimal4.op_Subtraction(Core.Types.Decimal4,Core.Types.Decimal4)">
+            <summary>
+            Przeładowany operator odejmowania.
+            </summary>
+            <param name="d1">argument 1</param>
+            <param name="d2">argument 2</param>
+            <returns>wynik</returns>
+        </member>
+        <member name="M:Core.Types.Decimal4.op_UnaryNegation(Core.Types.Decimal4)">
+            <summary>
+            Operator negacji
+            </summary>
+            <param name="d">operand</param>
+        </member>
+        <member name="M:Core.Types.Decimal4.op_Equality(Core.Types.Decimal4,Core.Types.Decimal4)">
+            <summary>
+            Operator równości, deleguje do Decimal
+            </summary>
+            <param name="d1">operand 1</param>
+            <param name="d2">operand 2</param>
+        </member>
+        <member name="M:Core.Types.Decimal4.op_Inequality(Core.Types.Decimal4,Core.Types.Decimal4)">
+            <summary>
+            Operator nierówności, deleguje do Decimal
+            </summary>
+            <param name="d1">operand 1</param>
+            <param name="d2">operand 2</param>
+        </member>
+        <member name="M:Core.Types.Decimal4.GetHashCode">
+            <summary>
+            Wartość hashowa (delegowana do Decimal).
+            </summary>
+        </member>
+        <member name="M:Core.Types.Decimal4.Equals(System.Object)">
+            <summary>
+            Sprawdza, czy podany obiekt jest Decimal4 o takiej same wartości.
+            </summary>
+            <param name="obj">obiekt do porównania</param>
+        </member>
+        <member name="M:Core.Types.Decimal4.ToDBStorageType">
+            <summary>
+            Zwraca bazodanową reprezentację przechowywanej liczby (lub wartości
+            pustej) - liczbę typu Int64, która jest 10 000 razy większa
+            niż liczba przechowywana.
+            </summary>
+            <returns>Bazodanowa reprezentacja przechowywanej liczby</returns>
+        </member>
+        <member name="M:Core.Types.Decimal4.FromDBStorageType(System.Int64)">
+            <summary>
+            Tworzy nowy obiekt przechowujący liczbę odczytają z jej bazodanowej
+            reprezentacji podanej jako parametr.
+            </summary>
+            <param name="storage">Bazodanowa reprezentacja liczby Decimal4</param>
+            <returns>Nowy obiekt Decimal4 przechowujący podaną liczbę</returns>
+        </member>
+        <member name="M:Core.Types.Decimal4.ParseInvariant(System.String)">
+            <summary>
+            Parsuje Decimal4 z łańcucha znakowego przy użyciu neutralnej kultury
+            (separatorem dziesiętnym jest znak kropki).
+            </summary>
+            <param name="text">Tekst do sparsowania</param>
+            <returns>obiekt klasy Decimal4</returns>
+        </member>
+        <member name="M:Core.Types.Decimal4.ConvertWithRoundingUp(System.Decimal)">
+            <summary>
+            Konwertuje wartość z Decimal do Decimal4, zaokrąglając na ostatnim
+            miejscu w górę (tzn. 0.00012 zostanie skonwertowane do 0.0002).
+            </summary>
+            <param name="value">Wartość Decimal</param>
+            <returns>Wartość Decimal4</returns>
+        </member>
+        <member name="M:Core.Types.Decimal4.ConvertWithRoundingDown(System.Decimal)">
+            <summary>
+            Konwertuje wartość z Decimal do Decimal4, zaokrąglając na ostatnim
+            miejscu w dół (tzn. 0.00012 zostanie skonwertowane do 0.0001).
+            </summary>
+            <param name="value">Wartość Decimal</param>
+            <returns>Wartość Decimal4</returns>
+        </member>
+        <member name="F:Core.Types.Decimal4.Zero">
+            <summary>Zwraca wartość 0.000</summary>
+        </member>
+        <member name="F:Core.Types.Decimal4.One">
+            <summary>Zwraca wartość 1.000</summary>
+        </member>
+        <member name="F:Core.Types.Decimal4.Const_0_0001">
+            <summary>Zwraca wartość 0.0001</summary>
+        </member>
+        <member name="F:Core.Types.Decimal4.Const_10000">
+            <summary>Zwraca wartość 10000</summary>
+        </member>
+        <member name="F:Core.Types.Decimal4.MaxValue">
+            <summary>Zwraca wartość maksymalną możliwą do reprezentacji</summary>
+        </member>
+        <member name="F:Core.Types.Decimal4.MinValue">
+            <summary>Zwraca wartość minimalną możliwą do reprezentacji</summary>
+        </member>
+        <member name="T:Core.Types.DecimalConstants">
+            <summary>
+            Stałe statyczne są w osobnej klasie, żeby zagwarantować ich inicjalizację przed
+            używającymi ich polami w DecimalX.
+            </summary>
+        </member>
+        <member name="T:Core.Types.DecimalTools">
+            <summary>
+            Narzędzia pomagające decimalom
+            </summary>
+        </member>
+        <member name="M:Core.Types.DecimalTools.Ceiling(System.Decimal)">
+            <summary>
+            Robi ceiling - bo brak w Net 1.1
+            </summary>
+            <param name="value">Wartość Decimal</param>
+            <returns>Wartość Ceiling z Decimala</returns>
+        </member>
+        <member name="M:Core.Types.DecimalTools.Clamp(Core.Types.Decimal2,Core.Types.Decimal2,Core.Types.Decimal2)">
+            <summary>
+            Metoda ogranicza podaną wartość do przedziału wyznaczonego przez min i max.
+            Jeśli wartość mieści się w tym przedziale - zostanie zwrócona
+            Jeśli nie - zwróconą wartością jest min o ile badana liczba mniejsza od min,
+            bądź max o ile badana liczba większa od max
+            </summary>
+            <param name="valueToClamp">Wartość jaka powinna mieścić się w przedziale</param>
+            <param name="min">Początek przedziału</param>
+            <param name="max">Koniec przedziału</param>
+            <returns>Wartość z przedziału min - max</returns>
+            <exception cref="T:System.ArgumentException">jeśli min jest większe od max
+            </exception>
+        </member>
+        <member name="M:Core.Types.DecimalTools.Clamp(Core.Types.Decimal3,Core.Types.Decimal3,Core.Types.Decimal3)">
+            <summary>
+            Metoda ogranicza podaną wartość do przedziału wyznaczonego przez min i max.
+            Jeśli wartość mieści się w tym przedziale - zostanie zwrócona
+            Jeśli nie - zwróconą wartością jest min o ile badana liczba mniejsza od min,
+            bądź max o ile badana liczba większa od max
+            </summary>
+            <param name="valueToClamp">Wartość jaka powinna mieścić się w przedziale</param>
+            <param name="min">Początek przedziału</param>
+            <param name="max">Koniec przedziału</param>
+            <returns>Wartość z przedziału min - max</returns>
+            <exception cref="T:System.ArgumentException">jeśli min jest większe od max
+            </exception>
+        </member>
+        <member name="M:Core.Types.DecimalTools.Clamp(Core.Types.Decimal4,Core.Types.Decimal4,Core.Types.Decimal4)">
+            <summary>
+            Metoda ogranicza podaną wartość do przedziału wyznaczonego przez min i max.
+            Jeśli wartość mieści się w tym przedziale - zostanie zwrócona
+            Jeśli nie - zwróconą wartością jest min o ile badana liczba mniejsza od min,
+            bądź max o ile badana liczba większa od max
+            </summary>
+            <param name="valueToClamp">Wartość jaka powinna mieścić się w przedziale</param>
+            <param name="min">Początek przedziału</param>
+            <param name="max">Koniec przedziału</param>
+            <returns>Wartość z przedziału min - max</returns>
+            <exception cref="T:System.ArgumentException">jeśli min jest większe od max
+            </exception>
+        </member>
+        <member name="M:Core.Types.DecimalTools.Min(Core.Types.Decimal2,Core.Types.Decimal2[])">
+            <summary>
+            Zwraca minimum z podanych liczb
+            </summary>
+            <param name="value1">Liczba nr 1</param>
+            <param name="values">Pozostałe liczby</param>
+            <returns>Wartość minimalna</returns>
+        </member>
+        <member name="M:Core.Types.DecimalTools.Min(Core.Types.Decimal3,Core.Types.Decimal3[])">
+            <summary>
+            Zwraca minimum z podanych liczb
+            </summary>
+            <param name="value1">Liczba nr 1</param>
+            <param name="values">Pozostałe liczby</param>
+            <returns>Wartość minimalna</returns>
+        </member>
+        <member name="M:Core.Types.DecimalTools.Max(Core.Types.Decimal2,Core.Types.Decimal2[])">
+            <summary>
+            Zwraca maksimum z podanych liczb
+            </summary>
+            <param name="value1">Liczba nr 1</param>
+            <param name="values">Pozostałe liczby</param>
+            <returns>Wartość maksymalna</returns>
+        </member>
+        <member name="M:Core.Types.DecimalTools.Max(Core.Types.Decimal3,Core.Types.Decimal3[])">
+            <summary>
+            Zwraca maksimum z podanych liczb
+            </summary>
+            <param name="value1">Liczba nr 1</param>
+            <param name="values">Pozostałe liczby</param>
+            <returns>Wartość maksymalna</returns>
+        </member>
+        <member name="M:Core.Types.DecimalTools.IsWholeNumber(Core.Types.Decimal3)">
+            <summary>
+            Sprawdza czy przekazana wartość jest liczbą całkowitą
+            </summary>
+        </member>
+        <member name="M:Core.Types.DecimalTools.RoundCommon(Core.Types.Decimal2)">
+            <summary>
+            Zaokrągla do najbliższej jedności od połówki w górę  Dla 0.49 da 0.00, 0.50 da już 1.0. 
+            Analogicznie dla ujemnych: Dla -0.49 da 0.00, -0.50 da już -1.0.
+            </summary>
+            <param name="value">Wartość do zaokrąglenia</param>
+            <returns>Wartość zaokrąglona</returns>
+        </member>
+        <member name="M:Core.Types.DecimalTools.ParseDecimal2WithoutDecimalPoint(System.String)">
+            <summary>
+            Parsuje łańcuch 101 na wartość 1.01 (1 to 0.01). Parsuje więc
+            wartość bez separatora.
+            </summary>
+            <param name="value">Wartość bez separatora</param>
+            <returns>Skonwertowana wartość</returns>
+        </member>
+        <member name="M:Core.Types.DecimalTools.ParseDecimal3WithoutDecimalPoint(System.String)">
+            <summary>
+            Parsuje łańcuch 1001 na wartość 1.001 (1 to 0.001). Parsuje więc
+            wartość bez separatora.
+            </summary>
+            <param name="value">Wartość bez separatora</param>
+            <returns>Skonwertowana wartość</returns>
+        </member>
+        <member name="M:Core.Types.DecimalTools.ParseDecimal4WithoutDecimalPoint(System.String)">
+            <summary>
+            Parsuje łańcuch 10001 na wartość 1.0001 (1 to 0.0001). Parsuje więc
+            wartość bez separatora.
+            </summary>
+            <param name="value">Wartość bez separatora</param>
+            <returns>Skonwertowana wartość</returns>
+        </member>
+        <member name="M:Core.Types.DecimalTools.TryParseWithoutDecimalPoint(System.String,Core.Types.Decimal2@)">
+            <summary>
+            Próbuje parsować łańcuch znaków bez separatora.  101 daje 1.01
+            Jeśli mu się uda, to zwróci true
+            </summary>
+            <param name="value">Wartość typu string bez separatora (jak int)</param>
+            <param name="result">Sparsowana wartość</param>
+            <returns>True, gdy parsowanie się udało</returns>
+        </member>
+        <member name="M:Core.Types.DecimalTools.TryParseWithoutDecimalPoint(System.String,Core.Types.Decimal3@)">
+            <summary>
+            Próbuje parsować łańcuch znaków bez separatora. 1001 daje 1.001
+            Jeśli mu się uda, to zwróci true
+            </summary>
+            <param name="value">Wartość typu string bez separatora (jak int)</param>
+            <param name="result">Sparsowana wartość</param>
+            <returns>True, gdy parsowanie się udało</returns>
+        </member>
+        <member name="M:Core.Types.DecimalTools.TryParseWithoutDecimalPoint(System.String,Core.Types.Decimal4@)">
+            <summary>
+            Próbuje parsować łańcuch znaków bez separatora. 10001 daje 1.0001
+            Jeśli mu się uda, to zwróci true
+            </summary>
+            <param name="value">Wartość typu string bez separatora (jak int)</param>
+            <param name="result">Sparsowana wartość</param>
+            <returns>True, gdy parsowanie się udało</returns>
+        </member>
+        <member name="T:Core.Types.DecimalToStringTools">
+            <summary>
+            Zestaw narzędzi do konwersji z decimali na stringi
+            </summary>
+        </member>
+        <member name="M:Core.Types.DecimalToStringTools.DecimalToShortestString(System.Decimal,System.String)">
+            <summary>
+            Konwertuje decimala do tzw. krótkiego stringa. Jeśli decimal
+            jest liczbą całkowitą, to zwracany łańcuch będzie zawierał jedynie
+            liczbę całkowitą (jest robiony trim). Jeśli natomiast istnieje część
+            ułamkowa, to do sformatowania łańcucha zostanie użyty format przekazany
+            jako parametr
+            </summary>
+            <param name="d">Decimal do konwersji</param>
+            <param name="longFormat">String formatujący, używany w przypadku
+            niezerowej części ułamkowej (np. "{0:F4}")</param>
+            <returns>Łańcuch odpowiadający decimalowi</returns>
+        </member>
+        <member name="M:Core.Types.DecimalToStringTools.FastDecimalToString(System.Decimal)">
+            <summary>
+            Dokonuje szybkiej konwersji decimala do stringa używając aktualnie
+            ustawionej kultury z której pobierany jest jedynie separator dziesiętny!
+            Inne ustawienia kultury są ignorowane!
+            </summary>
+            <param name="d">Decimal do konwersji</param>
+            <returns>Łańcuch odpowiadający decimalowi</returns>
+        </member>
+        <member name="M:Core.Types.DecimalToStringTools.FastInvariantDecimalToString(System.Decimal)">
+            <summary>
+            Dokonuje szybkiej konwersji decimala do stringa z kropką
+            </summary>
+            <param name="d">Decimal do konwersji</param>
+            <returns>Łańcuch odpowiadający decimalowi</returns>
+        </member>
+        <member name="M:Core.Types.DecimalToStringTools.FastDecimalToString(System.Decimal,System.Char)">
+            <summary>
+            Konwertuje decimala do stringa korzystając z podanego znaku jako
+            separatora części całkowitej i ułamkowej
+            </summary>
+            <param name="d">Decimal do konwersji</param>
+            <param name="decimalSeparator">Znak separatora</param>
+            <returns>Stringowa reprezentacja decimala</returns>
+        </member>
+        <member name="M:Core.Types.DecimalToStringTools.FastDecimalToString(System.Decimal,System.Char,System.Int32)">
+            <summary>
+            Konwertuje decimala do stringa, którego część ułamkowa
+            ma minimum decimalDigits znaków
+            </summary>
+            <param name="d">Decimal do konwersji</param>
+            <param name="decimalSeparator">Znak separatora</param>
+            <param name="decimalDigits">Minimalna liczba znaków po przecinku</param>
+            <returns>Łańcuch znakowy powstawły z konwersji</returns>
+        </member>
+        <member name="T:Core.Types.HashHelper">
+            <summary>
+            Statyczna klasa pomocnicza, która pomoga obliczyć nowy HashCode, na podstawie podanych HashCode
+            </summary>
+        </member>
+        <member name="M:Core.Types.HashHelper.CombineHashCodes(System.Int32,System.Int32)">
+            <summary>
+            Oblicza nowy HashCode na podstawie dwóch podanych
+            </summary>
+            <param name="h1">Pierwszy HashCode</param>
+            <param name="h2">Drugi HashCode</param>
+            <returns>Zwraca nowy HashCode</returns>
+        </member>
+        <member name="M:Core.Types.HashHelper.CombineHashCodes(System.Int32,System.Int32,System.Int32)">
+            <summary>
+            Oblicza nowy HashCode na podstawie trzech podanych
+            </summary>
+            <param name="h1">Pierwszy HashCode</param>
+            <param name="h2">Drugi HashCode</param>
+            <param name="h3">Trzeci HashCode</param>
+            <returns>Zwraca nowy HashCode</returns>
+        </member>
+        <member name="M:Core.Types.HashHelper.CombineHashCodes(System.Int32,System.Int32,System.Int32,System.Int32)">
+            <summary>
+            Oblicza nowy HashCode na podstawie trzech podanych
+            </summary>
+            <param name="h1">Pierwszy HashCode</param>
+            <param name="h2">Drugi HashCode</param>
+            <param name="h3">Trzeci HashCode</param>
+            <param name="h4">Czwarty HashCode</param>
+            <returns>Zwraca nowy HashCode</returns>
+        </member>
+        <member name="M:Core.Types.HashHelper.CombineHashCodes(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)">
+            <summary>
+            Oblicza nowy HashCode na podstawie trzech podanych
+            </summary>
+            <param name="h1">Pierwszy HashCode</param>
+            <param name="h2">Drugi HashCode</param>
+            <param name="h3">Trzeci HashCode</param>
+            <param name="h4">Czwarty HashCode</param>
+            <param name="h5">Piąty HashCode</param>
+            <returns>Zwraca nowy HashCode</returns>
+        </member>
+        <member name="T:Core.Types.IDClass">
+            <summary>
+            Klasa przechowująca wartość liczbową, która może być ustawiona tylko raz.
+            </summary>
+        </member>
+        <member name="M:Core.Types.IDClass.op_Equality(Core.Types.IDClass,Core.Types.IDClass)">
+            <summary>
+            Operator równości
+            </summary>
+            <param name="value1">operand 1</param>
+            <param name="value2">operand 2</param>
+        </member>
+        <member name="M:Core.Types.IDClass.op_Inequality(Core.Types.IDClass,Core.Types.IDClass)">
+            <summary>
+            Operator nierówności
+            </summary>
+            <param name="value1">operand 1</param>
+            <param name="value2">operand 2</param>
+        </member>
+        <member name="M:Core.Types.IDClass.Equals(System.Object)">
+            <summary>
+            Sprawdza, czy podana wartość jest IDClass i ma taką samą wartość.
+            </summary>
+            <param name="value2">operand 2</param>
+        </member>
+        <member name="M:Core.Types.IDClass.GetHashCode">
+            <summary>
+            Wartość hashowa.
+            </summary>
+        </member>
+        <member name="M:Core.Types.IDClass.ToString">
+            <summary>
+            Zwraca klucz lub "null". Używa InvariantCulture.
+            </summary>
+        </member>
+        <member name="M:Core.Types.IDClass.Parse(System.String)">
+            <summary>
+            Parsuje IDClass z łańcucha znakowego.
+            </summary>
+            <param name="text">Tekst do sparsowania</param>
+            <returns>obiekt klasy IDClass</returns>
+        </member>
+        <member name="P:Core.Types.IDClass.IsSet">
+            <summary>
+            Informacja, czy wartość została już ustawiona.
+            </summary>
+        </member>
+        <member name="P:Core.Types.IDClass.Value">
+            <summary>
+            Zwraca wartość liczbową referencji, jeśli została ustawiona, w przeciwnym razie
+            rzuca wyjątek.
+            </summary>
+            <exception cref="T:System.Exception">przy próbie odczytania nieustawionej
+            wartości</exception>
+        </member>
+        <member name="T:Core.Types.NDateTime">
+            <summary>
+            Struktura przechowująca DateTime, jednak zawierająca dodatkowo informację, 
+            czy wartość nie jest nullem
+            </summary>
+        </member>
+        <member name="M:Core.Types.NDateTime.#ctor(System.DateTime)">
+            <summary>
+            Konstruktor ustawiający wartość struktury
+            </summary>
+            <param name="dateTime">DateTime do ustawienia</param>
+        </member>
+        <member name="M:Core.Types.NDateTime.op_Explicit(Core.Types.NDateTime)~System.DateTime">
+            <summary>
+            Operator rzutowania na DateTime
+            </summary>
+            <param name="x">NDateTime z którego rzutujemy</param>
+            <returns>Wartość</returns>
+            <exception cref="T:System.Exception">wartość nie została ustawiona</exception>
+        </member>
+        <member name="M:Core.Types.NDateTime.op_Implicit(System.DateTime)~Core.Types.NDateTime">
+            <summary>
+            Operator rzutowania DateTime na NDateTime
+            </summary>
+            <param name="value">DateTime do ustawienia</param>
+            <returns>NDateTime z ustawioną wartością</returns>
+        </member>
+        <member name="M:Core.Types.NDateTime.op_Implicit(System.Data.SqlTypes.SqlDateTime)~Core.Types.NDateTime">
+            <summary>
+            Operator rzutowania z SqlDateTime na NDateTime. Pobierana jest wartość jeśli jest
+            Jeśli nie to zwracanay jest NDateTime.NULL
+            </summary>
+            <param name="sqlDateTime">SqlDateTime, z którego rzutujemy</param>
+            <returns>
+            NDateTime z wartości sqlDateTime 
+            lub nullem jeśli wartość ta nie jest ustawiona
+            </returns>
+        </member>
+        <member name="M:Core.Types.NDateTime.ToString">
+            <summary>
+            Zwraca reprezentację tekstową lub "null". Używa aktualnej kultury.
+            </summary>
+        </member>
+        <member name="P:Core.Types.NDateTime.IsNull">
+            <summary>
+            Property mówiące nam czy struktura ma ustawioną wartość
+            </summary>
+        </member>
+        <member name="P:Core.Types.NDateTime.Value">
+            <summary>
+            Property przechowujące wartość
+            </summary>
+            <exception cref="T:System.Exception">wartość nie została ustawiona</exception>
+        </member>
+        <member name="P:Core.Types.NDateTime.Null">
+            <summary>
+            Property zwracające NDateTime bez ustawionej wartości
+            </summary>
+        </member>
+        <member name="T:Core.Types.NInt32">
+            <summary>
+            Struktura przechowująca Int32, jednak zawierająca dodatkowo informację,
+            czy wartość nie jest nullem
+            </summary>
+        </member>
+        <member name="M:Core.Types.NInt32.#ctor(System.Int32)">
+            <summary>
+            Konstruktor ustawiający wartość struktury
+            </summary>
+            <param name="value">Int32 do ustawienia</param>
+        </member>
+        <member name="M:Core.Types.NInt32.op_Explicit(Core.Types.NInt32)~System.Int32">
+            <summary>
+            Operator rzutowania na Int32
+            </summary>
+            <param name="x">NInt32 z którego rzutujemy</param>
+            <returns>Wartość</returns>
+            <exception cref="T:System.Exception">nie ma ustawinej wartości</exception>
+        </member>
+        <member name="M:Core.Types.NInt32.op_Implicit(System.Int32)~Core.Types.NInt32">
+            <summary>
+            Operator rzutowania Int32 na NInt32
+            </summary>
+            <param name="value">Int32 do ustawienia</param>
+            <returns>NInt32 z ustawioną wartością</returns>
+        </member>
+        <member name="M:Core.Types.NInt32.op_Implicit(System.Data.SqlTypes.SqlInt32)~Core.Types.NInt32">
+            <summary>
+            Operator rzutowania z SqlInt32 na NInt32. Pobierana jest wartość jeśli jest
+            Jeśli nie to zwracanay jest NInt32.NULL
+            </summary>
+            <param name="sqlInt32">SqlInt32, z którego rzutujemy</param>
+            <returns>
+            NInt32 z wartości sqlInt32
+            lub nullem jeśli wartość ta nie jest ustawiona
+            </returns>
+        </member>
+        <member name="M:Core.Types.NInt32.ToString">
+            <summary>
+            Zwraca reprezentację tekstową lub "null". Używa InvariantCulture.
+            </summary>
+        </member>
+        <member name="P:Core.Types.NInt32.IsNull">
+            <summary>
+            Property mówiące nam czy struktura ma ustawioną wartość
+            </summary>
+        </member>
+        <member name="P:Core.Types.NInt32.Value">
+            <summary>
+            Property przechowujące wartość
+            </summary>
+            <exception cref="T:System.Exception">nie ma ustawinej wartości</exception>
+        </member>
+        <member name="P:Core.Types.NInt32.Null">
+            <summary>
+            Property zwracające NInt32 bez ustawionej wartości
+            </summary>
+        </member>
+        <member name="T:Core.Types.NDecimal2">
+            <summary>
+            Przechowuje liczbę z dokładnością 2 miejsc po przecinku, z możliwością
+            przypisania wartości pustej.
+            </summary>
+        </member>
+        <member name="M:Core.Types.NDecimal2.#ctor(Core.Types.Decimal2)">
+            <summary>
+            Tworzy nowy obiekt przechowujący liczbę podaną jako parametr.
+            </summary>
+            <param name="value">liczba, która będzie przechowywana
+            z dokładnością 2 miejsc po przecinku</param>
+        </member>
+        <member name="M:Core.Types.NDecimal2.op_Implicit(Core.Types.Decimal2)~Core.Types.NDecimal2">
+            <summary>
+            Niejawne rzutowanie z Decimal2 na NDecimal2.
+            </summary>
+            <param name="value">wartość typu Decimal2</param>
+            <returns>wartość typu NDecimal2</returns>
+        </member>
+        <member name="M:Core.Types.NDecimal2.op_Explicit(Core.Types.NDecimal2)~Core.Types.Decimal2">
+            <summary>
+            Jawne rzutowanie z NDecimal2 na Decimal2.
+            </summary>
+            <param name="value">wartość typu NDecimal2</param>
+            <returns>wartość typu Decimal2</returns>
+        </member>
+        <member name="M:Core.Types.NDecimal2.SetNull">
+            <summary>
+            Ustawia wartość pustą jako aktualnie przechowywaną.
+            </summary>
+        </member>
+        <member name="M:Core.Types.NDecimal2.ToString(System.String,System.IFormatProvider)">
+            <summary>
+            Zwraca łańcuch tekstowy. Pozwala formatowac zwracana wartosc.
+            </summary>
+            <returns>przechowywana wartość liczbową lub tekst "Null", jeżeli
+            przechowywana jest wartość pusta.</returns>
+            <param name="format">łańcuch formatujący dla Decimal</param>
+            <param name="format_provider">informacje o kulturze</param>
+        </member>
+        <member name="M:Core.Types.NDecimal2.ToString">
+            <summary>
+            Zwraca łańcuch tekstowy.
+            </summary>
+            <returns>przechowywana wartość liczbową lub tekst "Null", jeżeli
+            przechowywana jest wartość pusta.</returns>
+        </member>
+        <member name="M:Core.Types.NDecimal2.ToFullPrecisionString">
+            <summary>
+            Konwertuje decimala do stringa w taki sposób, iż zawiera on
+            zawsze maksymalną możliwą liczbę miejsc po przecinku
+            (nawet gdy liczba jest całkowita). Przykład: 1.0 zostanie
+            skonwertowany do 1.00
+            </summary>
+            <returns>string odpowiadający obiektowi decimal</returns>
+        </member>
+        <member name="M:Core.Types.NDecimal2.ToShortestString">
+            <summary>
+            Zwraca krótki łańcuch znakowy reprezentujący liczbę. Dla liczby
+            całkowitej będzie to liczba całkowita (bez kropki), zaś dla liczby
+            zawierającej część ułamkową będzie to liczba zawierająca część
+            ułamkową sforamtowaną do dwóch miejsc po przecinku
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Core.Types.NDecimal2.ToInvariantString">
+            <summary>
+            Zwraca łańcuch invariant (niezależny od ustawień lokali)
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Core.Types.NDecimal2.ToDBStorageType">
+            <summary>
+            Zwraca bazodanową reprezentację przechowywanej liczby (lub wartości
+            pustej) - liczbę typu SqlInt64, która jest 100 razy większa
+            niż liczba przechowywana.
+            </summary>
+            <returns>Bazodanowa reprezentacja przechowywanej liczby</returns>
+        </member>
+        <member name="M:Core.Types.NDecimal2.FromDBStorageType(System.Data.SqlTypes.SqlInt64)">
+            <summary>
+            Tworzy nowy obiekt przechowujący liczbę odczytaną z jej bazodanowej
+            reprezentacji podanej jako parametr.
+            </summary>
+            <param name="storage">Bazodanowa reprezentacja liczby NDecimal2</param>
+            <returns>Nowy obiekt NDecimal2 przechowujący podaną liczbę</returns>
+        </member>
+        <member name="M:Core.Types.NDecimal2.ParseInvariant(System.String)">
+            <summary>
+            Parsuje NDecimal2 z łańcucha znakowego przy użyciu neutralnej kultury
+            (separatorem dziesiętnym jest znak kropki).
+            </summary>
+            <param name="text">Tekst do sparsowania</param>
+            <returns>obiekt klasy NDecimal2</returns>
+        </member>
+        <member name="F:Core.Types.NDecimal2.hasValue">
+            <summary>false by default</summary>
+        </member>
+        <member name="F:Core.Types.NDecimal2.Decimal2Value">
+            <summary>0 by default</summary>
+        </member>
+        <member name="P:Core.Types.NDecimal2.IsNull">
+            <summary>
+            Informacja, czy aktualnie przechwywana jest wartość pusta.
+            </summary>
+        </member>
+        <member name="P:Core.Types.NDecimal2.Null">
+            <summary>
+            Zwraca nowy obiekt NDecimal2 przechowujący pustą wartość.
+            </summary>
+        </member>
+        <member name="T:Core.Types.NDecimal3">
+            <summary>
+            Przechowuje liczbę z dokładnością 3 miejsc po przecinku, z możliwością
+            przypisania wartości pustej.
+            </summary>
+        </member>
+        <member name="M:Core.Types.NDecimal3.#ctor(Core.Types.Decimal3)">
+            <summary>
+            Tworzy nowy obiekt przechowujący liczbę podaną jako parametr.
+            </summary>
+            <param name="value">liczba, która będzie przechowywana
+            z dokładnością 3 miejsc po przecinku</param>
+        </member>
+        <member name="M:Core.Types.NDecimal3.op_Implicit(Core.Types.Decimal3)~Core.Types.NDecimal3">
+            <summary>
+            Niejawne rzutowanie z Decimal3 na NDecimal3.
+            </summary>
+            <param name="value">wartość typu Decimal3</param>
+            <returns>wartość typu NDecimal3</returns>
+        </member>
+        <member name="M:Core.Types.NDecimal3.op_Explicit(Core.Types.NDecimal3)~Core.Types.Decimal3">
+            <summary>
+            Jawne rzutowanie z NDecimal3 na Decimal3.
+            </summary>
+            <param name="value">wartość typu NDecimal3</param>
+            <returns>wartość typu Decimal3</returns>
+        </member>
+        <member name="M:Core.Types.NDecimal3.SetNull">
+            <summary>
+            Ustawia wartość pustą jako aktualnie przechowywaną.
+            </summary>
+        </member>
+        <member name="M:Core.Types.NDecimal3.ToString(System.String,System.IFormatProvider)">
+            <summary>
+            Zwraca łańcuch tekstowy. Pozwala formatowac zwracana wartosc.
+            </summary>
+            <returns>przechowywana wartość liczbową lub tekst "Null", jeżeli
+            przechowywana jest wartość pusta.</returns>
+            <param name="format">łańcuch formatujący dla Decimal</param>
+            <param name="format_provider">informacje o kulturze</param>
+        </member>
+        <member name="M:Core.Types.NDecimal3.ToString">
+            <summary>
+            Zwraca łańcuch tekstowy.
+            </summary>
+            <returns>przechowywana wartość liczbową lub tekst "Null", jeżeli
+            przechowywana jest wartość pusta.</returns>
+        </member>
+        <member name="M:Core.Types.NDecimal3.ToFullPrecisionString">
+            <summary>
+            Konwertuje decimala do stringa w taki sposób, iż zawiera on
+            zawsze maksymalną możliwą liczbę miejsc po przecinku
+            (nawet gdy liczba jest całkowita). Przykład: 1.0 zostanie
+            skonwertowany do 1.000
+            </summary>
+            <returns>string odpowiadający obiektowi decimal</returns>
+        </member>
+        <member name="M:Core.Types.NDecimal3.ToShortestString">
+            <summary>
+            Zwraca krótki łańcuch znakowy reprezentujący liczbę. Dla liczby
+            całkowitej będzie to liczba całkowita (bez kropki), zaś dla liczby
+            zawierającej część ułamkową będzie to liczba zawierająca część
+            ułamkową sforamtowaną do trzech miejsc po przecinku
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Core.Types.NDecimal3.ToInvariantString">
+            <summary>
+            Zwraca łańcuch invariant (niezależny od ustawień lokali)
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Core.Types.NDecimal3.ToDBStorageType">
+            <summary>
+            Zwraca bazodanową reprezentację przechowywanej liczby (lub wartości
+            pustej) - liczbę typu SqlInt64, która jest 1000 razy większa
+            niż liczba przechowywana.
+            </summary>
+            <returns>Bazodanowa reprezentacja przechowywanej liczby</returns>
+        </member>
+        <member name="M:Core.Types.NDecimal3.FromDBStorageType(System.Data.SqlTypes.SqlInt64)">
+            <summary>
+            Tworzy nowy obiekt przechowujący liczbę odczytaną z jej bazodanowej
+            reprezentacji podanej jako parametr.
+            </summary>
+            <param name="storage">Bazodanowa reprezentacja liczby NDecimal3</param>
+            <returns>Nowy obiekt NDecimal3 przechowujący podaną liczbę</returns>
+        </member>
+        <member name="M:Core.Types.NDecimal3.ParseInvariant(System.String)">
+            <summary>
+            Parsuje NDecimal3 z łańcucha znakowego przy użyciu neutralnej kultury
+            (separatorem dziesiętnym jest znak kropki).
+            </summary>
+            <param name="text">Tekst do sparsowania</param>
+            <returns>obiekt klasy NDecimal3</returns>
+        </member>
+        <member name="F:Core.Types.NDecimal3.hasValue">
+            <summary>false by default</summary>
+        </member>
+        <member name="F:Core.Types.NDecimal3.Decimal3Value">
+            <summary>0 by default</summary>
+        </member>
+        <member name="P:Core.Types.NDecimal3.IsNull">
+            <summary>
+            Informacja, czy aktualnie przechwywana jest wartość pusta.
+            </summary>
+        </member>
+        <member name="P:Core.Types.NDecimal3.Null">
+            <summary>
+            Zwraca nowy obiekt NDecimal3 przechowujący pustą wartość.
+            </summary>
+        </member>
+        <member name="T:Core.Types.NDecimal4">
+            <summary>
+            Przechowuje liczbę z dokładnością 4 miejsc po przecinku, z możliwością
+            przypisania wartości pustej.
+            </summary>
+        </member>
+        <member name="M:Core.Types.NDecimal4.#ctor(Core.Types.Decimal4)">
+            <summary>
+            Tworzy nowy obiekt przechowujący liczbę podaną jako parametr.
+            </summary>
+            <param name="value">Liczba, która będzie przechowywana
+            z dokładnością 4 miejsc po przecinku</param>
+        </member>
+        <member name="M:Core.Types.NDecimal4.op_Implicit(Core.Types.Decimal4)~Core.Types.NDecimal4">
+            <summary>
+            Niejawne rzutowanie z Decimal4 na NDecimal4.
+            </summary>
+            <param name="value">wartość typu Decimal4</param>
+            <returns>wartość typu NDecimal4</returns>
+        </member>
+        <member name="M:Core.Types.NDecimal4.op_Explicit(Core.Types.NDecimal4)~Core.Types.Decimal4">
+            <summary>
+            Jawne rzutowanie z NDecimal4 na Decimal4.
+            </summary>
+            <param name="value">wartość typu NDecimal4</param>
+            <returns>wartość typu Decimal4</returns>
+        </member>
+        <member name="M:Core.Types.NDecimal4.SetNull">
+            <summary>
+            Ustawia wartość pustą jako aktualnie przechowywaną.
+            </summary>
+        </member>
+        <member name="M:Core.Types.NDecimal4.ToString(System.String,System.IFormatProvider)">
+            <summary>
+            Zwraca łańcuch tekstowy. Pozwala formatowac zwracana wartosc.
+            </summary>
+            <returns>przechowywana wartość liczbową lub tekst "Null", jeżeli
+            przechowywana jest wartość pusta.</returns>
+            <param name="format">łańcuch formatujący dla Decimal</param>
+            <param name="format_provider">informacje o kulturze</param>
+        </member>
+        <member name="M:Core.Types.NDecimal4.ToString">
+            <summary>
+            Zwraca łańcuch tekstowy.
+            </summary>
+            <returns>przechowywana wartość liczbową lub tekst "Null", jeżeli
+            przechowywana jest wartość pusta.</returns>
+        </member>
+        <member name="M:Core.Types.NDecimal4.ToFullPrecisionString">
+            <summary>
+            Konwertuje decimala do stringa w taki sposób, iż zawiera on
+            zawsze maksymalną możliwą liczbę miejsc po przecinku
+            (nawet gdy liczba jest całkowita). Przykład: 1.0 zostanie
+            skonwertowany do 1.0000
+            </summary>
+            <returns>string odpowiadający obiektowi decimal</returns>
+        </member>
+        <member name="M:Core.Types.NDecimal4.ToShortestString">
+            <summary>
+            Zwraca krótki łańcuch znakowy reprezentujący liczbę. Dla liczby
+            całkowitej będzie to liczba całkowita (bez kropki), zaś dla liczby
+            zawierającej część ułamkową będzie to liczba zawierająca część
+            ułamkową sforamtowaną do czterech miejsc po przecinku
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Core.Types.NDecimal4.ToInvariantString">
+            <summary>
+            Zwraca łańcuch invariant (niezależny od ustawień lokali)
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Core.Types.NDecimal4.ToDBStorageType">
+            <summary>
+            Zwraca bazodanową reprezentację przechowywanej liczby (lub wartości
+            pustej) - liczbę typu SqlInt64, która jest 10 000 razy większa
+            niż liczba przechowywana.
+            </summary>
+            <returns>Bazodanowa reprezentacja przechowywanej liczby</returns>
+        </member>
+        <member name="M:Core.Types.NDecimal4.FromDBStorageType(System.Data.SqlTypes.SqlInt64)">
+            <summary>
+            Tworzy nowy obiekt przechowujący liczbę odczytaną z jej bazodanowej
+            reprezentacji podanej jako parametr.
+            </summary>
+            <param name="storage">Bazodanowa reprezentacja liczby NDecimal4</param>
+            <returns>Nowy obiekt NDecimal4 przechowujący podaną liczbę</returns>
+        </member>
+        <member name="M:Core.Types.NDecimal4.ParseInvariant(System.String)">
+            <summary>
+            Parsuje NDecimal4 z łańcucha znakowego przy użyciu neutralnej kultury
+            (separatorem dziesiętnym jest znak kropki).
+            </summary>
+            <param name="text">Tekst do sparsowania</param>
+            <returns>obiekt klasy NDecimal4</returns>
+        </member>
+        <member name="F:Core.Types.NDecimal4.hasValue">
+            <summary>false by default</summary>
+        </member>
+        <member name="F:Core.Types.NDecimal4.Decimal4Value">
+            <summary>0 by default</summary>
+        </member>
+        <member name="P:Core.Types.NDecimal4.IsNull">
+            <summary>
+            Informacja, czy aktualnie przechwywana jest wartość pusta.
+            </summary>
+        </member>
+        <member name="P:Core.Types.NDecimal4.Null">
+            <summary>
+            Zwraca nowy obiekt NDecimal4 przechowujący pustą wartość.
+            </summary>
+        </member>
+        <member name="T:Core.Types.OnDisposeAction">
+            <summary>
+            Klasa wykonująca przekazaną akcję w Dispose()
+            </summary>
+        </member>
+        <member name="M:Core.Types.OnDisposeAction.#ctor(Core.Types.Action)">
+            <summary>
+            Konstruktor
+            </summary>
+            <param name="onDispose">Akcja, która ma zostać wykonana w Dispose()</param>
+        </member>
+        <member name="T:Core.Types.LocalizationRequiredAttribute">
+            <summary>
+            Indicates that marked element should be localized or not.
+            </summary>
+            <example>
+            <code>
+            [LocalizationRequiredAttribute(true)]
+            public class Foo
+            {
+              private string str = "my string"; // Warning: Localizable string
+            }
+            </code>
+            </example>
+        </member>
+        <member name="M:Core.Types.LocalizationRequiredAttribute.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:Core.Types.LocalizationRequiredAttribute"/> class with
+            <see cref="P:Core.Types.LocalizationRequiredAttribute.Required"/> set to <see langword="true"/>.
+            </summary>
+        </member>
+        <member name="M:Core.Types.LocalizationRequiredAttribute.#ctor(System.Boolean)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Core.Types.LocalizationRequiredAttribute"/> class.
+            </summary>
+            <param name="required"><c>true</c> if a element should be localized; otherwise, <c>false</c>.</param>
+        </member>
+        <member name="M:Core.Types.LocalizationRequiredAttribute.Equals(System.Object)">
+            <summary>
+            Returns whether the value of the given object is equal to the current <see cref="T:Core.Types.LocalizationRequiredAttribute"/>.
+            </summary>
+            <param name="obj">The object to test the value equality of. </param>
+            <returns>
+            <c>true</c> if the value of the given object is equal to that of the current; otherwise, <c>false</c>.
+            </returns>
+        </member>
+        <member name="M:Core.Types.LocalizationRequiredAttribute.GetHashCode">
+            <summary>
+            Returns the hash code for this instance.
+            </summary>
+            <returns>A hash code for the current <see cref="T:Core.Types.LocalizationRequiredAttribute"/>.</returns>
+        </member>
+        <member name="P:Core.Types.LocalizationRequiredAttribute.Required">
+            <summary>
+            Gets a value indicating whether a element should be localized.
+            <value><c>true</c> if a element should be localized; otherwise, <c>false</c>.</value>
+            </summary>
+        </member>
+        <member name="T:Core.Types.StringFormatMethodAttribute">
+            <summary>
+            Indicates that the marked method builds string by format pattern and (optional) arguments. 
+            Parameter, which contains format string, should be given in constructor.
+            The format string should be in <see cref="M:System.String.Format(System.IFormatProvider,System.String,System.Object[])"/> -like form
+            </summary>
+            <example>
+            <code>
+            [StringFormatMethod("message")]
+            public void ShowError(string message, params object[] args)
+            {
+              //Do something
+            }
+            public void Foo()
+            {
+              ShowError("Failed: {0}"); // Warning: Non-existing argument in format string
+            }
+            </code>
+            </example>
+        </member>
+        <member name="M:Core.Types.StringFormatMethodAttribute.#ctor(System.String)">
+            <summary>
+            Initializes new instance of StringFormatMethodAttribute
+            </summary>
+            <param name="formatParameterName">Specifies which parameter of an annotated method should be treated as format-string</param>
+        </member>
+        <member name="P:Core.Types.StringFormatMethodAttribute.FormatParameterName">
+            <summary>
+            Gets format parameter name
+            </summary>
+        </member>
+        <member name="T:Core.Types.InvokerParameterNameAttribute">
+            <summary>
+            Indicates that the function argument should be string literal and match one of the parameters
+            of the caller function.
+            For example, ReSharper annotates the parameter of <see cref="T:System.ArgumentNullException"/>.
+            </summary>
+            <example>
+            <code>
+            public void Foo(string param)
+            {
+              if (param == null)
+                throw new ArgumentNullException("par"); // Warning: Cannot resolve symbol
+            }
+            </code>
+            </example>
+        </member>
+        <member name="T:Core.Types.NotifyPropertyChangedInvocatorAttribute">
+             <summary>
+             Indicates that the method is contained in a type that implements
+             <see cref="T:System.ComponentModel.INotifyPropertyChanged"/> interface
+             and this method is used to notify that some property value changed.
+             </summary>
+             <remarks>
+             The method should be non-static and conform to one of the supported signatures:
+             <list>
+             <item><c>NotifyChanged(string)</c></item>
+             <item><c>NotifyChanged(params string[])</c></item>
+             <item><c>NotifyChanged{T}(Expression{Func{T}})</c></item>
+             <item><c>NotifyChanged{T,U}(Expression{Func{T,U}})</c></item>
+             <item><c>SetProperty{T}(ref T, T, string)</c></item>
+             </list>
+             </remarks>
+             <example>
+             <code>
+             public class Foo : INotifyPropertyChanged
+             {
+               public event PropertyChangedEventHandler PropertyChanged;
+            
+               [NotifyPropertyChangedInvocator]
+               protected virtual void NotifyChanged(string propertyName)
+               {}
+            
+               private string _name;
+               public string Name
+               {
+                 get { return _name; }
+                 set
+                 {
+                   _name = value;
+                   NotifyChanged("LastName"); // Warning
+                 }
+               }
+             }
+             </code>
+             Examples of generated notifications:
+             <list>
+             <item><c>NotifyChanged("Property")</c></item>
+             <item><c>NotifyChanged(() =&gt; Property)</c></item>
+             <item><c>NotifyChanged((VM x) =&gt; x.Property)</c></item>
+             <item><c>SetProperty(ref myField, value, "Property")</c></item>
+             </list>
+             </example>
+        </member>
+        <member name="T:Core.Types.CanBeNullAttribute">
+            <summary>
+            Indicates that the value of the marked element could be <c>null</c> sometimes, 
+            so the check for <c>null</c> is necessary before its usage.
+            </summary>
+            <example>
+            <code>
+            [CanBeNull]
+            public object Test()
+            {
+              return null;
+            }
+            
+            public void UseTest()
+            {
+              var p = Test(); 
+              var s = p.ToString(); // Warning: Possible 'System.NullReferenceException' 
+            }
+            </code>
+            </example>
+        </member>
+        <member name="T:Core.Types.NotNullAttribute">
+            <summary>
+            Indicates that the value of the marked element could never be <c>null</c>
+            </summary>
+            <example>
+            <code>
+            [NotNull]
+            public object Foo()
+            {
+              return null; // Warning: Possible 'null' assignment
+            } 
+            </code>
+            </example>
+        </member>
+        <member name="T:Core.Types.ContractAnnotationAttribute">
+            <summary>
+            Describes dependency between method input and output.
+            </summary>
+            <syntax>
+            <p>Function Definition Table syntax:</p>
+            <list>
+            <item>FDT      ::= FDTRow [;FDTRow]*</item>
+            <item>FDTRow   ::= Input =&gt; Output | Output &lt;= Input</item>
+            <item>Input    ::= ParameterName: Value [, Input]*</item>
+            <item>Output   ::= [ParameterName: Value]* {halt|stop|void|nothing|Value}</item>
+            <item>Value    ::= true | false | null | notnull | canbenull</item>
+            </list>
+            If method has single input parameter, it's name could be omitted. <br/>
+            Using <c>halt</c> (or <c>void</c>/<c>nothing</c>, which is the same) for method output means that the methos doesn't return normally. <br/>
+            <c>canbenull</c> annotation is only applicable for output parameters. <br/>
+            You can use multiple <c>[ContractAnnotation]</c> for each FDT row, or use single attribute with rows separated by semicolon. <br/>
+            </syntax>
+            <examples>
+            <list>
+            <item><code>
+            [ContractAnnotation("=> halt")]
+            public void TerminationMethod()
+            </code></item>
+            <item><code>
+            [ContractAnnotation("halt &lt;= condition: false")]
+            public void Assert(bool condition, string text) // Regular Assertion method
+            </code></item>
+            <item><code>
+            [ContractAnnotation("s:null => true")]
+            public bool IsNullOrEmpty(string s) // String.IsNullOrEmpty
+            </code></item>
+            <item><code>
+            // A method that returns null if the parameter is null, and not null if the parameter is not null
+            [ContractAnnotation("null => null; notnull => notnull")]
+            public object Transform(object data) 
+            </code></item>
+            <item><code>
+            [ContractAnnotation("s:null=>false; =>true,result:notnull; =>false, result:null")]
+            public bool TryParse(string s, out Person result)
+            </code></item>
+            </list>
+            </examples>
+        </member>
+        <member name="T:Core.Types.CannotApplyEqualityOperatorAttribute">
+            <summary>
+            Indicates that the value of the marked type (or its derivatives)
+            cannot be compared using '==' or '!=' operators and <c>Equals()</c> should be used instead.
+            However, using '==' or '!=' for comparison with <c>null</c> is always permitted.
+            </summary>
+            <example>
+            <code>
+            [CannotApplyEqualityOperator]
+            class NoEquality
+            {
+            }
+            
+            class UsesNoEquality
+            {
+              public void Test()
+              {
+                var ca1 = new NoEquality();
+                var ca2 = new NoEquality();
+            
+                if (ca1 != null) // OK
+                {
+                  bool condition = ca1 == ca2; // Warning
+                }
+              }
+            }
+            </code>
+            </example>
+        </member>
+        <member name="T:Core.Types.BaseTypeRequiredAttribute">
+            <summary>
+            When applied to a target attribute, specifies a requirement for any type marked with 
+            the target attribute to implement or inherit specific type or types.
+            </summary>
+            <example>
+            <code>
+            [BaseTypeRequired(typeof(IComponent)] // Specify requirement
+            public class ComponentAttribute : Attribute 
+            {}
+            
+            [Component] // ComponentAttribute requires implementing IComponent interface
+            public class MyComponent : IComponent
+            {}
+            </code>
+            </example>
+        </member>
+        <member name="M:Core.Types.BaseTypeRequiredAttribute.#ctor(System.Type)">
+            <summary>
+            Initializes new instance of BaseTypeRequiredAttribute
+            </summary>
+            <param name="baseType">Specifies which types are required</param>
+        </member>
+        <member name="P:Core.Types.BaseTypeRequiredAttribute.BaseTypes">
+            <summary>
+            Gets enumerations of specified base types
+            </summary>
+        </member>
+        <member name="T:Core.Types.UsedImplicitlyAttribute">
+            <summary>
+            Indicates that the marked symbol is used implicitly (e.g. via reflection, in external library),
+            so this symbol will not be marked as unused (as well as by other usage inspections)
+            </summary>
+        </member>
+        <member name="P:Core.Types.UsedImplicitlyAttribute.TargetFlags">
+            <summary>
+            Gets value indicating what is meant to be used
+            </summary>
+        </member>
+        <member name="T:Core.Types.MeansImplicitUseAttribute">
+            <summary>
+            Should be used on attributes and causes ReSharper
+            to not mark symbols marked with such attributes as unused (as well as by other usage inspections)
+            </summary>
+        </member>
+        <member name="P:Core.Types.MeansImplicitUseAttribute.TargetFlags">
+            <summary>
+            Gets value indicating what is meant to be used
+            </summary>
+        </member>
+        <member name="F:Core.Types.ImplicitUseKindFlags.Access">
+            <summary>
+            Only entity marked with attribute considered used
+            </summary>
+        </member>
+        <member name="F:Core.Types.ImplicitUseKindFlags.Assign">
+            <summary>
+            Indicates implicit assignment to a member
+            </summary>
+        </member>
+        <member name="F:Core.Types.ImplicitUseKindFlags.InstantiatedWithFixedConstructorSignature">
+            <summary>
+            Indicates implicit instantiation of a type with fixed constructor signature.
+            That means any unused constructor parameters won't be reported as such.
+            </summary>
+        </member>
+        <member name="F:Core.Types.ImplicitUseKindFlags.InstantiatedNoFixedConstructorSignature">
+            <summary>
+            Indicates implicit instantiation of a type
+            </summary>
+        </member>
+        <member name="T:Core.Types.ImplicitUseTargetFlags">
+            <summary>
+            Specify what is considered used implicitly when marked with <see cref="T:Core.Types.MeansImplicitUseAttribute"/> or <see cref="T:Core.Types.UsedImplicitlyAttribute"/>
+            </summary>
+        </member>
+        <member name="F:Core.Types.ImplicitUseTargetFlags.Members">
+            <summary>
+            Members of entity marked with attribute are considered used
+            </summary>
+        </member>
+        <member name="F:Core.Types.ImplicitUseTargetFlags.WithMembers">
+            <summary>
+            Entity marked with attribute and all its members considered used
+            </summary>
+        </member>
+        <member name="T:Core.Types.PublicAPIAttribute">
+            <summary>
+            This attribute is intended to mark publicly available API which should not be removed and so is treated as used.
+            </summary>
+        </member>
+        <member name="T:Core.Types.InstantHandleAttribute">
+            <summary>
+            Tells code analysis engine if the parameter is completely handled when the invoked method is on stack. 
+            If the parameter is a delegate, indicates that delegate is executed while the method is executed.
+            If the parameter is an enumerable, indicates that it is enumerated while the method is executed.
+            </summary>
+        </member>
+        <member name="T:Core.Types.PureAttribute">
+             <summary>
+             Indicates that a method does not make any observable state changes.
+             The same as <see cref="!:System.Diagnostics.Contracts.PureAttribute"/>
+             </summary>
+             <example>
+             <code>
+             [Pure]
+             private int Multiply(int x, int y)
+             {
+               return x*y;
+             }
+            
+             public void Foo()
+             {
+               const int a=2, b=2;
+               Multiply(a, b); // Waring: Return value of pure method is not used
+             }
+             </code>
+             </example>
+        </member>
+        <member name="T:Core.Types.PathReferenceAttribute">
+            <summary>
+            Indicates that a parameter is a path to a file or a folder within a web project.
+            Path can be relative or absolute, starting from web root (~).
+            </summary>
+        </member>
+        <member name="T:Core.Types.AspMvcActionAttribute">
+            <summary>
+            ASP.NET MVC attribute. If applied to a parameter, indicates that the parameter is an MVC action.
+            If applied to a method, the MVC action name is calculated implicitly from the context.
+            Use this attribute for custom wrappers similar to 
+            <see cref="!:System.Web.Mvc.Html.ChildActionExtensions.RenderAction(HtmlHelper, String)"/>
+            </summary>
+        </member>
+        <member name="T:Core.Types.AspMvcAreaAttribute">
+            <summary>
+            ASP.NET MVC attribute. Indicates that a parameter is an MVC araa.
+            Use this attribute for custom wrappers similar to 
+            <see cref="!:System.Web.Mvc.Html.ChildActionExtensions.RenderAction(HtmlHelper, String)"/>
+            </summary>
+        </member>
+        <member name="T:Core.Types.AspMvcControllerAttribute">
+            <summary>
+            ASP.NET MVC attribute. If applied to a parameter, indicates that the parameter is an MVC controller.
+            If applied to a method, the MVC controller name is calculated implicitly from the context.
+            Use this attribute for custom wrappers similar to 
+            <see cref="!:System.Web.Mvc.Html.ChildActionExtensions.RenderAction(HtmlHelper, String, String)"/> 
+            </summary>
+        </member>
+        <member name="T:Core.Types.AspMvcMasterAttribute">
+            <summary>
+            ASP.NET MVC attribute. Indicates that a parameter is an MVC Master.
+            Use this attribute for custom wrappers similar to 
+            <see cref="!:System.Web.Mvc.Controller.View(String, String)"/>
+            </summary>
+        </member>
+        <member name="T:Core.Types.AspMvcModelTypeAttribute">
+            <summary>
+            ASP.NET MVC attribute. Indicates that a parameter is an MVC model type.
+            Use this attribute for custom wrappers similar to 
+            <see cref="!:System.Web.Mvc.Controller.View(String, Object)"/>
+            </summary>
+        </member>
+        <member name="T:Core.Types.AspMvcPartialViewAttribute">
+            <summary>
+            ASP.NET MVC attribute. If applied to a parameter, indicates that the parameter is an MVC partial view.
+            If applied to a method, the MVC partial view name is calculated implicitly from the context.
+            Use this attribute for custom wrappers similar to 
+            <see cref="!:System.Web.Mvc.Html.RenderPartialExtensions.RenderPartial(HtmlHelper, String)"/>
+            </summary>
+        </member>
+        <member name="T:Core.Types.AspMvcSupressViewErrorAttribute">
+            <summary>
+            ASP.NET MVC attribute. Allows disabling all inspections for MVC views within a class or a method.
+            </summary>
+        </member>
+        <member name="T:Core.Types.AspMvcDisplayTemplateAttribute">
+            <summary>
+            ASP.NET MVC attribute. Indicates that a parameter is an MVC display template.
+            Use this attribute for custom wrappers similar to 
+            <see cref="!:System.Web.Mvc.Html.DisplayExtensions.DisplayForModel(HtmlHelper, String)"/>
+            </summary>
+        </member>
+        <member name="T:Core.Types.AspMvcEditorTemplateAttribute">
+            <summary>
+            ASP.NET MVC attribute. Indicates that a parameter is an MVC editor template.
+            Use this attribute for custom wrappers similar to 
+            <see cref="!:System.Web.Mvc.Html.EditorExtensions.EditorForModel(HtmlHelper, String)"/>
+            </summary>
+        </member>
+        <member name="T:Core.Types.AspMvcViewAttribute">
+            <summary>
+            ASP.NET MVC attribute. If applied to a parameter, indicates that the parameter is an MVC view.
+            If applied to a method, the MVC view name is calculated implicitly from the context.
+            Use this attribute for custom wrappers similar to 
+            <see cref="!:System.Web.Mvc.Controller.View(Object)"/>
+            </summary>
+        </member>
+        <member name="T:Core.Types.AspMvcActionSelectorAttribute">
+            <summary>
+            ASP.NET MVC attribute. When applied to a parameter of an attribute,
+            indicates that this parameter is an MVC action name.
+            </summary>
+            <example>
+            <code>
+            [ActionName("Foo")]
+            public ActionResult Login(string returnUrl)
+            {
+              ViewBag.ReturnUrl = Url.Action("Foo"); // OK
+              return RedirectToAction("Bar"); // Error: Cannot resolve action
+            }
+            </code>
+            </example>
+        </member>
+        <member name="T:Core.Types.RazorSectionAttribute">
+            <summary>
+            Razor attribute. Indicates that a parameter or a method is a Razor section.
+            Use this attribute for custom wrappers similar to 
+            <see cref="!:System.Web.WebPages.WebPageBase.RenderSection(String)"/>
+            </summary>
+        </member>
+        <member name="T:Core.Types.RootContainer">
+            <summary>
+            Resource locator - general purpose factory
+            </summary>
+            <summary>
+            Resource locator - general purpose factory
+            </summary>
+        </member>
+        <member name="M:Core.Types.RootContainer.Register``1(Autofac.Registrars.Delegate.ComponentActivator{``0},Core.Types.Action{Autofac.Registrars.IConcreteRegistrar})">
+            <summary>
+            Register a delegate as a component. Component that will be created using
+            a provided delegate.
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="delegate">The delegate to register.</param>
+            <param name="registration">
+            Registration builder allowing the registration to be configured.
+            </param>
+        </member>
+        <member name="M:Core.Types.RootContainer.Register``1(Autofac.Registrars.Delegate.ComponentActivatorWithParameters{``0},Core.Types.Action{Autofac.Registrars.IConcreteRegistrar})">
+            <summary>
+            Register a component that will be created using a provided delegate.
+            </summary>
+            <typeparam name="T">The type of the component.</typeparam>
+            <param name="registration">
+            Registration builder allowing the registration to be configured.
+            </param>
+            <param name="delegate">The creator.</param>
+            <returns>A registrar allowing details of the registration to be customised.</returns>
+        </member>
+        <member name="M:Core.Types.RootContainer.RegisterType``1(Core.Types.Action{Autofac.Registrars.IReflectiveRegistrar},Autofac.Parameter[])">
+            <summary>
+            Register a component to be created through reflection.
+            </summary>
+            <typeparam name="T">The type of the component implementation.</typeparam>
+            <param name="registration">
+            Registration builder allowing the registration to be configured.</param>
+            <param name="parameters">Opcjonalna lista parametrów</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.RegisterGeneric(System.Type,Core.Types.Action{Autofac.Registrars.IGenericRegistrar})">
+            <summary>
+            Register an un-parameterised generic type
+            </summary>
+            <param name="type">Type</param>
+            <param name="registration">
+            Registration builder allowing the registration to be configured.
+            </param>
+            <returns>A registrar allowing configuration to continue.</returns>
+        </member>
+        <member name="M:Core.Types.RootContainer.BeginLifetimeScope">
+            <summary>
+            Begin a new sub-context. Contextual and transient instances created inside the 
+            subcontext will be disposed along with it.
+            </summary>
+            <returns>A new subcontext.</returns>
+        </member>
+        <member name="M:Core.Types.RootContainer.Resolve``1(Autofac.Parameter[])">
+            <summary>
+            Retrieve a service registered with the container.
+            </summary>
+            <typeparam name="TService">The service to retrieve.</typeparam>
+            <param name="parameters">Additional parameters.</param>
+            <returns>The component instance that provides the service.</returns>
+        </member>
+        <member name="M:Core.Types.RootContainer.ResolveNamed``1(System.String,Autofac.Parameter[])">
+            <summary>
+            Retrieve a service registered with the container.
+            </summary>
+            <typeparam name="TService">The type to which the result will be cast.</typeparam>
+            <param name="serviceName">Name of the service.</param>
+            <param name="parameters">Additional parameters.</param>
+            <returns>The component instance that provides the service.</returns>
+        </member>
+        <member name="M:Core.Types.RootContainer.Resolve(System.String,Autofac.Parameter[])">
+            <summary>
+            Retrieve a service registered with the container.
+            </summary>
+            <param name="serviceName">The service to retrieve.</param>
+            <param name="parameters">Additional parameters</param>
+            <returns>The component instance that provides the service.</returns>
+        </member>
+        <member name="M:Core.Types.RootContainer.TryResolve``1(``0@)">
+            <summary>
+            Retrieve a service registered with the container.
+            </summary>
+            <typeparam name="TService">The service to retrieve.</typeparam>
+            <param name="result">The component instance that provides the service.</param>
+            <returns>True if the service was registered and its instance created.</returns>
+        </member>
+        <member name="M:Core.Types.RootContainer.IsRegistered``1">
+            <summary>
+            Determine whether or not a service has been registered.
+            </summary>
+            <typeparam name="TService">The service to test for the registration o</typeparam>
+            <returns>True if the service is registered.</returns>
+        </member>
+        <member name="M:Core.Types.RootContainer.IsRegisteredWithName``1(System.String)">
+            <summary>
+            Determine whether or not a service has been registered.
+            </summary>
+            <param name="serviceName">The service to test for the registration of.</param>
+            <returns>True if the service is registered.</returns>
+        </member>
+        <member name="T:Core.Types.RootContainer.AsNewPerResolve">
+            <summary>
+            Register item - one instance per Resolve call - no ownership!
+            Created items are not disposed (items are not owned by a contarier)!
+            For compatibility with broken mono compiler use NewPerResolve!
+            </summary>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsNewPerResolve.Register``1(Autofac.Registrars.Delegate.ComponentActivator{``0})">
+            <summary>
+            Register a delegate as a pure factory item - one instance per Resolve call - no ownership!
+            Created items are not disposed (items are not owned by a contarier)!
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="delegate">The delegate to register.</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsNewPerResolve.Register``1(Core.Types.RootContainer.Options,Autofac.Registrars.Delegate.ComponentActivator{``0})">
+            <summary>
+            Register a delegate as a pure factory item - one instance per Resolve call - no ownership!
+            Created items are not disposed (items are not owned by a contarier)!
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="options">Registration options</param>
+            <param name="delegate">The delegate to register.</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsNewPerResolve.RegisterType``1(Autofac.Parameter[])">
+            <summary>
+            Register a component to be created through reflection
+            as a pure factory item - one instance per Resolve call - no ownership!
+            Created items are not disposed (are not owned by a contarier)!
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="parameters">Optional parameters</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsNewPerResolve.RegisterType``1(Core.Types.RootContainer.Options,Autofac.Parameter[])">
+            <summary>
+            Register a component to be created through reflection
+            as a pure factory item - one instance per Resolve call - no ownership!
+            Created items are not disposed (are not owned by a contarier)!
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="options">Registration options</param>
+            <param name="parameters">Optional parameters</param>
+        </member>
+        <member name="T:Core.Types.RootContainer.NewPerResolve">
+            <summary>
+            Register item - one instance per Resolve call - no ownership!
+            Created items are not disposed (items are not owned by a contarier)!
+            The same as AsNewPerResolve, for compatibility with broken mono
+            </summary>
+        </member>
+        <member name="M:Core.Types.RootContainer.NewPerResolve.Register``1(Autofac.Registrars.Delegate.ComponentActivator{``0})">
+            <summary>
+            Register a delegate as a pure factory item - one instance per Resolve call - no ownership!
+            Created items are not disposed (items are not owned by a contarier)!
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="delegate">The delegate to register.</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.NewPerResolve.Register``1(Core.Types.RootContainer.Options,Autofac.Registrars.Delegate.ComponentActivator{``0})">
+            <summary>
+            Register a delegate as a pure factory item - one instance per Resolve call - no ownership!
+            Created items are not disposed (items are not owned by a contarier)!
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="options">Registration options</param>
+            <param name="delegate">The delegate to register.</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.NewPerResolve.RegisterType``1(Autofac.Parameter[])">
+            <summary>
+            Register a component to be created through reflection
+            as a pure factory item - one instance per Resolve call - no ownership!
+            Created items are not disposed (are not owned by a contarier)!
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="parameters">Optional parameters</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.NewPerResolve.RegisterType``1(Core.Types.RootContainer.Options,Autofac.Parameter[])">
+            <summary>
+            Register a component to be created through reflection
+            as a pure factory item - one instance per Resolve call - no ownership!
+            Created items are not disposed (are not owned by a contarier)!
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="options">Registration options</param>
+            <param name="parameters">Optional parameters</param>
+        </member>
+        <member name="T:Core.Types.RootContainer.AsNewPerResolve`1">
+            <summary>
+            Register item - one instance per Resolve call - no ownership!
+            Created items are not disposed (items are not owned by a contarier)!
+            </summary>
+            <typeparam name="T1">Registers component as servicing T1 service</typeparam>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsNewPerResolve`1.Register``1(Autofac.Registrars.Delegate.ComponentActivator{``0})">
+            <summary>
+            Register a delegate as a pure factory item - one instance per Resolve call - no ownership!
+            Created items are not disposed (items are not owned by a contarier)!
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="delegate">The delegate to register.</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsNewPerResolve`1.Register``1(Core.Types.RootContainer.Options,Autofac.Registrars.Delegate.ComponentActivator{``0})">
+            <summary>
+            Register a delegate as a pure factory item - one instance per Resolve call - no ownership!
+            Created items are not disposed (items are not owned by a contarier)!
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="delegate">The delegate to register.</param>
+            <param name="options">Registration options</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsNewPerResolve`1.RegisterType``1(Autofac.Parameter[])">
+            <summary>
+            Register a component to be created through reflection
+            as a pure factory item - one instance per Resolve call - no ownership!
+            Created items are not disposed (are not owned by a contarier)!
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="parameters">Optional parameters</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsNewPerResolve`1.RegisterType``1(Core.Types.RootContainer.Options,Autofac.Parameter[])">
+            <summary>
+            Register a component to be created through reflection
+            as a pure factory item - one instance per Resolve call - no ownership!
+            Created items are not disposed (are not owned by a contarier)!
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="options">Registration options</param>
+            <param name="parameters">Optional parameters</param>
+        </member>
+        <member name="T:Core.Types.RootContainer.AsNewPerResolve`2">
+            <summary>
+            Register item - one instance per Resolve call - no ownership!
+            Created items are not disposed (items are not owned by a contarier)!
+            </summary>
+            <typeparam name="T1">Registers component as servicing T1 service</typeparam>
+            <typeparam name="T2">Registers component as servicing T2 service</typeparam>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsNewPerResolve`2.Register``1(Autofac.Registrars.Delegate.ComponentActivator{``0})">
+            <summary>
+            Register a delegate as a pure factory item - one instance per Resolve call - no ownership!
+            Created items are not disposed (items are not owned by a contarier)!
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="delegate">The delegate to register.</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsNewPerResolve`2.Register``1(Core.Types.RootContainer.Options,Autofac.Registrars.Delegate.ComponentActivator{``0})">
+            <summary>
+            Register a delegate as a pure factory item - one instance per Resolve call - no ownership!
+            Created items are not disposed (items are not owned by a contarier)!
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="delegate">The delegate to register.</param>
+            <param name="options">Registration options</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsNewPerResolve`2.RegisterType``1(Autofac.Parameter[])">
+            <summary>
+            Register a component to be created through reflection
+            as a pure factory item - one instance per Resolve call - no ownership!
+            Created items are not disposed (are not owned by a contarier)!
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="parameters">Optional parameters</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsNewPerResolve`2.RegisterType``1(Core.Types.RootContainer.Options,Autofac.Parameter[])">
+            <summary>
+            Register a component to be created through reflection
+            as a pure factory item - one instance per Resolve call - no ownership!
+            Created items are not disposed (are not owned by a contarier)!
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="options">Registration options</param>
+            <param name="parameters">Optional parameters</param>
+        </member>
+        <member name="T:Core.Types.RootContainer.AsSingleton">
+            <summary>
+            Registers singleton (single instance per application domain).
+            Use Singleton fallback class on mono!
+            </summary>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsSingleton.Register``1(Autofac.Registrars.Delegate.ComponentActivator{``0})">
+            <summary>
+            Register a delegate as a singleton component
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="delegate">The delegate to register.</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsSingleton.Register``1(Core.Types.RootContainer.Options,Autofac.Registrars.Delegate.ComponentActivator{``0})">
+            <summary>
+            Register a delegate as a singleton component
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="delegate">The delegate to register.</param>
+            <param name="options">Registration options</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsSingleton.RegisterType``1(Autofac.Parameter[])">
+            <summary>
+            Register a component to be created through reflection as a singleton component
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="parameters">Optional parameters</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsSingleton.RegisterType``1(Core.Types.RootContainer.Options,Autofac.Parameter[])">
+            <summary>
+            Register a component to be created through reflection as a singleton component
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="options">Registration options</param>
+            <param name="parameters">Optional parameters</param>
+        </member>
+        <member name="T:Core.Types.RootContainer.Singleton">
+            <summary>
+            Registers singleton (single instance per application domain) - the same as AsSingleton,
+            for compatibility with broken mono compiler.
+            </summary>
+        </member>
+        <member name="M:Core.Types.RootContainer.Singleton.Register``1(Autofac.Registrars.Delegate.ComponentActivator{``0})">
+            <summary>
+            Register a delegate as a singleton component
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="delegate">The delegate to register.</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.Singleton.Register``1(Core.Types.RootContainer.Options,Autofac.Registrars.Delegate.ComponentActivator{``0})">
+            <summary>
+            Register a delegate as a singleton component
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="delegate">The delegate to register.</param>
+            <param name="options">Registration options</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.Singleton.RegisterType``1(Autofac.Parameter[])">
+            <summary>
+            Register a component to be created through reflection as a singleton component
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="parameters">Optional parameters</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.Singleton.RegisterType``1(Core.Types.RootContainer.Options,Autofac.Parameter[])">
+            <summary>
+            Register a component to be created through reflection as a singleton component
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="options">Registration options</param>
+            <param name="parameters">Optional parameters</param>
+        </member>
+        <member name="T:Core.Types.RootContainer.AsSingleton`1">
+            <summary>
+            Registers singleton (single instance per application domain)
+            </summary>
+            <typeparam name="T1">Registers component as servicing T1 service</typeparam>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsSingleton`1.Register``1(Autofac.Registrars.Delegate.ComponentActivator{``0})">
+            <summary>
+            Register a delegate as a singleton component
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="delegate">The delegate to register.</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsSingleton`1.Register``1(Core.Types.RootContainer.Options,Autofac.Registrars.Delegate.ComponentActivator{``0})">
+            <summary>
+            Register a delegate as a singleton component
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="delegate">The delegate to register.</param>
+            <param name="options">Registration options</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsSingleton`1.RegisterType``1(Autofac.Parameter[])">
+            <summary>
+            Register a component to be created through reflection as a singleton component
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="parameters">Optional parameters</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsSingleton`1.RegisterType``1(Core.Types.RootContainer.Options,Autofac.Parameter[])">
+            <summary>
+            Register a component to be created through reflection as a singleton component
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="options">Registration options</param>
+            <param name="parameters">Optional parameters</param>
+        </member>
+        <member name="T:Core.Types.RootContainer.AsSingleton`2">
+            <summary>
+            Registers singleton (single instance per application domain)
+            </summary>
+            <typeparam name="T1">Registers component as servicing T1 service</typeparam>
+            <typeparam name="T2">Registers component as servicing T1 service</typeparam>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsSingleton`2.Register``1(Autofac.Registrars.Delegate.ComponentActivator{``0})">
+            <summary>
+            Register a delegate as a singleton component
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="delegate">The delegate to register.</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsSingleton`2.Register``1(Core.Types.RootContainer.Options,Autofac.Registrars.Delegate.ComponentActivator{``0})">
+            <summary>
+            Register a delegate as a singleton component
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="delegate">The delegate to register.</param>
+            <param name="options">Registration options</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsSingleton`2.RegisterType``1(Autofac.Parameter[])">
+            <summary>
+            Register a component to be created through reflection as a singleton component
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="parameters">Optional parameters</param>
+        </member>
+        <member name="M:Core.Types.RootContainer.AsSingleton`2.RegisterType``1(Core.Types.RootContainer.Options,Autofac.Parameter[])">
+            <summary>
+            Register a component to be created through reflection as a singleton component
+            </summary>
+            <typeparam name="T">The type of the instance.</typeparam>
+            <param name="options">Registration options</param>
+            <param name="parameters">Optional parameters</param>
+        </member>
+        <member name="T:Core.Types.RootContainer.Options">
+            <summary>
+            Optional arguments
+            </summary>
+        </member>
+        <member name="F:Core.Types.RootContainer.Options.Default">
+            <summary>
+            No options - default setttings
+            </summary>
+        </member>
+        <member name="F:Core.Types.RootContainer.Options.PreserveExistingDefaults">
+            <summary>
+            Specifies that the component being registered should only be made the default for services
+            that have not already been registered.
+            </summary>
+        </member>
+        <member name="T:Core.Types.RootContainerParameters">
+            <summary>
+            Facade which helps creating common parameters
+            </summary>
+        </member>
+        <member name="M:Core.Types.RootContainerParameters.ServiceTypedParameter``1(System.String)">
+            <summary>
+            Creates parameter for the specified type. Parameter value is resolved by
+            service name only!
+            </summary>
+            <typeparam name="T">Type of the parameter</typeparam>
+            <param name="serviceName">Service name</param>
+        </member>
+        <member name="M:Core.Types.RootContainerParameters.ResolvedParameter(Core.Types.Func{System.Reflection.ParameterInfo,Autofac.IContext,System.Boolean},Core.Types.Func{System.Reflection.ParameterInfo,Autofac.IContext,System.Object})">
+            <summary>
+            Create an instance of the ResolvedParameter class.
+            </summary>
+            <param name="predicate">A predicate that determines which parameters on a constructor
+            will be supplied by this instance.</param>
+            <param name="valueAccessor">A function that supplies the parameter value
+            given the context.</param>
+        </member>
+        <member name="M:Core.Types.RootContainerParameters.TypedParameter``1(``0)">
+            <summary>
+            Create a typed parameter for the specified type.
+            </summary>
+            <param name="value">The parameter value.</param>
+        </member>
+        <member name="M:Core.Types.RootContainerParameters.NamedParameter(System.String,System.Object)">
+            <summary>
+            Create a named parameter with the specified value.
+            </summary>
+            <param name="name">The name of the parameter.</param>
+            <param name="value">The parameter value.</param>
+        </member>
+        <member name="M:Core.Types.ResolvedParameter.#ctor(Core.Types.Func{System.Reflection.ParameterInfo,Autofac.IContext,System.Boolean},Core.Types.Func{System.Reflection.ParameterInfo,Autofac.IContext,System.Object})">
+            <summary>
+            Create an instance of the ResolvedParameter class.
+            </summary>
+            <param name="predicate">A predicate that determines which parameters on a constructor
+            will be supplied by this instance.</param>
+            <param name="valueAccessor">A function that supplies the parameter value
+            given the context.</param>
+        </member>
+        <member name="M:Core.Types.ResolvedParameter.CanSupplyValue(System.Reflection.ParameterInfo,Autofac.IContext,System.Func{System.Object}@)">
+            <summary>
+            Returns true if the parameter is able to provide a value to a particular site.
+            </summary>
+            <param name="pi">Constructor, method, or property-mutator parameter.</param>
+            <param name="context">The component context in which the value is being provided.</param>
+            <param name="valueProvider">If the result is true, the valueProvider parameter will
+            be set to a function that will lazily retrieve the parameter value. If the result is false,
+            will be set to null.</param>
+            <returns>True if a value can be supplied; otherwise, false.</returns>
+        </member>
+        <member name="T:Core.Types.Singleton`1">
+            <summary>
+            Klasa bazowa dla singletonów. Użytkująca klasa jest odpowiedzialna za uprywatnienie
+            bezargumentowego konstruktora!
+            </summary>
+            <typeparam name="T">Klasa singletonowana</typeparam>
+        </member>
+        <member name="P:Core.Types.Singleton`1.Instance">
+            <summary>
+            Dostęp do singletonu
+            </summary>
+        </member>
+        <member name="T:Core.Types.Tuple">
+            <summary>
+            Pomocnicza statyczna klasa do tworzenia obiektów typu Tuple
+            </summary>
+        </member>
+        <member name="M:Core.Types.Tuple.Create``2(``0,``1)">
+            <summary>
+            Zwraca obiekt Tuple przechowując dwie wartości
+            </summary>
+            <typeparam name="T1">Typ pierwszej wartości</typeparam>
+            <typeparam name="T2">Typ drugiej wartości</typeparam>
+            <param name="item1">Wartość pierwszego elementu</param>
+            <param name="item2">Wartość drugiego elementu</param>
+            <returns>Nowy obiekt</returns>
+        </member>
+        <member name="M:Core.Types.Tuple.Create``3(``0,``1,``2)">
+            <summary>
+            Zwraca obiekt Tuple przechowując dwie wartości
+            </summary>
+            <typeparam name="T1">Typ pierwszej wartości</typeparam>
+            <typeparam name="T2">Typ drugiej wartości</typeparam>
+            <typeparam name="T3">Typ trzeciej wartości</typeparam>
+            <param name="item1">Wartość pierwszego elementu</param>
+            <param name="item2">Wartość drugiego elementu</param>
+            <param name="item3">Wartość trzeciego elementu</param>
+            <returns>Nowy obiekt</returns>
+        </member>
+        <member name="M:Core.Types.Tuple.Create``4(``0,``1,``2,``3)">
+            <summary>
+            Zwraca obiekt Tuple przechowując dwie wartości
+            </summary>
+            <typeparam name="T1">Typ pierwszej wartości</typeparam>
+            <typeparam name="T2">Typ drugiej wartości</typeparam>
+            <typeparam name="T3">Typ trzeciej wartości</typeparam>
+            <typeparam name="T4">Type czwartej wartości</typeparam>
+            <param name="item1">Wartość pierwszego elementu</param>
+            <param name="item2">Wartość drugiego elementu</param>
+            <param name="item3">Wartość trzeciego elementu</param>
+            <param name="item4">Wartość czwartego elementu</param>
+            <returns>Nowy obiekt</returns>
+        </member>
+        <member name="M:Core.Types.Tuple.Create``5(``0,``1,``2,``3,``4)">
+            <summary>
+            Zwraca obiekt Tuple przechowując dwie wartości
+            </summary>
+            <typeparam name="T1">Typ pierwszej wartości</typeparam>
+            <typeparam name="T2">Typ drugiej wartości</typeparam>
+            <typeparam name="T3">Typ trzeciej wartości</typeparam>
+            <typeparam name="T4">Typ czwartej wartości</typeparam>
+            <typeparam name="T5">Typ piątej wartości</typeparam>
+            <param name="item1">Wartość pierwszego elementu</param>
+            <param name="item2">Wartość drugiego elementu</param>
+            <param name="item3">Wartość trzeciego elementu</param>
+            <param name="item4">Wartość czwartego elementu</param>
+            <param name="item5">Wartość piątego elementu</param>
+            <returns>Nowy obiekt</returns>
+        </member>
+        <member name="T:Core.Types.Tuple`2">
+            <summary>
+            Pomocnicza klasa przechowująca dwie wartości
+            </summary>
+            <typeparam name="T1">Typ pierwszego elementu</typeparam>
+            <typeparam name="T2">Typ drugiego elementu</typeparam>
+        </member>
+        <member name="M:Core.Types.Tuple`2.#ctor(`0,`1)">
+            <summary>
+            Konstruuje nowy obiekt
+            </summary>
+            <param name="item1">Wartość pierwszego elementu</param>
+            <param name="item2">Wartość drugiego elementu</param>
+        </member>
+        <member name="P:Core.Types.Tuple`2.Item1">
+            <summary>Zwraca wartość pierwszego elementu</summary>
+        </member>
+        <member name="P:Core.Types.Tuple`2.Item2">
+            <summary>Zwraca wartość drugiego elementu</summary>
+        </member>
+        <member name="T:Core.Types.Tuple`3">
+            <summary>
+            Pomocnicza klasa przechowująca trzy wartości
+            </summary>
+            <typeparam name="T1">Typ pierwszego elementu</typeparam>
+            <typeparam name="T2">Typ drugiego elementu</typeparam>
+            <typeparam name="T3">Typ trzeciego elementu</typeparam>
+        </member>
+        <member name="M:Core.Types.Tuple`3.#ctor(`0,`1,`2)">
+            <summary>
+            Konstruuje nowy obiekt
+            </summary>
+            <param name="item1">Wartość pierwszego elementu</param>
+            <param name="item2">Wartość drugiego elementu</param>
+            <param name="item3">Wartość trzeciego elementu</param>
+        </member>
+        <member name="P:Core.Types.Tuple`3.Item1">
+            <summary>Zwraca wartość pierwszego elementu</summary>
+        </member>
+        <member name="P:Core.Types.Tuple`3.Item2">
+            <summary>Zwraca wartość drugiego elementu </summary>
+        </member>
+        <member name="P:Core.Types.Tuple`3.Item3">
+            <summary>Zwraca wartość trzeciego elementu</summary>
+        </member>
+        <member name="T:Core.Types.Tuple`4">
+            <summary>
+            Pomocnicza klasa przechowująca cztery wartości
+            </summary>
+            <typeparam name="T1">Typ pierwszego elementu</typeparam>
+            <typeparam name="T2">Typ drugiego elementu</typeparam>
+            <typeparam name="T3">Typ trzeciego elementu</typeparam>
+            <typeparam name="T4">Typ czwartego elementu</typeparam>
+        </member>
+        <member name="M:Core.Types.Tuple`4.#ctor(`0,`1,`2,`3)">
+            <summary>
+            Konstruuje nowy obiekt
+            </summary>
+            <param name="item1">Wartość pierwszego elementu</param>
+            <param name="item2">Wartość drugiego elementu</param>
+            <param name="item3">Wartość trzeciego elementu</param>
+            <param name="item4">Wartość czwartego elementu</param>
+        </member>
+        <member name="P:Core.Types.Tuple`4.Item1">
+            <summary>Zwraca wartość pierwszego elementu</summary>
+        </member>
+        <member name="P:Core.Types.Tuple`4.Item2">
+            <summary>Zwraca wartość drugiego elementu </summary>
+        </member>
+        <member name="P:Core.Types.Tuple`4.Item3">
+            <summary>Zwraca wartość trzeciego elementu</summary>
+        </member>
+        <member name="P:Core.Types.Tuple`4.Item4">
+            <summary>Zwraca wartość czwartego elementu</summary>
+        </member>
+        <member name="T:Core.Types.Tuple`5">
+            <summary>
+            Pomocnicza klasa przechowująca pięć wartości
+            </summary>
+            <typeparam name="T1">Typ pierwszego elementu</typeparam>
+            <typeparam name="T2">Typ drugiego elementu</typeparam>
+            <typeparam name="T3">Typ trzeciego elementu</typeparam>
+            <typeparam name="T4">Typ czwartego elementu</typeparam>
+            <typeparam name="T5">Typ piątego elementu</typeparam>
+        </member>
+        <member name="M:Core.Types.Tuple`5.#ctor(`0,`1,`2,`3,`4)">
+            <summary>
+            Konstruuje nowy obiekt
+            </summary>
+            <param name="item1">Wartość pierwszego elementu</param>
+            <param name="item2">Wartość drugiego elementu</param>
+            <param name="item3">Wartość trzeciego elementu</param>
+            <param name="item4">Wartość czwartego elementu</param>
+            <param name="item5">Wartość piątego elementu</param>
+        </member>
+        <member name="P:Core.Types.Tuple`5.Item1">
+            <summary>Zwraca wartość pierwszego elementu</summary>
+        </member>
+        <member name="P:Core.Types.Tuple`5.Item2">
+            <summary>Zwraca wartość drugiego elementu </summary>
+        </member>
+        <member name="P:Core.Types.Tuple`5.Item3">
+            <summary>Zwraca wartość trzeciego elementu</summary>
+        </member>
+        <member name="P:Core.Types.Tuple`5.Item4">
+            <summary>Zwraca wartość czwartego elementu</summary>
+        </member>
+        <member name="P:Core.Types.Tuple`5.Item5">
+            <summary>Zwraca wartość piątego elementu</summary>
+        </member>
+        <member name="T:Core.Types.ValueStringHolder">
+            <summary>
+            Klasa przechowująca wartość przy pomocy stringa i umożliwiająca
+            pobranie (konwersję) wartości do wybranych typów
+            </summary>
+        </member>
+        <member name="M:Core.Types.ValueStringHolder.#ctor(System.String)">
+            <summary>
+            Konstruktor.
+            </summary>
+            <param name="value">Wartość do przechowania</param>
+        </member>
+        <member name="M:Core.Types.ValueStringHolder.IsNull">
+            <summary>
+            Czy jest przypisana wartość
+            </summary>
+            <returns>Czy jest przypisana wartość</returns>
+        </member>
+        <member name="M:Core.Types.ValueStringHolder.GetString">
+            <summary>
+            Pobiera wartość jako string
+            </summary>
+        </member>
+        <member name="M:Core.Types.ValueStringHolder.GetInt">
+            <summary>
+            Pobiera wartość jako int. Do parsowania używa InvariantCulture.
+            </summary>
+        </member>
+        <member name="M:Core.Types.ValueStringHolder.GetBool">
+            <summary>
+            Pobiera wartość jako bool. Do parsowania używa InvariantCulture.
+            </summary>
+        </member>
+        <member name="M:Core.Types.ValueStringHolder.GetDouble">
+            <summary>
+            Pobiera wartość jako double. Do parsowania używa InvariantCulture.
+            </summary>
+        </member>
+        <member name="M:Core.Types.ValueStringHolder.GetDecimal2">
+            <summary>
+            Pobiera wartość jako Decimal2. Do parsowania używa InvariantCulture.
+            </summary>
+        </member>
+        <member name="M:Core.Types.ValueStringHolder.GetDecimal3">
+            <summary>
+            Pobiera wartość jako Decimal3. Do parsowania używa InvariantCulture.
+            </summary>
+        </member>
+        <member name="M:Core.Types.ValueStringHolder.GetDecimal4">
+            <summary>
+            Pobiera wartość jako Decimal4. Do parsowania używa InvariantCulture.
+            </summary>
+        </member>
+        <member name="M:Core.Types.ValueStringHolder.GetNDecimal2">
+            <summary>
+            Pobiera wartość jako NDecimal2. Do parsowania używa InvariantCulture.
+            </summary>
+        </member>
+        <member name="M:Core.Types.ValueStringHolder.GetNDecimal3">
+            <summary>
+            Pobiera wartość jako NDecimal3. Do parsowania używa InvariantCulture.
+            </summary>
+        </member>
+        <member name="M:Core.Types.ValueStringHolder.GetNDecimal4">
+            <summary>
+            Pobiera wartość jako NDecimal4. Do parsowania używa InvariantCulture.
+            </summary>
+        </member>
+    </members>
+</doc>
