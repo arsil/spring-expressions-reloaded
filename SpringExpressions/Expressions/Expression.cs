@@ -103,6 +103,9 @@ namespace SpringExpressions
                 {
                     if (BASENODE_TYPE.IsAssignableFrom(type))
                     {
+                        if (type.IsAbstract || type.IsInterface)
+                            continue;
+
                         ConstructorInfo ctor = type.GetConstructor(new Type[0]);
                         if (ctor != null)
                         {
