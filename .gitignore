@@ -5,3 +5,5 @@ SpringExpressionsTests/obj
 TestownicaZCore/bin
 TestownicaZCore/obj
 *.suo
+_ReSharper.Caches
+.vs

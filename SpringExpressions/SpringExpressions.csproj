@@ -1,299 +1,40 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{A2449651-7D8E-4857-972F-6B9EC9A1D4D8}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>SpringExpressions</RootNamespace>
     <AssemblyName>SpringExpressions</AssemblyName>
-    <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
+    <TargetFrameworks>net20;net35;net40;net45</TargetFrameworks>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
+  <PropertyGroup>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
+    <!--DefineConstants>TRACE</DefineConstants-->
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <DocumentationFile>bin\Release\SpringExpressions.XML</DocumentationFile>
   </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="System" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Drawing" />
-    <Reference Include="System.Xml" />
+
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net40' ">
+    <Reference Include="System.Core" />
   </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Collections\CaseInsensitiveHashtable.cs" />
-    <Compile Include="Collections\DictionarySet.cs" />
-    <Compile Include="Collections\Generic\DictionarySet.cs" />
-    <Compile Include="Collections\Generic\HashedSet.cs" />
-    <Compile Include="Collections\Generic\ISet.cs" />
-    <Compile Include="Collections\Generic\Set.cs" />
-    <Compile Include="Collections\Generic\SortedSet.cs" />
-    <Compile Include="Collections\HybridSet.cs" />
-    <Compile Include="Collections\ISet.cs" />
-    <Compile Include="Collections\Set.cs" />
-    <Compile Include="Core\IErrorCoded.cs" />
-    <Compile Include="Core\InvalidPropertyException.cs" />
-    <Compile Include="Core\MethodInvocationException.cs" />
-    <Compile Include="Core\NotReadablePropertyException.cs" />
-    <Compile Include="Core\NotWritablePropertyException.cs" />
-    <Compile Include="Core\NullValueInNestedPathException.cs" />
-    <Compile Include="Core\PropertyAccessException.cs" />
-    <Compile Include="Core\PropertyChangeEventArgs.cs" />
-    <Compile Include="Core\TypeConversion\CredentialConverter.cs" />
-    <Compile Include="Core\TypeConversion\CustomNumberConverter.cs" />
-    <Compile Include="Core\TypeConversion\FileInfoConverter.cs" />
-    <Compile Include="Core\TypeConversion\NameValueConverter.cs" />
-    <Compile Include="Core\TypeConversion\RegexConverter.cs" />
-    <Compile Include="Core\TypeConversion\RegistryKeyConverter.cs" />
-    <Compile Include="Core\TypeConversion\ResourceManagerConverter.cs" />
-    <Compile Include="Core\TypeConversion\RGBColorConverter.cs" />
-    <Compile Include="Core\TypeConversion\RuntimeTypeConverter.cs" />
-    <Compile Include="Core\TypeConversion\StreamConverter.cs" />
-    <Compile Include="Core\TypeConversion\StringArrayConverter.cs" />
-    <Compile Include="Core\TypeConversion\TimeSpanConverter.cs" />
-    <Compile Include="Core\TypeConversion\TypeConversionUtils.cs" />
-    <Compile Include="Core\TypeConversion\TypeConverterRegistry.cs" />
-    <Compile Include="Core\TypeConversion\UniqueKeyConverter.cs" />
-    <Compile Include="Core\TypeConversion\UriConverter.cs" />
-    <Compile Include="Core\TypeMismatchException.cs" />
-    <Compile Include="Core\TypeResolution\CachedTypeResolver.cs" />
-    <Compile Include="Core\TypeResolution\GenericArgumentsHolder.cs" />
-    <Compile Include="Core\TypeResolution\GenericTypeResolver.cs" />
-    <Compile Include="Core\TypeResolution\ITypeResolver.cs" />
-    <Compile Include="Core\TypeResolution\TypeAssemblyHolder.cs" />
-    <Compile Include="Core\TypeResolution\TypeRegistry.cs" />
-    <Compile Include="Core\TypeResolution\TypeResolutionUtils.cs" />
-    <Compile Include="Core\TypeResolution\TypeResolver.cs" />
-    <Compile Include="Expressions\ArrayConstructorNode.cs" />
-    <Compile Include="Expressions\AssignNode.cs" />
-    <Compile Include="Expressions\AttributeNode.cs" />
-    <Compile Include="Expressions\BaseNode.cs" />
-    <Compile Include="Expressions\BinaryOperator.cs" />
-    <Compile Include="Expressions\BooleanLiteralNode.cs" />
-    <Compile Include="Expressions\ConstructorNode.cs" />
-    <Compile Include="Expressions\DefaultNode.cs" />
-    <Compile Include="Expressions\Expression.cs" />
-    <Compile Include="Expressions\ExpressionConverter.cs" />
-    <Compile Include="Expressions\ExpressionEvaluator.cs" />
-    <Compile Include="Expressions\ExpressionListNode.cs" />
-    <Compile Include="Expressions\FunctionNode.cs" />
-    <Compile Include="Expressions\HexLiteralNode.cs" />
-    <Compile Include="Expressions\IExpression.cs" />
-    <Compile Include="Expressions\IndexerNode.cs" />
-    <Compile Include="Expressions\IntLiteralNode.cs" />
-    <Compile Include="Expressions\LambdaExpressionNode.cs" />
-    <Compile Include="Expressions\ListInitializerNode.cs" />
-    <Compile Include="Expressions\LocalFunctionNode.cs" />
-    <Compile Include="Expressions\LocalVariableNode.cs" />
-    <Compile Include="Expressions\MapEntryNode.cs" />
-    <Compile Include="Expressions\MapInitializerNode.cs" />
-    <Compile Include="Expressions\MethodNode.cs" />
-    <Compile Include="Expressions\NamedArgumentNode.cs" />
-    <Compile Include="Expressions\NodeWithArguments.cs" />
-    <Compile Include="Expressions\NullLiteralNode.cs" />
-    <Compile Include="Expressions\OpADD.cs" />
-    <Compile Include="Expressions\OpAND.cs" />
-    <Compile Include="Expressions\OpBetween.cs" />
-    <Compile Include="Expressions\OpDIVIDE.cs" />
-    <Compile Include="Expressions\OpEqual.cs" />
-    <Compile Include="Expressions\OpGreater.cs" />
-    <Compile Include="Expressions\OpGreaterOrEqual.cs" />
-    <Compile Include="Expressions\OpIn.cs" />
-    <Compile Include="Expressions\OpIs.cs" />
-    <Compile Include="Expressions\OpLess.cs" />
-    <Compile Include="Expressions\OpLessOrEqual.cs" />
-    <Compile Include="Expressions\OpLike.cs" />
-    <Compile Include="Expressions\OpMatches.cs" />
-    <Compile Include="Expressions\OpMODULUS.cs" />
-    <Compile Include="Expressions\OpMULTIPLY.cs" />
-    <Compile Include="Expressions\OpNOT.cs" />
-    <Compile Include="Expressions\OpNotEqual.cs" />
-    <Compile Include="Expressions\OpOR.cs" />
-    <Compile Include="Expressions\OpPOWER.cs" />
-    <Compile Include="Expressions\OpSUBTRACT.cs" />
-    <Compile Include="Expressions\OpUnaryMinus.cs" />
-    <Compile Include="Expressions\OpUnaryPlus.cs" />
-    <Compile Include="Expressions\OpXOR.cs" />
-    <Compile Include="Expressions\Parser\antlr\ANTLRException.cs" />
-    <Compile Include="Expressions\Parser\antlr\ANTLRPanicException.cs" />
-    <Compile Include="Expressions\Parser\antlr\ASTFactory.cs" />
-    <Compile Include="Expressions\Parser\antlr\ASTNodeCreator.cs" />
-    <Compile Include="Expressions\Parser\antlr\ASTNULLType.cs" />
-    <Compile Include="Expressions\Parser\antlr\ASTPair.cs" />
-    <Compile Include="Expressions\Parser\antlr\ASTVisitor.cs" />
-    <Compile Include="Expressions\Parser\antlr\BaseAST.cs" />
-    <Compile Include="Expressions\Parser\antlr\ByteBuffer.cs" />
-    <Compile Include="Expressions\Parser\antlr\CharBuffer.cs" />
-    <Compile Include="Expressions\Parser\antlr\CharQueue.cs" />
-    <Compile Include="Expressions\Parser\antlr\CharScanner.cs" />
-    <Compile Include="Expressions\Parser\antlr\CharStreamException.cs" />
-    <Compile Include="Expressions\Parser\antlr\CharStreamIOException.cs" />
-    <Compile Include="Expressions\Parser\antlr\collections\AST.cs" />
-    <Compile Include="Expressions\Parser\antlr\collections\impl\ASTArray.cs" />
-    <Compile Include="Expressions\Parser\antlr\collections\impl\BitSet.cs" />
-    <Compile Include="Expressions\Parser\antlr\CommonAST.cs" />
-    <Compile Include="Expressions\Parser\antlr\CommonASTWithHiddenTokens.cs" />
-    <Compile Include="Expressions\Parser\antlr\CommonHiddenStreamToken.cs" />
-    <Compile Include="Expressions\Parser\antlr\CommonToken.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\ANTLREventArgs.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\DebuggingCharScanner.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\DebuggingInputBuffer.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\DebuggingParser.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\GuessingEventArgs.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\ICharScannerDebugSubject.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\IDebugSubject.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\InputBufferEventArgs.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\InputBufferEventSupport.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\InputBufferListener.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\InputBufferListenerBase.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\InputBufferReporter.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\IParserDebugSubject.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\Listener.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\LLkDebuggingParser.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\MessageEventArgs.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\MessageListener.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\MessageListenerBase.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\NewLineEventArgs.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\NewLineListener.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\ParserController.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\ParserEventSupport.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\ParserListener.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\ParserListenerBase.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\ParserMatchEventArgs.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\ParserMatchListener.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\ParserMatchListenerBase.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\ParserReporter.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\ParserTokenEventArgs.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\ParserTokenListener.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\ParserTokenListenerBase.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\ParseTreeDebugParser.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\ScannerEventSupport.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\SemanticPredicateEventArgs.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\SemanticPredicateListener.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\SemanticPredicateListenerBase.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\SyntacticPredicateEventArgs.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\SyntacticPredicateListener.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\SyntacticPredicateListenerBase.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\TraceEventArgs.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\TraceListener.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\TraceListenerBase.cs" />
-    <Compile Include="Expressions\Parser\antlr\debug\Tracer.cs" />
-    <Compile Include="Expressions\Parser\antlr\DefaultFileLineFormatter.cs" />
-    <Compile Include="Expressions\Parser\antlr\DumpASTVisitor.cs" />
-    <Compile Include="Expressions\Parser\antlr\FileLineFormatter.cs" />
-    <Compile Include="Expressions\Parser\antlr\IHiddenStreamToken.cs" />
-    <Compile Include="Expressions\Parser\antlr\InputBuffer.cs" />
-    <Compile Include="Expressions\Parser\antlr\IToken.cs" />
-    <Compile Include="Expressions\Parser\antlr\LexerSharedInputState.cs" />
-    <Compile Include="Expressions\Parser\antlr\LLkParser.cs" />
-    <Compile Include="Expressions\Parser\antlr\MismatchedCharException.cs" />
-    <Compile Include="Expressions\Parser\antlr\MismatchedTokenException.cs" />
-    <Compile Include="Expressions\Parser\antlr\NoViableAltException.cs" />
-    <Compile Include="Expressions\Parser\antlr\NoViableAltForCharException.cs" />
-    <Compile Include="Expressions\Parser\antlr\Parser.cs" />
-    <Compile Include="Expressions\Parser\antlr\ParserSharedInputState.cs" />
-    <Compile Include="Expressions\Parser\antlr\ParseTree.cs" />
-    <Compile Include="Expressions\Parser\antlr\ParseTreeRule.cs" />
-    <Compile Include="Expressions\Parser\antlr\ParseTreeToken.cs" />
-    <Compile Include="Expressions\Parser\antlr\RecognitionException.cs" />
-    <Compile Include="Expressions\Parser\antlr\SemanticException.cs" />
-    <Compile Include="Expressions\Parser\antlr\StringUtils.cs" />
-    <Compile Include="Expressions\Parser\antlr\SupportClass.cs" />
-    <Compile Include="Expressions\Parser\antlr\Token.cs" />
-    <Compile Include="Expressions\Parser\antlr\TokenBuffer.cs" />
-    <Compile Include="Expressions\Parser\antlr\TokenCreator.cs" />
-    <Compile Include="Expressions\Parser\antlr\TokenQueue.cs" />
-    <Compile Include="Expressions\Parser\antlr\TokenStream.cs" />
-    <Compile Include="Expressions\Parser\antlr\TokenStreamBasicFilter.cs" />
-    <Compile Include="Expressions\Parser\antlr\TokenStreamException.cs" />
-    <Compile Include="Expressions\Parser\antlr\TokenStreamHiddenTokenFilter.cs" />
-    <Compile Include="Expressions\Parser\antlr\TokenStreamIOException.cs" />
-    <Compile Include="Expressions\Parser\antlr\TokenStreamRecognitionException.cs" />
-    <Compile Include="Expressions\Parser\antlr\TokenStreamRetryException.cs" />
-    <Compile Include="Expressions\Parser\antlr\TokenStreamRewriteEngine.cs" />
-    <Compile Include="Expressions\Parser\antlr\TokenStreamSelector.cs" />
-    <Compile Include="Expressions\Parser\antlr\TokenWithIndex.cs" />
-    <Compile Include="Expressions\Parser\antlr\TreeParser.cs" />
-    <Compile Include="Expressions\Parser\antlr\TreeParserSharedInputState.cs" />
-    <Compile Include="Expressions\Parser\ExpressionLexer.cs" />
-    <Compile Include="Expressions\Parser\ExpressionParser.cs" />
-    <Compile Include="Expressions\Parser\ExpressionParserTokenTypes.cs" />
-    <Compile Include="Expressions\Processors\AverageAggregator.cs" />
-    <Compile Include="Expressions\Processors\ConversionProcessor.cs" />
-    <Compile Include="Expressions\Processors\CountAggregator.cs" />
-    <Compile Include="Expressions\Processors\DateConversionProcessor.cs" />
-    <Compile Include="Expressions\Processors\DistinctProcessor.cs" />
-    <Compile Include="Expressions\Processors\ICollectionProcessor.cs" />
-    <Compile Include="Expressions\Processors\IMethodCallProcessor.cs" />
-    <Compile Include="Expressions\Processors\MaxAggregator.cs" />
-    <Compile Include="Expressions\Processors\MinAggregator.cs" />
-    <Compile Include="Expressions\Processors\NonNullProcessor.cs" />
-    <Compile Include="Expressions\Processors\OrderByProcessor.cs" />
-    <Compile Include="Expressions\Processors\ReverseProcessor.cs" />
-    <Compile Include="Expressions\Processors\SortProcessor.cs" />
-    <Compile Include="Expressions\Processors\SumAggregator.cs" />
-    <Compile Include="Expressions\ProjectionNode.cs" />
-    <Compile Include="Expressions\PropertyOrFieldNode.cs" />
-    <Compile Include="Expressions\QualifiedIdentifier.cs" />
-    <Compile Include="Expressions\RealLiteralNode.cs" />
-    <Compile Include="Expressions\ReferenceNode.cs" />
-    <Compile Include="Expressions\ReferenceObjectFactory.cs" />
-    <Compile Include="Expressions\SelectionFirstNode.cs" />
-    <Compile Include="Expressions\SelectionLastNode.cs" />
-    <Compile Include="Expressions\SelectionNode.cs" />
-    <Compile Include="Expressions\SpringAST.cs" />
-    <Compile Include="Expressions\StringLiteralNode.cs" />
-    <Compile Include="Expressions\SyntaxErrorException.cs" />
-    <Compile Include="Expressions\TernaryNode.cs" />
-    <Compile Include="Expressions\TypeNode.cs" />
-    <Compile Include="Expressions\UnaryOperator.cs" />
-    <Compile Include="Expressions\VariableNode.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Reflection\Dynamic\BaseDynamicMember.cs" />
-    <Compile Include="Reflection\Dynamic\DynamicConstructor.cs" />
-    <Compile Include="Reflection\Dynamic\DynamicField.cs" />
-    <Compile Include="Reflection\Dynamic\DynamicIndexer.cs" />
-    <Compile Include="Reflection\Dynamic\DynamicMethod.cs" />
-    <Compile Include="Reflection\Dynamic\DynamicProperty.cs" />
-    <Compile Include="Reflection\Dynamic\DynamicReflectionManager.cs" />
-    <Compile Include="Util\ArrayUtils.cs" />
-    <Compile Include="Util\AssertUtils.cs" />
-    <Compile Include="Util\CompareUtils.cs" />
-    <Compile Include="Util\DynamicCodeManager.cs" />
-    <Compile Include="Util\FatalReflectionException.cs" />
-    <Compile Include="Util\NumberUtils.cs" />
-    <Compile Include="Util\ObjectUtils.cs" />
-    <Compile Include="Util\PatternMatchUtils.cs" />
-    <Compile Include="Util\ReflectionException.cs" />
-    <Compile Include="Util\ReflectionUtils.cs" />
-    <Compile Include="Util\SecurityCritical.cs" />
-    <Compile Include="Util\StringUtils.cs" />
-    <Compile Include="Util\SystemUtils.cs" />
-    <Compile Include="Util\UniqueKey.cs" />
+  
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net45' ">
+    <Reference Include="System.Core" />
   </ItemGroup>
-  <ItemGroup />
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
+
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'net20' ">
+    <FrameworkPathOverride>C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v3.5\Profile\Client</FrameworkPathOverride>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'net35' ">
+    <FrameworkPathOverride>C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v3.5\Profile\Client</FrameworkPathOverride>
+  </PropertyGroup>
+
+  <!--PropertyGroup>
+    <DocumentationFile>bin\Release\$(TargetFramework)\Forcom.TextMarkupLanguage.xml</DocumentationFile>
+  </PropertyGroup-->
+
 </Project>

@@ -1,39 +1,25 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{28286C1E-EBB7-4321-9052-7FC96F3DC1E8}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>SpringExpressionsTests</RootNamespace>
     <AssemblyName>SpringExpressionsTests</AssemblyName>
-    <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
+    <TargetFrameworks>net20;net35;net40;net45</TargetFrameworks>
     <FileAlignment>512</FileAlignment>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
+
+  <PropertyGroup>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+
+
   <ItemGroup>
-    <Reference Include="nunit.framework, Version=2.6.4.14350, Culture=neutral, PublicKeyToken=96d09a1eb7f44a77, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>References\nunit.framework.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Data" />
     <Reference Include="System.EnterpriseServices" />
@@ -42,39 +28,22 @@
     <Reference Include="System.Web.Services" />
     <Reference Include="System.Xml" />
   </ItemGroup>
-  <ItemGroup>
-    <Compile Include="CommonTypes.cs" />
-    <Compile Include="Expressions\ConstructorNodeTests.cs" />
-    <Compile Include="Expressions\ExpressionEvaluatorTests.cs" />
-    <Compile Include="Expressions\FunctionNodeTests.cs" />
-    <Compile Include="Expressions\MethodNodeTests.cs" />
-    <Compile Include="Expressions\OpADDTests.cs" />
-    <Compile Include="Expressions\OpANDTests.cs" />
-    <Compile Include="Expressions\OpORTests.cs" />
-    <Compile Include="Expressions\OpXORTests.cs" />
-    <Compile Include="Expressions\PropertyOrFieldNodeTests.cs" />
-    <Compile Include="Expressions\SelectionNodeTests.cs" />
-    <Compile Include="Expressions\ServiceLocatorTests.cs" />
-    <Compile Include="NumberUtils.cs" />
-    <Compile Include="ObjectUtils.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="StopWatch.cs" />
-    <Compile Include="SystemUtils.cs" />
-    <Compile Include="Threading\AsyncTestMethod.cs" />
-    <Compile Include="Threading\AsyncTestTask.cs" />
+
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net40' ">
+    <Reference Include="System.Core" />
   </ItemGroup>
+  
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net45' ">
+    <Reference Include="System.Core" />
+  </ItemGroup> 
+
   <ItemGroup>
-    <ProjectReference Include="..\SpringExpressions\SpringExpressions.csproj">
-      <Project>{a2449651-7d8e-4857-972f-6b9ec9a1d4d8}</Project>
-      <Name>SpringExpressions</Name>
-    </ProjectReference>
+    <ProjectReference Include="..\SpringExpressions\SpringExpressions.csproj" />
   </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
+  
+  <ItemGroup>
+    <PackageReference Include="NUnit" Version="2.6.4" />
+  </ItemGroup>
+
+
 </Project>
