@@ -5,7 +5,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>SpringExpressionsTests</RootNamespace>
     <AssemblyName>SpringExpressionsTests</AssemblyName>
-    <TargetFrameworks>net20;net35;net40;net45</TargetFrameworks>
+    <TargetFrameworks>net20;net35;net40;net45;netcoreapp2.1</TargetFrameworks>
     <FileAlignment>512</FileAlignment>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
@@ -19,7 +19,7 @@
   </PropertyGroup>
 
 
-  <ItemGroup>
+  <ItemGroup Condition=" '$(TargetFramework)' != 'netcoreapp2.1' ">
     <Reference Include="System" />
     <Reference Include="System.Data" />
     <Reference Include="System.EnterpriseServices" />
@@ -27,6 +27,7 @@
     <Reference Include="System.Runtime.Serialization.Formatters.Soap" />
     <Reference Include="System.Web.Services" />
     <Reference Include="System.Xml" />
+    <PackageReference Include="NUnit" Version="2.6.4" />
   </ItemGroup>
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'net40' ">
@@ -37,13 +38,14 @@
     <Reference Include="System.Core" />
   </ItemGroup> 
 
+ <ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp2.1' ">
+     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.0.0" />
+     <PackageReference Include="NUnit3TestAdapter" Version="4.2.1" />
+	 <PackageReference Include="NUnit" Version="3.13.2" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\SpringExpressions\SpringExpressions.csproj" />
   </ItemGroup>
-  
-  <ItemGroup>
-    <PackageReference Include="NUnit" Version="2.6.4" />
-  </ItemGroup>
-
 
 </Project>

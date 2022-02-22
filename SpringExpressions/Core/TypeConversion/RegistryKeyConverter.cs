@@ -153,9 +153,11 @@ namespace SpringCore.TypeConversion
                     return Registry.PerformanceData;
                 case "HKEY_CURRENT_CONFIG":
                     return Registry.CurrentConfig;
-                case "HKEY_DYN_DATA":
+#if !NETSTANDARD
+				case "HKEY_DYN_DATA":
                     return Registry.DynData;
-                default:
+#endif
+				default:
                     throw new ArgumentException("Invalid root hive name [" + name + "].");
             }
         }

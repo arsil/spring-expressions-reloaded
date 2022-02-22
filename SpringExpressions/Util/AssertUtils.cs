@@ -25,7 +25,11 @@ using System.Collections;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.Remoting;
+
+#if !NETSTANDARD
 using System.Runtime.Remoting.Proxies;
+#endif
+
 using System.Runtime.Serialization;
 
 #endregion
@@ -96,9 +100,10 @@ namespace SpringUtil
                 throw new NotSupportedException(string.Format(CultureInfo.InvariantCulture, "Target '{0}' is null.", targetName));
             }
 
-            Type targetType;
+            Type targetType = null;
             if (RemotingServices.IsTransparentProxy(target))
             {
+#if !NETSTANDARD
                 RealProxy rp = RemotingServices.GetRealProxy(target);
                 IRemotingTypeInfo rti = rp as IRemotingTypeInfo;
                 if (rti != null)
@@ -110,6 +115,7 @@ namespace SpringUtil
                     throw new NotSupportedException(string.Format(CultureInfo.InvariantCulture, "Target '{0}' is a transparent proxy that does not support methods of '{1}'.", targetName, requiredType.FullName));                                    
                 }
                 targetType = rp.GetProxiedType();
+#endif
             }
             else
             {
@@ -122,7 +128,7 @@ namespace SpringUtil
             }
         }
 
-        #region checking casts on transparent proxies (From BCL via Reflector)
+#region checking casts on transparent proxies (From BCL via Reflector)
         //        private static bool CheckCast(RealProxy rp, Type castType)
 //        {
 //            bool flag = false;
@@ -157,7 +163,7 @@ namespace SpringUtil
 //            }
 //            return flag;
         //        }
-        #endregion
+#endregion
 
         /// <summary>
 		/// Checks the value of the supplied <paramref name="argument"/> and throws an
@@ -382,7 +388,7 @@ namespace SpringUtil
             }
         }
         
-	    #region Constructor (s) / Destructor
+#region Constructor (s) / Destructor
 
 		// CLOVER:OFF
 
@@ -400,7 +406,7 @@ namespace SpringUtil
 
 		// CLOVER:ON
 
-		#endregion
+#endregion
 
 	}
 }

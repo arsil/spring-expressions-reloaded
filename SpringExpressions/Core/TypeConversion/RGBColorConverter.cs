@@ -141,6 +141,9 @@ namespace SpringCore.TypeConversion
 
         private static Color FromName(string name)
         {
+#if NETSTANDARD
+            throw new NotSupportedException("FromName is not supported under .NET Core");
+#else
             try
             {
                 KnownColor color = (KnownColor) Enum.Parse(typeof (KnownColor), name);
@@ -151,6 +154,7 @@ namespace SpringCore.TypeConversion
                 throw new FormatException(
                     "Input string is not a known system color : '" + name + "'.", ex);
             }
+#endif
         }
 
         private static Color GetColorFrom(string alpha, string red, string green, string blue)

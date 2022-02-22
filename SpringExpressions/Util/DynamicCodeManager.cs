@@ -95,26 +95,39 @@ namespace SpringUtil
                 {
                     AssemblyName an = new AssemblyName();
                     an.Name = assemblyName;
-                    
-                    AssemblyBuilder assembly;
-#if DEBUG_DYNAMIC
-                    assembly = AppDomain.CurrentDomain.DefineDynamicAssembly(an, AssemblyBuilderAccess.RunAndSave, null, null, null, null,null, true );
-                    module = assembly.DefineDynamicModule(an.Name, an.Name + ".dll", true);
-#else
-                    an.SetPublicKey(Assembly.GetExecutingAssembly().GetName().GetPublicKey());
-                    assembly = AppDomain.CurrentDomain.DefineDynamicAssembly(an, AssemblyBuilderAccess.Run, null, null, null, null,null, true );
-#if DEBUG                    
-                    module = assembly.DefineDynamicModule(an.Name, true);
-#else
-			        module = assembly.DefineDynamicModule(an.Name, false);
-#endif
-#endif
+                    module = BuildModule(an);
                     s_moduleCache[assemblyName] = module;
                 }
                 return module;
             }
         }
         
+#if !NETSTANDARD
+        private static ModuleBuilder BuildModule(AssemblyName an)
+        {
+#if DEBUG_DYNAMIC
+            AssemblyBuilder assembly = AppDomain.CurrentDomain.DefineDynamicAssembly(an, AssemblyBuilderAccess.RunAndSave, null, null, null, null,null, true );
+            var module = assembly.DefineDynamicModule(an.Name, an.Name + ".dll", true);
+#else
+            an.SetPublicKey(Assembly.GetExecutingAssembly().GetName().GetPublicKey());
+            var assembly = AppDomain.CurrentDomain.DefineDynamicAssembly(an, AssemblyBuilderAccess.Run, null, null, null, null,null, true );
+#if DEBUG
+            var module = assembly.DefineDynamicModule(an.Name, true);
+#else
+			var module = assembly.DefineDynamicModule(an.Name, false);
+#endif
+#endif
+            return module;
+        }
+#else
+        private static ModuleBuilder BuildModule(AssemblyName an)
+        {
+            var assembly = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(Guid.NewGuid().ToString()), AssemblyBuilderAccess.Run);
+            var module = assembly.DefineDynamicModule(an.Name);
+            return module;
+        }
+#endif
+
         /// <summary>
         /// Persists the specified dynamic assembly to the file-system
         /// </summary>
@@ -139,7 +152,10 @@ namespace SpringUtil
             }
 
             AssemblyBuilder assembly = (AssemblyBuilder) module.Assembly;
+
+#if !NETSTANDARD
             assembly.Save(assembly.GetName().Name + ".dll");            
+#endif
         }
 
         /// <summary>
