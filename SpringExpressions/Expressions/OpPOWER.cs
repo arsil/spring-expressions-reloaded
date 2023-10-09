@@ -19,8 +19,11 @@
 #endregion
 
 using System;
+using System.Reflection;
 using System.Runtime.Serialization;
 using SpringUtil;
+
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
@@ -45,7 +48,29 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
+
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+            LExpression evalContext)
+        {
+            var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, evalContext);
+            var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, evalContext);
+
+            if (leftExpression != null 
+                && rightExpression != null
+                && IsNumericExpression(leftExpression)
+                && IsNumericExpression(rightExpression))
+            {
+                //return Math.Pow(Convert.ToDouble(m), Convert.ToDouble(n));
+
+                return LExpression.Call(
+                    MathPowMethodInfo, 
+                    LExpression.Convert(leftExpression, typeof(double)),
+                    LExpression.Convert(rightExpression, typeof(double)));
+            }
+
+            return base.GetExpressionTreeIfPossible(contextExpression, evalContext);
+        }
+
         /// <summary>
         /// Returns a value for the arithmetic exponent operator node.
         /// </summary>
@@ -70,5 +95,9 @@ namespace SpringExpressions
                                             + "'.");
             }
         }
+
+        private static readonly MethodInfo MathPowMethodInfo
+            = typeof(Math).GetMethod("Pow", new[] { typeof(double), typeof(double) });
+
     }
 }

@@ -18,8 +18,12 @@
 
 #endregion
 
+using SpringExpressions.Expressions.LinqExpressionHelpers;
 using System;
+using System.Linq.Expressions;
 using System.Runtime.Serialization;
+
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
@@ -43,6 +47,57 @@ namespace SpringExpressions
         protected DefaultNode(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
+        }
+
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression,
+            LExpression evalContext)
+        {
+            var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, evalContext);
+            var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, evalContext);
+
+            if (leftExpression == null || rightExpression == null)
+                return null;
+
+            if (leftExpression is ConstantExpression constExpr && constExpr.Value == null)
+                return rightExpression;
+
+   // todo: sprawdziæ, czy jest null!em
+            if (MethodBaseHelpers.IsNullableType(leftExpression.Type))
+                return leftExpression;
+
+            if (leftExpression.Type.IsValueType)
+                return leftExpression;
+               // todo: error: typy musz¹ pasowaæ!
+
+
+               // todo: value types!
+               return LExpression.Condition(
+                   LExpression.NotEqual(leftExpression, LExpression.Constant(null, leftExpression.Type)),
+                   leftExpression,
+                   rightExpression);
+            /*
+         if (leftExpression.Type == typeof(bool) && rightExpression.Type == typeof(bool))
+         {
+             // logical AND on boolean expressions
+             return LExpression.AndAlso(
+                 leftExpression,
+                 rightExpression);
+         }
+
+         if (NumberUtils.IsInteger(leftExpression.Type)
+             && NumberUtils.IsInteger(rightExpression.Type))
+         {
+             // bitwise AND for integer types
+             return CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+                 leftExpression,
+                 rightExpression,
+                 LExpression.And);
+         }
+
+         // enums or conversions not supported
+         return null;
+                           */
         }
 
         /// <summary>

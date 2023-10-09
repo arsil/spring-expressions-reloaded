@@ -19,8 +19,11 @@
 #endregion
 
 using System;
+using System.Linq.Expressions;
 using System.Runtime.Serialization;
 using SpringUtil;
+
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
@@ -51,14 +54,54 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
-        /// <summary>
-        /// Returns a value for the logical AND operator node.
-        /// </summary>
-        /// <param name="context">Context to evaluate expressions against.</param>
-        /// <param name="evalContext">Current expression evaluation context.</param>
-        /// <returns>Node's value.</returns>
-        protected override object Get(object context, EvaluationContext evalContext)
+
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression,
+            LExpression evalContext)
+        {
+            var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, evalContext);
+            var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, evalContext);
+
+            if (leftExpression == null || rightExpression == null)
+                return null;
+
+            if (leftExpression.Type == typeof(bool) && rightExpression.Type == typeof(bool))
+            {
+                // logical OR on boolean expressions
+                return LExpression.ExclusiveOr(
+                    leftExpression,
+                    rightExpression);
+            }
+
+            if (NumberUtils.IsInteger(leftExpression.Type)
+                && NumberUtils.IsInteger(rightExpression.Type))
+            {
+                // bitwise OR for integer types
+                return CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+                leftExpression,
+                    rightExpression,
+                    LExpression.ExclusiveOr);
+            }
+
+            if (leftExpression.Type.IsEnum && rightExpression.Type == leftExpression.Type)
+            {
+                return LExpression.Convert(
+                    LExpression.ExclusiveOr(
+                        LExpression.Convert(leftExpression, Enum.GetUnderlyingType(leftExpression.Type)),
+                        LExpression.Convert(rightExpression, Enum.GetUnderlyingType(rightExpression.Type))),
+                    leftExpression.Type);
+            }
+
+            return null;
+        }
+
+		/// <summary>
+		/// Returns a value for the logical AND operator node.
+		/// </summary>
+		/// <param name="context">Context to evaluate expressions against.</param>
+		/// <param name="evalContext">Current expression evaluation context.</param>
+		/// <returns>Node's value.</returns>
+		protected override object Get(object context, EvaluationContext evalContext)
         {
             object l = GetLeftValue(context, evalContext);
             object r = GetRightValue(context, evalContext);

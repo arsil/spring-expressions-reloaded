@@ -21,6 +21,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.Serialization;
 
@@ -50,84 +51,109 @@ namespace SpringExpressions
         {
         }
 
-		protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
-		{
-			var node = getFirstChild();
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+            LExpression evalContext)
+        {
+            var node = getFirstChild();
 
-			
-			var arguments = new List<LExpression>();
-			Type commonType = null;
 
-			while (node != null)
-			{
+            var arguments = new List<LExpression>();
+            Type commonType = null;
+            var nullValuesArgumentIndexes = new List<int>(8);
+
+            while (node != null)
+            {
 // todo: te checki ci¹gle siê powtarzaj¹... czy coœ z tym zrobiæ? ------------------------------------------------------------
-				//if (node.getFirstChild() is LambdaExpressionNode)
-				//{
-				//	argList.Add((BaseNode)node.getFirstChild());
-				//}
-				//else if (node is NamedArgumentNode)
-				//{
-				//	namedArgs.Add(node.getText(), node);
-				//}
-				//else
+                //if (node.getFirstChild() is LambdaExpressionNode)
+                //{
+                //	argList.Add((BaseNode)node.getFirstChild());
+                //}
+                //else if (node is NamedArgumentNode)
+                //{
+                //	namedArgs.Add(node.getText(), node);
+                //}
+                //else
 
-				var arg = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, evalContext);
-				if (arg == null)
-					return null;
+                var arg = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, evalContext);
+                if (arg == null)
+                    return null;
 
-				arguments.Add(arg);
+                arguments.Add(arg);
 
-				if (commonType == null)
-					commonType = arg.Type;
-				else if (arg.Type != commonType)
-					commonType = typeof(object);
 
-				node = node.getNextSibling();
-			}
 
-			if (commonType == null)
-				commonType = typeof(object);
+                if (commonType == null)
+                {
+                    commonType = arg.Type;
+                }
+                else if (arg.Type != commonType)
+                {
+                    // todo: error: nullable? - to musi nullable nawalaæ!
 
-			ConstructorInfo constructor;
+                    // todo: error: gdzieœ jeszcze zbieramy commonType!
+                    // todo: error: to nie dzia³a dobrze? shit!
+                    var nullForReferenceTypeList
+                        = !commonType.IsValueType
+                        && arg is ConstantExpression constExpression
+                        && constExpression.Value == null;
 
-			if (commonType != typeof(object))
-			{
-				// strongly typed list - allows lots of optimizations
+                    if (nullForReferenceTypeList)
+                        nullValuesArgumentIndexes.Add(arguments.Count - 1);
+                    else
+                        commonType = typeof(object);
+                }
 
-				var genericList = typeof(List<>).MakeGenericType(commonType);
-				var genericEnumerable = typeof(IEnumerable<>).MakeGenericType(commonType);
+                node = node.getNextSibling();
+            }
 
-				constructor = genericList.GetConstructor(
-					BindingFlags.Instance | BindingFlags.Public,
-					null,
-					new[] {genericEnumerable},
-					null
-				);
-			}
-			else
-			{
-				// ArrayList for objects
-				// we need conversion to object
-				constructor = typeof(ArrayList).GetConstructor(
-								BindingFlags.Instance | BindingFlags.Public,
-								null,
-								new[] { typeof(ICollection) },
-								null
-								);
+            if (commonType == null)
+                commonType = typeof(object);
 
-				for (int i =0; i < arguments.Count; ++i)
-				{
-					arguments[i] = LExpression
-						.Convert(arguments[i], typeof(object));
-				}
-			}
+            ConstructorInfo constructor;
 
-			return LExpression.New(
-				constructor, 
-				LExpression.NewArrayInit(commonType, arguments));
-		}
+            if (commonType != typeof(object))
+            {
+                // strongly typed list - allows lots of optimizations
 
-		/// <summary>
+                // null arguments handling
+                foreach (var argIndex in nullValuesArgumentIndexes)
+                    arguments[argIndex] = LExpression.Constant(null, commonType);
+
+
+                var genericList = typeof(List<>).MakeGenericType(commonType);
+                var genericEnumerable = typeof(IEnumerable<>).MakeGenericType(commonType);
+
+                constructor = genericList.GetConstructor(
+                    BindingFlags.Instance | BindingFlags.Public,
+                    null,
+                    new[] { genericEnumerable },
+                    null
+                );
+            }
+            else
+            {
+                // ArrayList for objects
+                // we need conversion to object
+                constructor = typeof(ArrayList).GetConstructor(
+                    BindingFlags.Instance | BindingFlags.Public,
+                    null,
+                    new[] { typeof(ICollection) },
+                    null
+                );
+
+                for (int i = 0; i < arguments.Count; ++i)
+                {
+                    arguments[i] = LExpression
+                        .Convert(arguments[i], typeof(object));
+                }
+            }
+
+            return LExpression.New(
+                constructor,
+                LExpression.NewArrayInit(commonType, arguments));
+        }
+
+        /// <summary>
         /// Creates new instance of the list defined by this node.
         /// </summary>
         /// <param name="context">Context to evaluate expressions against.</param>

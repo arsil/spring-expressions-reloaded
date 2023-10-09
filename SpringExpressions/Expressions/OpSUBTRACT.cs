@@ -20,8 +20,10 @@
 
 using System;
 using System.Collections;
+using System.Reflection;
 using System.Runtime.Serialization;
 using SpringCollections;
+using SpringExpressions.Expressions.LinqExpressionHelpers;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -51,13 +53,58 @@ namespace SpringExpressions
         }
 
         protected override LExpression GetExpressionTreeIfPossible(
-            LExpression contextExpression, 
+            LExpression contextExpression,
             LExpression evalContext)
         {
-            return CreateBinaryExpressionForAllNumericTypesEvaluatingChildren(
-                contextExpression,
-                evalContext,
-                LExpression.Subtract);
+            // TODO: dodanie char -  char daje inta...!  ???
+
+            var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, evalContext);
+            var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, evalContext);
+
+            if (leftExpression != null && rightExpression != null)
+            {
+                var exp = CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+                    leftExpression,
+                    rightExpression,
+                    LExpression.Subtract);
+
+                if (exp != null)
+                    return exp;
+
+                if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(string))
+                {
+                    // (DateTime) left + TimeSpan.Parse(right);
+                    return LExpression.Call(
+                        DateTimeMethods.DateTimeSubTimeSpanMethodInfo,
+                        leftExpression,
+                        LExpression.Call(
+                            TimeSpanMethods.TimeSpanParseMethodInfo,
+                            rightExpression));
+                }
+
+                if (leftExpression.Type == typeof(DateTime) && IsNumericExpression(rightExpression))
+                {
+                    // (DateTime) left + TimeSpan.FromDays(Convert.ToDouble(right));
+                    return LExpression.Call(
+                        DateTimeMethods.DateTimeSubTimeSpanMethodInfo,
+                        leftExpression,
+                        LExpression.Call(
+                            TimeSpanMethods.TimeSpanFromDaysMethodInfo,
+                            LExpression.Convert(rightExpression, typeof(double))));
+                }
+
+                if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(DateTime))
+                {
+                    // (DateTime) left + (DateTime) right;
+                    return LExpression.Call(
+                        DateTimeMethods.DateTimeSubDateTimeMethodInfo,
+                        leftExpression,
+                        rightExpression);
+                }
+
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -149,5 +196,8 @@ namespace SpringExpressions
                     + "'.");
             }
         }
+
+
+
     }
 }

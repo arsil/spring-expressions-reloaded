@@ -23,10 +23,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.Serialization;
 using SpringExpressions.Expressions.GenericProcessors;
+using SpringExpressions.Expressions.LinqExpressionHelpers;
 using SpringExpressions.Processors;
 using SpringUtil;
 using SpringReflection.Dynamic;
@@ -125,30 +127,17 @@ namespace SpringExpressions
 				node = node.getNextSibling();
 			}
 
-		    if (typeof(IEnumerable<decimal>).IsAssignableFrom(instance.Type))
-		    {
-				// this is a strongly typed collection <decimal>
+            if (typeof(ICollection).IsAssignableFrom(instance.Type))
+            {
+                var result = TryCollectionProcessors(instance, methodName, argumentsTypes, arguments);
+                if (result != null)
+                    return result;
+            }
 
-				var decProcMethodInfo = typeof(DecimalProcessor).GetMethod(methodName);
-				if (decProcMethodInfo != null)
-			    {
-				    var result = LExpression.Call(decProcMethodInfo, contextExpression);
-				    return result;
-			    }
-		    }
-			else if (typeof(IEnumerable<int>).IsAssignableFrom(instance.Type))
-			{
-				// this is a strongly typed collection <int>
+                var argumentTypesArray = argumentsTypes.ToArray();
 
-				var decProcMethodInfo = typeof(IntProcessor).GetMethod(methodName);
-				if (decProcMethodInfo != null)
-				{
-					var result = LExpression.Call(decProcMethodInfo, contextExpression);
-					return result;
-				}
-			}
 
-			// todo: obs³ugiwaæ inne typy?
+            // todo: obs³ugiwaæ inne typy?
 			// todo: statyczne metody! -------------- statyczne metody! -----------------------------------------------------------------------------------------------
 			   // todo: teoretycznie statyczne metody dzia³aj¹:)
 
@@ -157,8 +146,9 @@ namespace SpringExpressions
 
 			var contextExpressionType = contextExpression.Type;
 
-			if (contextExpressionType == typeof(Type)
-				&& contextExpression.NodeType == ExpressionType.Constant)
+
+            if (contextExpressionType == typeof(Type)
+                && contextExpression.NodeType == ExpressionType.Constant)
 			{
 				// System.Type or underlaying type (e.g. Int32)
 				contextExpressionType = (Type)((ConstantExpression)contextExpression).Value;
@@ -167,7 +157,7 @@ namespace SpringExpressions
 				// try inner type (e.g. Int32)
 				methodInfo = contextExpressionType.GetMethod(methodName,
 					BINDING_FLAGS | BindingFlags.FlattenHierarchy,
-					null, argumentsTypes.ToArray(), null);
+					null, argumentTypesArray, null);
 
 				if (methodInfo == null)
 				{
@@ -178,9 +168,10 @@ namespace SpringExpressions
 
 			}
 
+              // todo: error:
 			   // todo: statyczne metody! tej!
 			   // todO: teoretycznie dzia³aj¹... 
-
+            // todo: error:
 			// todo: to co nie dzia³a, to null-owe parametry (np. ToString('dummy', null))...
 			// todo: bo null jest u nas zawsze typu Object, a metoda oczekuje np. IFormatProvider!
 			// todo: musielibyœmy typy weryfikowaæ i null-e zawsze castowaæ na poprawny typ!
@@ -194,12 +185,47 @@ namespace SpringExpressions
 					    methodName,
 					    BINDING_FLAGS | BindingFlags.FlattenHierarchy,
 					    null,
-					    argumentsTypes.ToArray(),
+					    argumentTypesArray,
 					    null);
 
 		    }
 
-		    if (methodInfo == null && methodName == "date")
+            if (methodInfo == null)
+            {
+                try
+                {
+                    // todo: error: try by name... but if there is only one method why previous GetMethod 
+                    // todo: error: didn't find it? wrong types? wrong number of arguments?
+                    // todo: error: !!!! test it !!!!
+                    methodInfo = contextExpressionType
+                        .GetMethod(methodName, BINDING_FLAGS | BindingFlags.FlattenHierarchy);
+                }
+                catch (AmbiguousMatchException)
+                {
+
+                    var overloadsMi = GetCandidateMethods(
+                        contextExpressionType, methodName, BINDING_FLAGS, argumentTypesArray.Length);
+
+                    if (overloadsMi.Count > 0)
+                    {
+                        var miAndArguments = MethodBaseHelpers.GetMethodByArgumentValues(overloadsMi, arguments.ToArray());
+
+                        if (miAndArguments != null)
+                        {
+                            return LExpression.Call(instance, miAndArguments.Item1, miAndArguments.Item2);
+                        }
+
+                        /*
+                            throw new NotImplementedException(
+                                $"Wybór metody {methodName} z listy kurwa maæ! Overloads:{overloadsMi.Count}");
+                        */
+
+ //                        mi = ReflectionUtils.GetMethodByArgumentValues(overloads, argValues);
+                    }
+                }
+            }
+
+            if (methodInfo == null && methodName == "date")
 		    {
 				// common date() method...
 			    if (arguments.Count == 1)
@@ -223,7 +249,55 @@ namespace SpringExpressions
 			return LExpression.Call(instance, methodInfo, arguments);
 	    }
 
-	    /// <summary>
+        private LExpression TryCollectionProcessors(
+            LExpression instance,
+            string methodName,
+            IEnumerable<Type> argumentsTypes,
+            IEnumerable<LExpression> arguments)
+        {
+            var processorArgumentTypes = new List<Type> { instance.Type };
+            processorArgumentTypes.AddRange(argumentsTypes);
+
+            var processorArguments = new List<LExpression> { instance };
+            processorArguments.AddRange(arguments);
+
+            Type processorType = null;
+
+                    // todo: error: ka¿dy procesor musi mieæ wszystkie metody!!! to jest s³abe!!!
+
+            if (typeof(IEnumerable<decimal>).IsAssignableFrom(instance.Type))
+            {
+                processorType = typeof(DecimalProcessor);
+            }
+            else if (typeof(IEnumerable<int>).IsAssignableFrom(instance.Type))
+            {
+                processorType = typeof(IntProcessor);
+            }
+            else if (typeof(IEnumerable<string>).IsAssignableFrom(instance.Type))
+            {
+                processorType = typeof(StringProcessor);
+            }
+            else if (typeof(ICollection).IsAssignableFrom(instance.Type))
+            {
+                processorType = typeof(WeaklyTypedCollectionProcessor);
+            }
+
+            if (processorType != null)
+            {
+                var decProcMethodInfo = processorType.GetMethod(methodName, processorArgumentTypes.ToArray());
+                if (decProcMethodInfo != null)
+                {
+                    var result = LExpression.Call(decProcMethodInfo, processorArguments.ToArray());
+                    return result;
+                }
+
+            }
+
+            return null;
+
+        }
+
+        /// <summary>
         /// Returns node's value for the given context.
         /// </summary>
         /// <param name="context">Context to evaluate expressions against.</param>
@@ -426,6 +500,18 @@ namespace SpringExpressions
                 , 547, 557, 563, 569, 571, 577, 587, 593, 599, 601
                 , 607, 613, 617, 619, 631, 641, 643, 647, 653, 659
                 , 661, 673, 677, 683, 691, 701, 709, 719, 727, 733
+                , 739, 743, 751, 757, 761, 769, 773, 787, 797, 809
+                , 811, 821, 823, 827, 829, 839, 853, 857, 859, 863, 877, 881, 883, 887, 907, 911, 919, 929, 937, 941
+                , 947, 953, 967, 971, 977, 983, 991, 997, 1009, 1013, 1019, 1021, 1031, 1033, 1039, 1049, 1051, 1061, 1063, 1069
+                , 1087, 1091, 1093, 1097, 1103, 1109, 1117, 1123, 1129, 1151, 1153, 1163, 1171, 1181, 1187, 1193, 1201, 1213, 1217, 1223
+                , 1229, 1231, 1237, 1249, 1259, 1277, 1279, 1283, 1289, 1291, 1297, 1301, 1303, 1307, 1319, 1321, 1327, 1361, 1367, 1373
+                , 1381, 1399, 1409, 1423, 1427, 1429, 1433, 1439, 1447, 1451, 1453, 1459, 1471, 1481, 1483, 1487, 1489, 1493, 1499, 1511
+                , 1523, 1531, 1543, 1549, 1553, 1559, 1567, 1571, 1579, 1583, 1597, 1601, 1607, 1609, 1613, 1619, 1621, 1627, 1637, 1657
+                , 1663, 1667, 1669, 1693, 1697, 1699, 1709, 1721, 1723, 1733, 1741, 1747, 1753, 1759, 1777, 1783, 1787, 1789, 1801, 1811
+                , 1823, 1831, 1847, 1861, 1867, 1871, 1873, 1877, 1879, 1889, 1901, 1907, 1913, 1931, 1933, 1949, 1951, 1973, 1979, 1987
+                , 1993, 1997, 1999, 2003, 2011, 2017, 2027, 2029, 2039, 2053, 2063, 2069, 2081, 2083, 2087, 2089, 2099, 2111, 2113, 2129
+                , 2131, 2137, 2141, 2143, 2153, 2161, 2179, 2203, 2207, 2213, 2221, 2237, 2239, 2243, 2251, 2267, 2269, 2273, 2281, 2287
+                , 2293, 2297, 2309, 2311, 2333, 2339, 2341, 2347, 2351, 2357, 2371, 2377, 2381, 2383, 2389, 2393, 2399, 2411, 2417, 2423
             };
 
 	    private static MethodInfo dateTimeParseMi = typeof(DateTime)

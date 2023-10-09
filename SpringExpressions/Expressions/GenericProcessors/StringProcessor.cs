@@ -1,33 +1,28 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 
+
 namespace SpringExpressions.Expressions.GenericProcessors
 {
-	static class IntProcessor
-	{
-		public static int sum(IEnumerable<int> collection)
-		{ return collection.Sum(); }
+    internal class StringProcessor
+    {
+        public static string max(IEnumerable<string> collection)
+        { return collection.Max(); }
 
-		public static int max(IEnumerable<int> collection)
-		{ return collection.Max(); }
+        public static string min(IEnumerable<string> collection)
+        { return collection.Min(); }
 
-		public static int min(IEnumerable<int> collection)
-		{ return collection.Min(); }
+        public static int count(IEnumerable<string> collection)
+        { return collection.Count(); }
 
-		public static int count(IEnumerable<int> collection)
-		{ return collection.Count(); }
-
-        public static double average(IEnumerable<int> collection)
-        { return collection.Average(); }
-
-        public static List<int> sort(IEnumerable<int> collection)
+        public static List<string> sort(IEnumerable<string> collection)
         {
             return sort(collection, true);
         }
 
-        public static List<int> sort(IEnumerable<int> collection, bool sortAscending)
+        public static List<string> sort(IEnumerable<string> collection, bool sortAscending)
         {
-            var result = new List<int>(collection);
+            var result = new List<string>(collection);
 
             result.Sort();
             if (!sortAscending)
@@ -36,17 +31,19 @@ namespace SpringExpressions.Expressions.GenericProcessors
             return result;
         }
 
-        public static List<int> distinct(IEnumerable<int> collection)
+        public static List<string> distinct(IEnumerable<string> collection)
             => distinct(collection, false);
 
-        public static List<int> distinct(IEnumerable<int> collection, bool includeNulls)
+        public static List<string> distinct(IEnumerable<string> collection, bool includeNulls)
         {
-            return new List<int>(collection.Distinct());
+            if (includeNulls)
+                return new List<string>(collection.Distinct());
+
+            return new List<string>(from it in collection.Distinct() where it != null select it);
         }
 
-        public static List<int> nonNull(IEnumerable<int> collection)
-            => new List<int>(collection);
-
+        public static List<string> nonNull(IEnumerable<string> collection)
+            => new List<string>(from it in collection where it != null select it);
 
         /*
                              *             collectionProcessorMap.Add("count", new CountAggregator());

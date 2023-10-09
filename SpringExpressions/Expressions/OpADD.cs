@@ -23,6 +23,7 @@ using System.Collections;
 using System.Reflection;
 using System.Runtime.Serialization;
 using SpringCollections;
+using SpringExpressions.Expressions.LinqExpressionHelpers;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -69,15 +70,73 @@ namespace SpringExpressions
                 if (exp != null)
                     return exp;
 
+                if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(string))
+                {
+                    // (DateTime) left + TimeSpan.Parse(right);
+                    return LExpression.Call(
+                        DateTimeMethods.DateTimeAddTimeSpanMethodInfo,
+                        leftExpression,
+                        LExpression.Call(
+                            TimeSpanMethods.TimeSpanParseMethodInfo,
+                            rightExpression));
+                }
+
+                if (leftExpression.Type == typeof(DateTime) && IsNumericExpression(rightExpression))
+                {
+                    // (DateTime) left + TimeSpan.FromDays(Convert.ToDouble(right));
+                    return LExpression.Call(
+                        DateTimeMethods.DateTimeAddTimeSpanMethodInfo,
+                        leftExpression,
+                        LExpression.Call(
+                            TimeSpanMethods.TimeSpanFromDaysMethodInfo,
+                            LExpression.Convert(rightExpression, typeof(double))));
+                }
+
+                if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(DateTime))
+                {
+                    // (DateTime) left + (DateTime) right;
+                    return LExpression.Call(
+                        DateTimeMethods.DateTimeAddDateTimeMethodInfo,
+                        leftExpression,
+                        rightExpression);
+                }
+
+                // todo: error: coœ robiæ dla objecta ??????? czy mo¿e œcie¿ka interpretacji?
+                // todo: moim zdaniem jak gdzieœ mamy objecta, to jest klêska i mamy w tupie tak¹ robotê!
+
+                /*
+                if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(object))
+                {
+                    return LExpression.Condition(
+                        LExpression.TypeIs(rightExpression, typeof(TimeSpan)),
+                        leftExpression,
+                        LExpression.Throw(LExpression.Constant(new InvalidOperationException("Sraczka"))));
+
+                    return LExpression.Condition(
+                        LExpression.TypeIs(rightExpression, typeof(TimeSpan)),
+                        leftExpression, 
+                        LExpression.Throw(LExpression.Constant(new InvalidOperationException("Sraczka"))));
+
+                    // todo: dupa blada, bo gdy dostaniemy np. object w right, to nic nie zrobimy
+                    // todo: aktualnie... tzn. musielibyœmy interpretowaæ wartoœci i próbowaæ je parsowaæ!!!
+                }*/
+
 
                 // one of exp is a string expression - we use Concat
                 if (leftExpression.Type == typeof(string) || rightExpression.Type == typeof(string))
                 {
-                    
+                    if (rightExpression.Type.IsValueType)
+                    {
+                        return LExpression.Call(
+                            StrConcatObjObjMethodInfo,
+                            leftExpression, LExpression.TypeAs(rightExpression, typeof(object)));
+                    }
+
                     return LExpression.Call(
-                        StrConcatObjObjMethodInfo,
-                        leftExpression, rightExpression);
+                           StrConcatObjObjMethodInfo,
+                           leftExpression, rightExpression);
                 }
+
             }
 
             return null;
@@ -154,6 +213,5 @@ namespace SpringExpressions
 
         private static readonly MethodInfo StrConcatObjObjMethodInfo
             = typeof(string).GetMethod("Concat", new[] { typeof(object), typeof(object) });
-
     }
 }

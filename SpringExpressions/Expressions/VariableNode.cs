@@ -19,6 +19,8 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
+using System.Reflection;
 using System.Runtime.Serialization;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -48,34 +50,60 @@ namespace SpringExpressions
         }
         
 
-		// todo: bieda polega na tym, i¿ tracimy tutaj informacje o zwracanym typie...
-		// todo: na etapie kompilacji nie mamy nawet tego typu! i to jest super smutne!
-		// todo: byæ mo¿e nie ma sensu tego przerabiaæ na kompilowane wyra¿enie...
-/* - bieda 
-	    protected override LExpression GetExpressionTreeIfPossible(
-			LExpression contextExpression, 
-			LExpression evalContext)
-	    {
-			// todo: bieda... bo stracimy typ... kurwa... co za bieda... ale dowcip... kurwa.. .bieda. totalna!
-			// todo: i po co myœmy to robili... 
-			string varName = getText();
-			if (varName == "this")
-			{
-				// zwraca object
-				return evalContext.ThisContext;
-			}
-			else if (varName == "root")
-			{
-				// zwraca object
-				return evalContext.RootContext;
-			}
+        // todo: bieda polega na tym, i¿ tracimy tutaj informacje o zwracanym typie...
+        // todo: na etapie kompilacji nie mamy nawet tego typu! i to jest super smutne!
+        // todo: byæ mo¿e nie ma sensu tego przerabiaæ na kompilowane wyra¿enie...
 
-			// te¿ zwraca object
-			return evalContext.Variables[varName];
+        // todo: nie mamy tutaj w evalContext ani Root ani ThisContext ani Variables!
+/* - bieda */
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression, 
+            LExpression evalContext)
+        {
+            // todo: bieda... bo stracimy typ... kurwa... co za bieda... ale dowcip... kurwa.. .bieda. totalna!
+            // todo: i po co myœmy to robili... 
+            string varName = getText();
 
-			return base.GetExpressionTreeIfPossible(contextExpression, evalContext);
-	    }
-*/
+            // #this
+            if (varName == "this")
+            {
+                // todo: error: to musi byæ strongly typed! shit!!!! a nie jest... co jest super s³abe!!!
+                // zwraca object
+
+                return LExpression.Field(evalContext, "ThisContext");
+            }
+
+            // #root
+            if (varName == "root")
+            {
+                /* todo: error: to popsu³o test:
+        Assert.IsInstanceOf(typeof (Int32?), ExpressionEvaluator.GetValue(test, "#root"));
+        Assert.IsTrue((bool) ExpressionEvaluator.GetValue(test, "#root != null"));
+
+                // the binaty Equal is nod dfined fo rtye types int32 and object
+
+                // nie dzia³¹ not equal
+                // ale dzia³a equal
+                 */
+
+
+                // zwraca object
+                // todo: error; czy to siê jakoœ zmienia? root? oto jest pyhtanie!---------------------------------- teraz zak³adamy, ¿e siê nie zmienia.... 
+                return contextExpression;
+
+                //return LExpression.Field(evalContext, "RootContext");
+            }
+
+            // any other variable, eg.  #var1  #beat  #i
+            var arguments = new List<LExpression>
+                { LExpression.Constant(varName, typeof(string)) };
+
+            // getting object
+            return LExpression.Call(
+                LExpression.Field(evalContext, "Variables"), 
+                VariablesDictionaryIndexerMi,
+                arguments);
+        }
 
 	    /// <summary>
         /// Returns value of the variable represented by this node.
@@ -117,5 +145,10 @@ namespace SpringExpressions
             }
             evalContext.Variables[varName] = newValue;
         }
+
+        private static readonly MethodInfo VariablesDictionaryIndexerMi
+            = typeof(IDictionary<string, object>)
+                .GetMethod("get_Item", new[] { typeof(string) });
+
     }
 }

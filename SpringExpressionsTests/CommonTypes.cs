@@ -20,6 +20,8 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using NUnit.Framework;
 
 namespace SpringExpressions
 {
@@ -86,10 +88,10 @@ namespace SpringExpressions
         public static string President = "president";
         public const byte ByteConst = 1;
 
-        private IList members = new ArrayList();
+        private IList<Inventor> members = new List<Inventor>();
         private IDictionary officers = new Hashtable();
 
-        public IList Members
+        public IList<Inventor> Members
         {
             get { return members; }
         }

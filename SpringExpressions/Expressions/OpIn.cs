@@ -20,7 +20,11 @@
 
 using System;
 using System.Collections;
+using System.Linq.Expressions;
+using System.Reflection;
 using System.Runtime.Serialization;
+using SpringExpressions.Expressions.LinqExpressionHelpers;
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
@@ -45,7 +49,41 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
+
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression,
+            LExpression evalContext)
+        {
+            var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, evalContext);
+            var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, evalContext);
+
+            if (leftExpression == null || rightExpression == null)
+                return null;
+
+            if (rightExpression is ConstantExpression constExpression
+                && constExpression.Value == null)
+            {
+                return LExpression.Constant(false, typeof(bool));
+            }
+
+            if (typeof(IList).IsAssignableFrom(rightExpression.Type))
+            {
+                return LExpression.Call(
+                    rightExpression, IListContainsMethodInfo, 
+                        LExpression.Convert(leftExpression, typeof(object)));
+            }
+
+            if (typeof(IDictionary).IsAssignableFrom(rightExpression.Type))
+            {
+                return LExpression.Call(
+                    rightExpression, IDictionaryContainsMethodInfo,
+                    LExpression.Convert(leftExpression, typeof(object)));
+            }
+
+            return null;
+        }
+
+
         /// <summary>
         /// Returns a value for the logical IN operator node.
         /// </summary>
@@ -77,5 +115,11 @@ namespace SpringExpressions
                     "Right hand parameter for 'in' operator has to be an instance of IList or IDictionary.");
             }
         }
+
+        private static MethodInfo IListContainsMethodInfo = typeof(IList)
+            .GetMethod("Contains", new[] { typeof(object) } );
+        private static MethodInfo IDictionaryContainsMethodInfo = typeof(IDictionary)
+            .GetMethod("Contains", new[] { typeof(object) });
+
     }
 }

@@ -20,8 +20,12 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Runtime.Serialization;
+using SpringExpressions.Expressions.LinqExpressionHelpers;
 using SpringUtil;
+
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
@@ -46,7 +50,39 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
+
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression,
+            LExpression evalContext)
+        {
+            var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, evalContext);
+            var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, evalContext);
+
+            if (rightExpression.Type.IsGenericType &&
+                rightExpression.Type.GetGenericTypeDefinition() == typeof(List<>))
+            {
+
+                          // todo: error handling! null!
+                var methodInfo = rightExpression.Type.GetMethod("get_Item");
+
+                // todo: error! to dzia³a tyko dla numerycznych! nie zadzia³a dla innych....
+                // todo: error! i te¿ musz¹ mieæ ten sam typ!!! jak nie maj¹, do te¿ nie dzia³a... bo nie robi siê List tylko ArrayList
+                return LExpression.And(
+                    ExpressionCompareUtils.CreateCompare(
+                        leftExpression,
+                        LExpression.Call(rightExpression, methodInfo, LExpression.Constant(0, typeof(int))),
+                        LExpression.GreaterThanOrEqual,
+                        0),
+                    ExpressionCompareUtils.CreateCompare(
+                        leftExpression,
+                        LExpression.Call(rightExpression, methodInfo, LExpression.Constant(1, typeof(int))),
+                        LExpression.LessThanOrEqual,
+                        0));
+            }
+
+            return base.GetExpressionTreeIfPossible(contextExpression, evalContext);
+        }
+
         /// <summary>
         /// Returns a value for the logical IN operator node.
         /// </summary>

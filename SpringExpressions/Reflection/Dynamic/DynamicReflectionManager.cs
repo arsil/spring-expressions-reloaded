@@ -414,7 +414,9 @@ namespace SpringReflection.Dynamic
             methodName = "_dynamic_" + member.DeclaringType.FullName + "." + methodName;
             try
             {
-                new PermissionSet(PermissionState.Unrestricted).Demand();
+#if !NETSTANDARD
+                new PermissionSet(System.Security.Permissions.PermissionState.Unrestricted).Demand();
+#endif
                 dmGetter = CreateDynamicMethodInternal(methodName, returnType, argumentTypes, member, skipVisibility);
             }
             catch(SecurityException)
@@ -826,11 +828,6 @@ namespace SpringReflection.Dynamic
             }
 
             Type valueType = value.GetType();
-
-            if (valueType == targetType)
-            {
-                return value;
-            }
 
             if (ReflectionUtils.IsNullableType(targetType))
             {

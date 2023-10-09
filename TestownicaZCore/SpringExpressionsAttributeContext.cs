@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using Core.Types;
+using Tuple = System.Tuple;
 
 internal class SpringExpressionAttributesContext
 {
@@ -98,7 +99,7 @@ internal class SpringExpressionAttributesContext
 	/// i zwraca Tuple nazwa atrybutu na jego wartość.
 	/// Gdy brak wartości atrybutów, to zwróci Decimal2.Min i pusty string.
 	/// </summary>
-	public Tuple<string, Decimal2> SelectMax(IEnumerable attributeNames)
+	public System.Tuple<string, Decimal2> SelectMax(IEnumerable attributeNames)
 	{
 		Decimal2 resultVal = Decimal2.MinValue;
 		string resultName = "";
@@ -124,7 +125,7 @@ internal class SpringExpressionAttributesContext
 	/// i zwraca Tuple nazwa atrybutu na jego wartość.
 	/// Gdy brak wartości atrybutów, to zwróci Decimal2.Min i pusty string.
 	/// </summary>
-	public Tuple<string, Decimal2> SelectMin(IEnumerable attributeNames)
+	public System.Tuple<string, Decimal2> SelectMin(IEnumerable attributeNames)
 	{
 		Decimal2 resultVal = Decimal2.MaxValue;
 		string resultName = "";

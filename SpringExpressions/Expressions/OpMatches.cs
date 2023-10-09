@@ -19,8 +19,12 @@
 #endregion
 
 using System;
+using System.Linq.Expressions;
+using System.Reflection;
 using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
+
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
@@ -47,7 +51,31 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
+
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression,
+            LExpression evalContext)
+        {
+            var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, evalContext);
+            var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, evalContext);
+
+            if (rightExpression is ConstantExpression constExpression
+                && constExpression.Type == typeof(string))
+            {
+                var pattern = (string)constExpression.Value;
+                var regexTmp = new Regex(pattern, RegexOptions.Compiled);
+
+                return LExpression.Call(
+                    LExpression.Constant(regexTmp, typeof(Regex)),
+                    RegexIsMatchMethodInfo,
+                    leftExpression);
+            }
+
+            // there is no point in creating compiled regex if pattern isn't constant.
+
+            return rightExpression;
+        }
+
         /// <summary>
         /// Returns a value for the logical MATCHES operator node.
         /// </summary>
@@ -58,6 +86,7 @@ namespace SpringExpressions
         /// </returns>
         protected override object Get(object context, EvaluationContext evalContext)
         {
+                // todo: error: lock? race condition?
             if (regex == null)
             {
                 lock (this)
@@ -73,5 +102,9 @@ namespace SpringExpressions
             string text = GetLeftValue( context, evalContext ) as string;
             return regex.IsMatch(text);
         }
+
+        private static readonly MethodInfo RegexIsMatchMethodInfo
+            = typeof(Regex).GetMethod("IsMatch", new[] { typeof(string) });
+
     }
 }

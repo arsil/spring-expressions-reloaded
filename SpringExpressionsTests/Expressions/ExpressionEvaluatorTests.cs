@@ -21,20 +21,31 @@
 #region Imports
 
 using System;
+
+#if NETCOREAPP || NET_4_0
+using System.Linq;
+#endif
+
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+#if !NETCOREAPP
 using System.EnterpriseServices;
+#endif
 using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
+#if !NETCOREAPP
 using System.Runtime.Serialization.Formatters.Soap;
+#endif
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+#if !NETCOREAPP
 using System.Web.Services;
+#endif
 using NUnit.Framework;
 using SpringCollections;
 using SpringContext;
@@ -63,7 +74,7 @@ namespace SpringExpressions
     [TestFixture]
     public sealed class ExpressionEvaluatorTests
     {
-        #region Helper classes for threading tests
+#region Helper classes for threading tests
 
         public class AsyncTestExpressionEvaluation : AsyncTestTask
         {
@@ -89,13 +100,13 @@ namespace SpringExpressions
             }
         }
 
-        #endregion
+#endregion
 
         private Inventor tesla;
         private Inventor pupin;
         private Society ieee;
 
-        #region SetUp and TearDown
+#region SetUp and TearDown
 
         /// <summary>
         /// The setup logic executed before the execution of each individual test.
@@ -130,15 +141,19 @@ namespace SpringExpressions
             TypeRegistry.RegisterType("Society", typeof(Society));
         }
 
+#if !NETCOREAPP
         [TestFixtureTearDown]
+#else
+        [OneTimeTearDown]
+#endif
         public void TearDown()
         {
             //DynamicCodeManager.SaveAssembly();
         }
 
-        #endregion
+#endregion
 
-        #region Serialization Tests
+#region Serialization Tests
 
         /// <summary>
         /// GetObjectData() is not overridden on purpose !!!
@@ -194,7 +209,9 @@ namespace SpringExpressions
                     IExpression exp = (IExpression)Activator.CreateInstance(t, true);
                     // serialize and deserialize it
                     exp = SerializeDeserializeExpression(exp);
+#if !NETCOREAPP
                     exp = SerializeDeserializeExpressionUsingSoap(exp);
+#endif
                 }
             }
         }
@@ -251,6 +268,7 @@ namespace SpringExpressions
             return exp;
         }
 
+#if !NETCOREAPP
         private static IExpression SerializeDeserializeExpressionUsingSoap(IExpression exp)
         {
             string xml;
@@ -271,8 +289,9 @@ namespace SpringExpressions
             }
             return exp;
         }
+#endif
 
-        #endregion Serialization Tests
+#endregion Serialization Tests
 
         [Test]
         public void TestConstantRead()
@@ -294,7 +313,7 @@ namespace SpringExpressions
             object value = ExpressionEvaluator.GetValue(null, "'123' + 1");
             Assert.AreEqual("1231", value);
         }
-#if NET_4_0
+#if NET_4_0 || NETCOREAPP
         [Test(Description = "SPRNET-1507 - Test 1")]
         public void TestExpandoObject()
         {
@@ -367,20 +386,18 @@ namespace SpringExpressions
         /// Should throw exception for null root object
         /// </summary>
         [Test]
-        [ExpectedException(typeof(NullValueInNestedPathException))]
         public void NullRoot()
         {
-            ExpressionEvaluator.GetValue(null, "dummy.expression");
+            Assert.Throws<NullValueInNestedPathException>(() => ExpressionEvaluator.GetValue(null, "dummy.expression"));
         }
 
         /// <summary>
         /// Should throw exception for null root object
         /// </summary>
         [Test]
-        [ExpectedException(typeof(NotSupportedException))]
         public void TryingToSetTheValueOfNonSettableNode()
         {
-            ExpressionEvaluator.SetValue(null, "10", 5);
+            Assert.Throws<NotSupportedException>(() => ExpressionEvaluator.SetValue(null, "10", 5));
         }
 
         /// <summary>
@@ -398,10 +415,9 @@ namespace SpringExpressions
         /// Should fail when setting value for the empty expression
         /// </summary>
         [Test]
-        [ExpectedException(typeof(NotSupportedException))]
         public void SetNullOrEmptyExpression()
         {
-            ExpressionEvaluator.SetValue("xyz", null, "abc");
+            Assert.Throws<NotSupportedException>(() => ExpressionEvaluator.SetValue("xyz", null, "abc"));
         }
 
         /// <summary>
@@ -653,10 +669,9 @@ namespace SpringExpressions
         /// Tests indexer access with invalid number of indices
         /// </summary>
         [Test]
-        [ExpectedException(typeof(InvalidPropertyException))]
         public void TestIndexedPropertyAccessWithInvalidNumberOfIndices()
         {
-            ExpressionEvaluator.GetValue(tesla, "Inventions[3, 2]");
+            Assert.Throws<InvalidPropertyException>(() => ExpressionEvaluator.GetValue(tesla, "Inventions[3, 2]"));
         }
 
         /// <summary>
@@ -700,10 +715,9 @@ namespace SpringExpressions
         /// Tests missing method accessors
         /// </summary>
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestMissingMethodAccess()
         {
-            ExpressionEvaluator.GetValue("xyz", "ToStringilyLingily()");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue("xyz", "ToStringilyLingily()"));
         }
 
         /// <summary>
@@ -864,10 +878,9 @@ namespace SpringExpressions
         /// Tests missing constructor
         /// </summary>
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestMissingConstructor()
         {
-            ExpressionEvaluator.GetValue(null, "new Decimal('xyz')");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(null, "new Decimal('xyz')"));
         }
 
         /// <summary>
@@ -921,6 +934,21 @@ namespace SpringExpressions
             Assert.AreEqual("default", ExpressionEvaluator.GetValue(null, "'default' ?? 'xyz'"));
             Assert.AreEqual(1, ExpressionEvaluator.GetValue(null, "2 * 2 - 3 ?? 5"));
             Assert.AreEqual("Nikola Tesla", ExpressionEvaluator.GetValue(tesla, "#root.Name ?? 'Pupin'"));
+
+            int? nullableInt = 6;
+            Assert.AreEqual(6, ExpressionEvaluator.GetValue(nullableInt, "#root ?? 997"));
+
+            nullableInt = null;
+            // ReSharper disable once ExpressionIsAlwaysNull
+            Assert.AreEqual(997, ExpressionEvaluator.GetValue(nullableInt, "#root ?? 997"));
+
+            var nullableHolder = new NullableIntHolder
+            { Value = 6 };
+
+            Assert.AreEqual(6, ExpressionEvaluator.GetValue(nullableHolder, "Value ?? 997"));
+
+            nullableHolder.Value = null;
+            Assert.AreEqual(997, ExpressionEvaluator.GetValue(nullableHolder, "Value ?? 997"));
         }
 
         /// <summary>
@@ -931,6 +959,11 @@ namespace SpringExpressions
         {
             Dictionary<string, object> vars = new Dictionary<string, object>();
             vars["newName"] = "Aleksandar Seovic";
+
+            Assert.AreEqual("Aleksandar Seovic", vars["newName"]);
+            Assert.AreEqual("Aleksandar Seovic", 
+                ExpressionEvaluator.GetValue(null, "#newName", vars));
+
             Assert.AreEqual("Ana Maria Seovic",
                             ExpressionEvaluator.GetValue(null, "#newName = 'Ana Maria Seovic'", vars));
             Assert.AreEqual("Ana Maria Seovic", ExpressionEvaluator.GetValue(tesla, "Name = #newName", vars));
@@ -950,20 +983,18 @@ namespace SpringExpressions
         /// Try to set 'this' variable
         /// </summary>
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TryToSetThis()
         {
-            ExpressionEvaluator.SetValue(null, "#this", "xyz");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.SetValue(null, "#this", "xyz"));
         }
 
         /// <summary>
         /// Try to set 'root' variable
         /// </summary>
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TryToSetRoot()
         {
-            ExpressionEvaluator.SetValue(null, "#root", "xyz");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.SetValue(null, "#root", "xyz"));
         }
 
         /// <summary>
@@ -1013,7 +1044,12 @@ namespace SpringExpressions
         {
             Assert.AreEqual( 1 | 2, ExpressionEvaluator.GetValue(null, "1 or 2"));
             Assert.AreEqual( 1 | -2, ExpressionEvaluator.GetValue(null, "1 or -2"));
-            Assert.AreEqual(RegexOptions.IgnoreCase | RegexOptions.Compiled, ExpressionEvaluator.GetValue(null, "T(System.Text.RegularExpressions.RegexOptions).IgnoreCase or T(System.Text.RegularExpressions.RegexOptions).Compiled"));
+            Assert.AreEqual(typeof(string), 
+                ExpressionEvaluator.GetValue(
+                    null, "T(System.Text.RegularExpressions.RegexOptions).IgnoreCase or T(System.Text.RegularExpressions.RegexOptions).Compiled").GetType());
+            Assert.AreEqual(
+                RegexOptions.IgnoreCase | RegexOptions.Compiled, 
+                ExpressionEvaluator.GetValue(null, "T(System.Text.RegularExpressions.RegexOptions).IgnoreCase or T(System.Text.RegularExpressions.RegexOptions).Compiled"));
         }
 
         /// <summary>
@@ -1053,6 +1089,9 @@ namespace SpringExpressions
             Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "!false"));
             string expression = @"IsMember('Nikola Tesla') and !IsMember('Mihajlo Pupin')";
             Assert.IsFalse((bool)ExpressionEvaluator.GetValue(ieee, expression));
+            Assert.AreEqual(typeof(RegexOptions), ExpressionEvaluator.GetValue(
+                null, "!T(System.Text.RegularExpressions.RegexOptions).Compiled")
+                .GetType());
             Assert.AreEqual( ~RegexOptions.Compiled, ExpressionEvaluator.GetValue(null, "!T(System.Text.RegularExpressions.RegexOptions).Compiled"));
         }
 
@@ -1200,11 +1239,6 @@ namespace SpringExpressions
         [Test]
         public void TestLessThanOperator()
         {
-            // Null
-            Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "null < null"));
-            Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "123 < null"));
-            Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "null < 'xyz'"));
-
             // Bool
             Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "false < true"));
             Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "true < true"));
@@ -1223,6 +1257,11 @@ namespace SpringExpressions
             Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "date('1974-08-24') < date('1974-08-24')"));
             Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "date('1974-08-24') < DateTime.Today"));
             Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "DateTime.Today < date('1974-08-24')"));
+
+            // Null
+            Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "null < null"));
+            Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "123 < null"));
+            Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "null < 'xyz'"));
         }
 
         /// <summary>
@@ -1324,12 +1363,14 @@ namespace SpringExpressions
         [Test]
         public void TestInOperator()
         {
-            Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "null in null"));
             Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "3 in {1, 2, 3, 4, 5}"));
             Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "!(3 in {1, 2, 3, 4, 5})"));
             Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "'xyz' in new string[] {'abc', 'xyz'}"));
+            Assert.IsFalse(
+                (bool)ExpressionEvaluator.GetValue(null, "'xyz' in #{'abc' : 'Value 1', 'xyz2' : 'Value 2'}"));
             Assert.IsTrue(
                 (bool)ExpressionEvaluator.GetValue(null, "'xyz' in #{'abc' : 'Value 1', 'xyz' : DateTime.Today}"));
+            Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "null in null"));
         }
 
         /// <summary>
@@ -1358,18 +1399,18 @@ namespace SpringExpressions
         [Test]
         public void TestBetweenOperator()
         {
-            Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "null between {1, 5}"));
             Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "0 between {1, 5}"));
             Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "1 between {1, 5}"));
-            Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "3 between {1, 5}"));
+            Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "3.4m between {1.2m, 5.3m}"));
             Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "5 between {1, 5}"));
             Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "6 between {1, 5}"));
             Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "!(6 between {1, 5})"));
-            Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "'efg' between {'abc', 'xyz'}"));
             Assert.IsTrue(
                 (bool)ExpressionEvaluator.GetValue(null, "DateTime.Today between {DateTime.Today, DateTime.Now}"));
             Assert.IsFalse(
                 (bool)ExpressionEvaluator.GetValue(null, "DateTime.Today between {DateTime.Now, DateTime.Now}"));
+            Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "'efg' between {'abc', 'xyz'}"));
+            Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "null between {1, 5}"));
         }
 #if !MONO
 
@@ -1388,7 +1429,7 @@ namespace SpringExpressions
             Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "'Ana Maria Seovic' like '*Maria*'"));
             Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "'Marija Seovic' like '*Seovic'"));
         }
-         */ 
+         */
 #endif
         /// <summary>
         /// Tests MATCHES operator.
@@ -1396,6 +1437,10 @@ namespace SpringExpressions
         [Test]
         public void TestMatchesOperator()
         {
+            Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "'5.0067' matches '^-?\\d+(\\.\\d{2})?$'"));
+            Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, @"'5.00' matches '^-?\d+(\.\d{2})?$'"));
+
+
             string emailCheck =
                 @"^([\w-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([\w-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)$";
 
@@ -1406,31 +1451,27 @@ namespace SpringExpressions
             Assert.IsFalse((bool)ExpressionEvaluator.GetValue(emailCheck, "'aleks' matches #this"));
             Assert.IsFalse((bool)ExpressionEvaluator.GetValue(emailCheck, "'aleks@' matches #this"));
             Assert.IsFalse((bool)ExpressionEvaluator.GetValue(emailCheck, "'aleks@seovic' matches #this"));
-            Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "'5.0067' matches '^-?\\d+(\\.\\d{2})?$'"));
-            Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, @"'5.00' matches '^-?\d+(\.\d{2})?$'"));
         }
 
         /// <summary>
         /// Type coercion failure.
         /// </summary>
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestTypeCoercionForUncoercableTypes()
         {
-            ExpressionEvaluator.GetValue(null, "'xyz' > 123");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(null, "'xyz' > 123"));
         }
 
         /// <summary>
         /// Type comparison failure.
         /// </summary>
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestComparisonOfInstancesThatDoNotImplementIComparable()
         {
             Dictionary<string, object> vars = new Dictionary<string, object>();
             vars["tesla"] = tesla;
             vars["pupin"] = pupin;
-            ExpressionEvaluator.GetValue(null, "#tesla > #pupin", vars);
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(null, "#tesla > #pupin", vars));
         }
 
         /// <summary>
@@ -1456,6 +1497,19 @@ namespace SpringExpressions
             Assert.AreEqual("test", ExpressionEvaluator.GetValue(null, "'test' + #this")); // can concat null
             Assert.AreEqual("test", ExpressionEvaluator.GetValue(null, "#this+'test'")); // can concat null
 
+            Assert.AreEqual(new DateTime(1974, 8, 29),
+                ExpressionEvaluator.GetValue(null, "date('1974-08-24') + '5.0:0'"));
+
+            Assert.AreEqual(new DateTime(1974, 8, 29),
+                ExpressionEvaluator.GetValue(null, "date('1974-08-24') + 5"));
+        }
+
+        /// <summary>
+        /// Tests addition operator.
+        /// </summary>
+        [Test]
+        public void TestAddOperatorWeakTyped()
+        {
             // dates
             DateTime anaDOB = new DateTime(2004, 8, 14);
             DateTime aleksDOB = new DateTime(1974, 8, 24);
@@ -1464,19 +1518,15 @@ namespace SpringExpressions
             vars["ts"] = diff;
 
             Assert.AreEqual(anaDOB, ExpressionEvaluator.GetValue(null, "date('1974-08-24') + #ts", vars));
-            Assert.AreEqual(new DateTime(1974, 8, 29), ExpressionEvaluator.GetValue(null, "date('1974-08-24') + 5"));
-            Assert.AreEqual(new DateTime(1974, 8, 29),
-                            ExpressionEvaluator.GetValue(null, "date('1974-08-24') + '5.0:0'"));
         }
 
         /// <summary>
         /// Tests addition operator with invalid arguments.
         /// </summary>
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestAddOperatorWithInvalidArguments()
         {
-            ExpressionEvaluator.GetValue(null, "DateTime.Today + false");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(null, "DateTime.Today + false"));
         }
 
         /// <summary>
@@ -1497,24 +1547,25 @@ namespace SpringExpressions
             DateTime anaDOB = new DateTime(2004, 8, 14);
             DateTime aleksDOB = new DateTime(1974, 8, 24);
             TimeSpan diff = anaDOB - aleksDOB;
+
+            Assert.AreEqual(diff, ExpressionEvaluator.GetValue(null, "date('2004-08-14') - date('1974-08-24')"));
+            Assert.AreEqual(new DateTime(1974, 8, 19), ExpressionEvaluator.GetValue(null, "date('1974-08-24') - 5"));
+            Assert.AreEqual(new DateTime(1974, 8, 19),
+                ExpressionEvaluator.GetValue(null, "date('1974-08-24') - '5.0:0'"));
+
             Dictionary<string, object> vars = new Dictionary<string, object>();
             vars["ts"] = diff;
 
             Assert.AreEqual(aleksDOB, ExpressionEvaluator.GetValue(null, "date('2004-08-14') - #ts", vars));
-            Assert.AreEqual(diff, ExpressionEvaluator.GetValue(null, "date('2004-08-14') - date('1974-08-24')"));
-            Assert.AreEqual(new DateTime(1974, 8, 19), ExpressionEvaluator.GetValue(null, "date('1974-08-24') - 5"));
-            Assert.AreEqual(new DateTime(1974, 8, 19),
-                            ExpressionEvaluator.GetValue(null, "date('1974-08-24') - '5.0:0'"));
         }
 
         /// <summary>
         /// Tests subtraction operator with invalid arguments.
         /// </summary>
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestSubtractOperatorWithInvalidArguments()
         {
-            ExpressionEvaluator.GetValue(null, "DateTime.Today - false");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(null, "DateTime.Today - false"));
         }
 
         /// <summary>
@@ -1535,10 +1586,9 @@ namespace SpringExpressions
         /// Tests multiplication operator with invalid arguments.
         /// </summary>
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestMultiplyOperatorWithInvalidArguments()
         {
-            ExpressionEvaluator.GetValue(null, "DateTime.Today * false");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(null, "DateTime.Today * false"));
         }
 
         /// <summary>
@@ -1559,10 +1609,9 @@ namespace SpringExpressions
         /// Tests division operator with invalid arguments.
         /// </summary>
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestDivideOperatorWithInvalidArguments()
         {
-            ExpressionEvaluator.GetValue(null, "DateTime.Today / false");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(null, "DateTime.Today / false"));
         }
 
         /// <summary>
@@ -1583,10 +1632,9 @@ namespace SpringExpressions
         /// Tests modulus operator with invalid arguments.
         /// </summary>
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestModulusOperatorWithInvalidArguments()
         {
-            ExpressionEvaluator.GetValue(null, "DateTime.Today % false");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(null, "DateTime.Today % false"));
         }
 
         /// <summary>
@@ -1606,30 +1654,27 @@ namespace SpringExpressions
         /// Tests power operator with invalid arguments.
         /// </summary>
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestPowerOperatorWithInvalidArguments()
         {
-            ExpressionEvaluator.GetValue(null, "DateTime.Today ^ false");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(null, "DateTime.Today ^ false"));
         }
 
         /// <summary>
         /// Tests unary minus operator with invalid argument.
         /// </summary>
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestUnaryMinusOperatorWithInvalidArguments()
         {
-            ExpressionEvaluator.GetValue(null, "-false");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(null, "-false"));
         }
 
         /// <summary>
         /// Tests unary plus operator with invalid argument.
         /// </summary>
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestUnaryPlusOperatorWithInvalidArguments()
         {
-            ExpressionEvaluator.GetValue(null, "+false");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(null, "+false"));
         }
 
         /// <summary>
@@ -1644,19 +1689,21 @@ namespace SpringExpressions
             Assert.AreEqual(-4.5, ExpressionEvaluator.GetValue(null, "1+(2-3*8)/2.0/2"));
         }
 
-        /// <summary>
+		/// <summary>
         /// Tests attribute expression.
         /// </summary>
         [Test]
         public void TestAttribute()
         {
+#if !NETCOREAPP
             TypeRegistry.RegisterType("WebMethod", typeof(WebMethodAttribute));
             TypeRegistry.RegisterType("TransactionOption", typeof(TransactionOption));
-
+#endif
             Assert.IsInstanceOf(typeof(SerializableAttribute),
                                     ExpressionEvaluator.GetValue(null, "@[System.Serializable]"));
             Assert.IsInstanceOf(typeof(SerializableAttribute),
                                     ExpressionEvaluator.GetValue(null, "@[System.Serializable()]"));
+#if !NETCOREAPP
             Assert.IsInstanceOf(typeof(WebMethodAttribute), ExpressionEvaluator.GetValue(null, "@[WebMethod]"));
 
             WebMethodAttribute webMethod = (WebMethodAttribute)ExpressionEvaluator.GetValue(null, "@[WebMethod(true)]");
@@ -1669,6 +1716,7 @@ namespace SpringExpressions
             Assert.AreEqual(60, webMethod.CacheDuration);
             Assert.AreEqual("my web method", webMethod.Description);
             Assert.AreEqual(TransactionOption.Required, webMethod.TransactionOption);
+#endif
         }
 
         [Test]
@@ -1735,10 +1783,10 @@ namespace SpringExpressions
             Expression.RegisterFunction("fact", "{|n| $n <= 1 ? 1 : $n * #fact($n-1)}", vars);
             string expr2 =
                 @"(
-                                #delegate = {|f,n| $f($n) };
-                                #d = #delegate;
+# delegate = {|f,n| $f($n) };
+# d = #delegate;
 
-                                #result = { #delegate(#sqrt, 4), #d(#fact, 5), #delegate({|n| $n ^ 2 }, 5) }
+# result = { #delegate(#sqrt, 4), #d(#fact, 5), #delegate({|n| $n ^ 2 }, 5) }
                             )";
             IList results = (IList)ExpressionEvaluator.GetValue(null, expr2, vars);
             Assert.AreEqual(2, results[0]);
@@ -1752,7 +1800,7 @@ namespace SpringExpressions
                                                          new Dictionary<string, object>()));
         }
 
-        #region Collection Processor and Aggregator tests
+#region Collection Processor and Aggregator tests
 
         [Test]
         public void TestCountAggregator()
@@ -1806,7 +1854,11 @@ namespace SpringExpressions
             int[] arr = new int[] { 24, 8, 14, 8 };
             Assert.AreEqual(54, ExpressionEvaluator.GetValue(arr, "sum()"));
             Assert.AreEqual(13, ExpressionEvaluator.GetValue(null, "{1, 5, -3, 10}.sum()"));
+        }
 
+        [Test]
+        public void TestSumAggregatorWeakTyped()
+        {
             object[] arr2 = new object[] { 5, 5.8, 12.2, 1 };
             object result = ExpressionEvaluator.GetValue(arr2, "sum()");
             Assert.IsInstanceOf(typeof(double), result);
@@ -1814,11 +1866,10 @@ namespace SpringExpressions
         }
 
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestSumAggregatorWithNonNumber()
         {
             object[] arr = new object[] { 5, "ana", 12.2, 1 };
-            ExpressionEvaluator.GetValue(arr, "sum()");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(arr, "sum()"));
         }
 
         [Test]
@@ -1836,11 +1887,10 @@ namespace SpringExpressions
         }
 
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestAverageAggregatorWithNonNumber()
         {
             object[] arr = new object[] { 5, "ana", 12.2, 1 };
-            ExpressionEvaluator.GetValue(arr, "average()");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(arr, "average()"));
         }
 
         [Test]
@@ -1850,28 +1900,26 @@ namespace SpringExpressions
             Assert.AreEqual(8, ExpressionEvaluator.GetValue(arr, "min()"));
             Assert.AreEqual(-3, ExpressionEvaluator.GetValue(null, "{1, 5, -3, 10}.min()"));
 
+            Assert.IsNull(ExpressionEvaluator.GetValue(ObjectUtils.EmptyObjects, "min()"));
+
             object[] arr2 = new object[] { 5, 5.8, 12.2, 1 };
             object result = ExpressionEvaluator.GetValue(arr2, "min()");
             Assert.IsInstanceOf(typeof(int), result);
             Assert.AreEqual(1, result);
-
-            Assert.IsNull(ExpressionEvaluator.GetValue(ObjectUtils.EmptyObjects, "min()"));
         }
 
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestMinAggregatorWithNonComparable()
         {
             object[] arr = new object[] { new Object(), new Object() };
-            ExpressionEvaluator.GetValue(arr, "min()");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(arr, "min()"));
         }
 
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestMinAggregatorWithMixedTypes()
         {
             object[] arr = new object[] { 5, "ana", 12.2, 1 };
-            ExpressionEvaluator.GetValue(arr, "min()");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(arr, "min()"));
         }
 
         [Test]
@@ -1890,19 +1938,17 @@ namespace SpringExpressions
         }
 
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestMaxAggregatorWithNonComparable()
         {
             object[] arr = new object[] { new Object(), new Object() };
-            ExpressionEvaluator.GetValue(arr, "max()");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(arr, "max()"));
         }
 
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestMaxAggregatorWithMixedTypes()
         {
             object[] arr = new object[] { 5, "ana", 12.2, 1 };
-            ExpressionEvaluator.GetValue(arr, "max()");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(arr, "max()"));
         }
 
         [Test]
@@ -1924,8 +1970,8 @@ namespace SpringExpressions
             Assert.AreEqual(new object[] { -3.3, 1.2, 5.5 }, ExpressionEvaluator.GetValue(null, "{1.2, 5.5, -3.3}.sort()"));
             Assert.IsNull(ExpressionEvaluator.GetValue(null, "sort()"));
 
-            //ISet set = new ListSet(arr);
-            //Assert.AreEqual(new int[] { 6, 8, 14, 24 }, ExpressionEvaluator.GetValue(set, "sort()"));
+            var set = new List<int>(arr);
+            Assert.AreEqual(new int[] { 6, 8, 14, 24 }, ExpressionEvaluator.GetValue(set, "sort()"));
         }
 
         [Test(Description="sort supports any ICollection containing elements of uniform type")]
@@ -1951,7 +1997,7 @@ namespace SpringExpressions
             int[] arr = new int[] { 24, 8, 8, 6, 24, 6, 8, 6 };
             Assert.AreEqual(new int[] { 6, 8, 24 }, ExpressionEvaluator.GetValue(arr, "distinct().sort()"));
 
-            string[] arr2 = new string[] { "abc", "xyz", "abc", "def", null, "def" };
+            string[] arr2 = new string[] { "abc", "xyz", "abc", "def", null, "def", null };
             Assert.AreEqual(new string[] { null, "abc", "def", "xyz" },
                             ExpressionEvaluator.GetValue(arr2, "distinct(true).sort()"));
             Assert.AreEqual(new string[] { "abc", "def", "xyz" },
@@ -1961,19 +2007,17 @@ namespace SpringExpressions
         }
 
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestDistinctProcessorWithInvalidArgumentType()
         {
             int[] arr = new int[] { 24, 8, 8, 6, 24, 6, 8, 6 };
-            ExpressionEvaluator.GetValue(arr, "distinct(6)");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(arr, "distinct(6)"));
         }
 
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestDistinctProcessorWithInvalidNumberOfArguments()
         {
             int[] arr = new int[] { 24, 8, 8, 6, 24, 6, 8, 6 };
-            ExpressionEvaluator.GetValue(arr, "distinct(true, 4, 'xyz')");
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(arr, "distinct(true, 4, 'xyz')"));
         }
 
         [Test]
@@ -1996,7 +2040,7 @@ namespace SpringExpressions
             Assert.AreEqual(new object[] { 4.1f, "3", 2.1m, 1, "0" }, result);
         }
 
-        #endregion
+#endregion
 
         /// <summary>
         /// Type SetValue.
@@ -2015,30 +2059,27 @@ namespace SpringExpressions
         /// Tests property access with null in the path.
         /// </summary>
         [Test]
-        [ExpectedException(typeof(NullValueInNestedPathException))]
         public void TestPropertyGetWithNullInThePath()
         {
-            ExpressionEvaluator.GetValue(new Inventor(), "Name.Length");
+            Assert.Throws<NullValueInNestedPathException>(() => ExpressionEvaluator.GetValue(new Inventor(), "Name.Length"));
         }
 
         /// <summary>
         /// Tests property set with null in the path.
         /// </summary>
         [Test]
-        [ExpectedException(typeof(NullValueInNestedPathException))]
         public void TestPropertySetWithNullInThePath()
         {
-            ExpressionEvaluator.SetValue(new Inventor(), "Name.Length", 20);
+            Assert.Throws<NullValueInNestedPathException>(() => ExpressionEvaluator.SetValue(new Inventor(), "Name.Length", 20));
         }
 
         /// <summary>
         /// Tries to set value of the PropertyOrFieldNode that represents type.
         /// </summary>
         [Test]
-        [ExpectedException(typeof(NotSupportedException))]
         public void TestTypeSet()
         {
-            ExpressionEvaluator.SetValue(null, "DateTime", 20);
+            Assert.Throws<NotSupportedException>(() => ExpressionEvaluator.SetValue(null, "DateTime", 20));
         }
 
         /// <summary>
@@ -2075,10 +2116,28 @@ namespace SpringExpressions
                 int? test = 1;
                 Assert.IsInstanceOf(typeof (Int32?), ExpressionEvaluator.GetValue(test, "#root"));
                 Assert.IsTrue((bool) ExpressionEvaluator.GetValue(test, "#root != null"));
+                Assert.IsFalse((bool)ExpressionEvaluator.GetValue(test, "#root == null"));
                 Assert.AreEqual(1, ExpressionEvaluator.GetValue(test, "#root"));
+
+                Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "#root != null"));
+                Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "null != null"));
+                Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "#root != #root"));
+                Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "!(#root != null)"));
+                Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "!(null != null)"));
+                Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, "!(#root != #root)"));
+
+                test = null;
+                Assert.IsFalse((bool)ExpressionEvaluator.GetValue(test, "#root != null"));
+                Assert.IsFalse((bool)ExpressionEvaluator.GetValue(test, "null != null"));
+                Assert.IsFalse((bool)ExpressionEvaluator.GetValue(test, "#root != #root"));
+                Assert.IsTrue((bool)ExpressionEvaluator.GetValue(test, "!(#root != null)"));
+                Assert.IsTrue((bool)ExpressionEvaluator.GetValue(test, "!(null != null)"));
+                Assert.IsTrue((bool)ExpressionEvaluator.GetValue(test, "!(#root != #root)"));
+
 
                 test = null;
                 Assert.IsTrue((bool) ExpressionEvaluator.GetValue(test, "#root == null"));
+                Assert.IsTrue((bool)ExpressionEvaluator.GetValue(test, "#root == #root"));
                 Assert.IsNull(ExpressionEvaluator.GetValue(test, "#root"));
             }
         }
@@ -2153,11 +2212,13 @@ namespace SpringExpressions
             Assert.AreEqual("a||c", foo.MethodWithArrayArgument(new string[] { "a", null, "c" }));
             Assert.AreEqual("a|b|c", foo.MethodWithParamArray("a", "b", "c"));
             Assert.AreEqual("a||c", foo.MethodWithParamArray("a", null, "c"));
+            Assert.AreEqual("||c", foo.MethodWithParamArray(null, null, "c"));
 
             Assert.AreEqual("a|b|c", ExpressionEvaluator.GetValue(foo, "MethodWithArrayArgument(new string[] { 'a', 'b', 'c' })"));
             Assert.AreEqual("a||c", ExpressionEvaluator.GetValue(foo, "MethodWithArrayArgument(new string[] { 'a', null, 'c' })"));
             Assert.AreEqual("a|b|c", ExpressionEvaluator.GetValue(foo, "MethodWithParamArray('a', 'b', 'c')"));
             Assert.AreEqual("a||c", ExpressionEvaluator.GetValue(foo, "MethodWithParamArray('a', null, 'c')"));
+            Assert.AreEqual("||c", ExpressionEvaluator.GetValue(foo, "MethodWithParamArray(null, null, 'c')"));
 
             Assert.AreEqual("a|b|c", ExpressionEvaluator.GetValue(foo, "MethodWithParamArray(false, 'a', 'b', 'c')"));
             Assert.AreEqual("a||c", ExpressionEvaluator.GetValue(foo, "MethodWithParamArray(false, 'a', null, 'c')"));
@@ -2179,7 +2240,29 @@ namespace SpringExpressions
             Assert.AreEqual("ExactMatch", ExpressionEvaluator.GetValue(foo, "MethodWithSimilarArguments(1, #bars)", args));
         }
 
-        [Test]
+#if NET_4_0 || NETCOREAPP
+		/// <summary>
+		/// Test to show that a large number of parameters can be passed to methods
+		/// </summary>
+		[Test]
+        public void TestMethodResolutionWithLargeNumberOfParametersDoesNotThrow()
+        {
+            int expectedResult = 150;
+            int result = 0;
+            
+            Foo foo = new Foo();
+            string expression = $"MethodWithParamArray({String.Join(", ", Enumerable.Range(0, expectedResult))})";
+            System.Console.WriteLine(">>>>> " + expression);
+            Assert.DoesNotThrow(() =>
+            {
+                result = (int)ExpressionEvaluator.GetValue(foo, expression);
+            });
+
+            Assert.AreEqual(expectedResult, result);
+        }
+#endif
+
+		[Test]
         public void TestIndexerResolutionResolvesToExactMatchOfArgumentTypes()
         {
             Dictionary<string, object> args = new Dictionary<string, object>();
@@ -2551,7 +2634,7 @@ namespace SpringExpressions
             Assert.AreEqual("PublicMethod", ExpressionEvaluator.GetValue(cases, "GetPublicMethod()"));
         }
 
-        #region TestAccessVisibility Classes
+#region TestAccessVisibility Classes
 
         internal class AccessVisibilityCases
         {
@@ -2581,9 +2664,9 @@ namespace SpringExpressions
             public string GetPublicMethod() { return "PublicMethod"; }
         }
 
-        #endregion
+#endregion
 
-        #region TestMethodInvocation Classes
+#region TestMethodInvocation Classes
 
         class MethodInvokationCases
         {
@@ -2591,9 +2674,9 @@ namespace SpringExpressions
             public int Foo(int intArg) { return intArg; }
         }
 
-        #endregion
+#endregion
 
-        #region Set operations tests
+#region Set operations tests
 
         [Test]
         public void TestUnionOperator()
@@ -2631,11 +2714,9 @@ namespace SpringExpressions
         }
 
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestUnionOperatorBad()
         {
-            object o = ExpressionEvaluator.GetValue(null, "#{1:'one', 2:'two', 3:'three'} + {1, 5}");
-            Assert.IsInstanceOf(typeof(IDictionary), o);
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(null, "#{1:'one', 2:'two', 3:'three'} + {1, 5}"));
         }
 
         [Test]
@@ -2677,11 +2758,9 @@ namespace SpringExpressions
         }
 
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestIntersectionOperatorBad()
         {
-            object o = ExpressionEvaluator.GetValue(null, "#{1:'one', 2:'two', 3:'three'} * 'something'");
-            Assert.IsInstanceOf(typeof(IDictionary), o);
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(null, "#{1:'one', 2:'two', 3:'three'} * 'something'"));
         }
 
         [Test]
@@ -2720,16 +2799,14 @@ namespace SpringExpressions
         }
 
         [Test]
-        [ExpectedException(typeof(ArgumentException))]
         public void TestDifferenceOperatorBad()
         {
-            object o = ExpressionEvaluator.GetValue(null, "#{1:'one', 2:'two', 3:'three'} - 'something'");
-            Assert.IsInstanceOf(typeof(IDictionary), o);
+            Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(null, "#{1:'one', 2:'two', 3:'three'} - 'something'"));
         }
 
-        #endregion
+#endregion
 
-        #region Performance tests
+#region Performance tests
 
         private DateTime start, stop;
 
@@ -2807,9 +2884,9 @@ namespace SpringExpressions
                               iterations / duration));
         }
 
-        #endregion
+#endregion
 
-        #region Method Inheritance tests
+#region Method Inheritance tests
 
         [Test]
         public void TestInheritedMethodInvocation()
@@ -2830,7 +2907,7 @@ namespace SpringExpressions
             Assert.AreEqual("DerivedSingleMethodTestClass.ShadowedStaticMethod", ExpressionEvaluator.GetValue(null, string.Format("T({0}).ShadowedStaticMethod()", typeof(DerivedSingleMethodTestClass).FullName)));
         }
 
-        #endregion
+#endregion
 
         private static void DumpNode(AST rootNode, int level)
         {
@@ -2849,7 +2926,7 @@ namespace SpringExpressions
         }
     }
 
-    #region Helper classes
+#region Helper classes
 
     internal class SingleMethodTestClass
     {
@@ -3025,6 +3102,11 @@ namespace SpringExpressions
             string ret = string.Join("|", values);
             return (uppercase ? ret.ToUpper() : ret);
         }
+
+        public int MethodWithParamArray(params int[] values)
+        {
+            return values.Length;
+        }
     }
 
     internal enum FooType
@@ -3048,9 +3130,14 @@ namespace SpringExpressions
         }
     }
 
+    internal class NullableIntHolder
+    {
+        public int? Value;
+    }
+
     #endregion
 
-    #region Shadowing Test Helper Classes
+#region Shadowing Test Helper Classes
 
     internal class ShadowingTestsBaseClass
     {
@@ -3104,7 +3191,7 @@ namespace SpringExpressions
     {
     }
 
-    #endregion // Shadowing Test Helper Classes
+#endregion // Shadowing Test Helper Classes
 
 
 }

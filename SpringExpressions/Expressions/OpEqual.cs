@@ -63,6 +63,7 @@ namespace SpringExpressions
 			if (res != null)
 				return res;
 
+                  // todo: error: zwin¹æ do do compare utils!!!! ???? jak siê to ma do notEqual???
 
 
             if (leftExpression.Type == typeof(bool) && rightExpression.Type == typeof(bool))

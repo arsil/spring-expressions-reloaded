@@ -19,6 +19,7 @@
 #endregion
 
 using System;
+using System.Reflection;
 using System.Runtime.Serialization;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -90,10 +91,10 @@ namespace SpringExpressions
             return GetValue(Right, context, evalContext);
         }
 
+           // todo: przenieœæ!!!!!
 
-
-
-	    protected LExpression CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+              // todo: error: to siê bêdzie myli³o!!!!!
+        public static LExpression CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
 			LExpression leftExpression,
 			LExpression rightExpression,
 			Func<
@@ -145,7 +146,7 @@ namespace SpringExpressions
 
 
 
-
+           // todo: error: to siê bêdzie myli³o!!!!!
 		protected LExpression CreateBinaryExpressionForAllNumericTypesEvaluatingChildren(
 			LExpression contextExpression, 
 			LExpression evalContext,
@@ -182,5 +183,16 @@ namespace SpringExpressions
 			// jak dostaniemy na ryja dwa objecty, to w ogóle bêdziê klêska...
 
 		}
+
+
+        protected bool IsNumericExpression(LExpression expression)
+        {
+            var code = (int)System.Type.GetTypeCode(expression.Type);
+            return (code >= 5 && code <= 15);
+        }
+
+
+
+
     }
 }

@@ -51,7 +51,7 @@ namespace SpringExpressions
         protected override LExpression GetExpressionTreeIfPossible(
             LExpression contextExpression, LExpression evalContext)
         {
-            return CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+            return CreateBinaryExpressionForAllNumericTypesEvaluatingChildren(
                 contextExpression,
                 evalContext,
                 LExpression.Modulo);

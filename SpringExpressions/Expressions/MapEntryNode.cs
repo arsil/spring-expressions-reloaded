@@ -20,7 +20,10 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Runtime.Serialization;
+
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
@@ -44,7 +47,33 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
+
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression,
+            LExpression evalContext)
+        {
+            var node = getFirstChild();
+            if (node == null)
+                return null;
+
+            var key = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, evalContext);
+
+            if (key == null)
+                return null;
+
+            node = node.getNextSibling();
+            if (node == null)
+                return null;
+
+            var value = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, evalContext);
+
+            var genericKvP = typeof(KeyValuePair<,>).MakeGenericType(key.Type, value.Type);
+            var mi = genericKvP.GetConstructor(new[] { key.Type, value.Type });
+
+                // todo: null check!
+            return LExpression.New(mi, key, value);
+        }
+
         /// <summary>
         /// Creates new instance of the map entry defined by this node.
         /// </summary>

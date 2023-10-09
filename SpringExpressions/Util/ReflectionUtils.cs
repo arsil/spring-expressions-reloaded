@@ -45,6 +45,8 @@ namespace SpringUtil
     /// <author>Bruno Baia (.NET)</author>
     sealed class ReflectionUtils
     {
+        internal static Type[] EmptyTypes = new Type[0];
+
         /// <summary>
         /// Convenience <see cref="System.Reflection.BindingFlags"/> value that will
         /// match all private and public, static and instance members on a class
@@ -260,8 +262,14 @@ namespace SpringUtil
         public static Type[] GetParameterTypes(ParameterInfo[] args)
         {
             AssertUtils.ArgumentNotNull(args, "args");
-            Type[] types = new Type[args.Length];
-            for (int i = 0; i < args.Length; i++)
+
+            if (args.Length == 0)
+            {
+                return EmptyTypes;
+            }
+            
+            var types = new Type[args.Length];
+            for (int i = 0; i < (uint) args.Length; i++)
             {
                 types[i] = args[i].ParameterType;
             }
@@ -1609,37 +1617,50 @@ namespace SpringUtil
                 }
 
                 FieldInfo[] fields = GetFields(type);
+#if NETSTANDARD
+				Action callback = () =>
+#else
                 SecurityCritical.ExecutePrivileged(new PermissionSet(PermissionState.Unrestricted), delegate
-                {
-                    DynamicMethod dm = new DynamicMethod(type.FullName + ".ShallowCopy", null, new Type[] { typeof(object), typeof(object) }, type.Module, true);
-                    ILGenerator ilGen = dm.GetILGenerator();
-                    ilGen.DeclareLocal(type);
-                    ilGen.DeclareLocal(type);
-                    ilGen.Emit(OpCodes.Ldarg_0);
-                    ilGen.Emit(OpCodes.Castclass, type);
-                    ilGen.Emit(OpCodes.Stloc_0);
-                    ilGen.Emit(OpCodes.Ldarg_1);
-                    ilGen.Emit(OpCodes.Castclass, type);
-                    ilGen.Emit(OpCodes.Stloc_1);
+#endif
+					{
+						DynamicMethod dm = new DynamicMethod(type.FullName + ".ShallowCopy", null,
+							new Type[] { typeof(object), typeof(object) }, type.Module, true);
+						ILGenerator ilGen = dm.GetILGenerator();
+						ilGen.DeclareLocal(type);
+						ilGen.DeclareLocal(type);
+						ilGen.Emit(OpCodes.Ldarg_0);
+						ilGen.Emit(OpCodes.Castclass, type);
+						ilGen.Emit(OpCodes.Stloc_0);
+						ilGen.Emit(OpCodes.Ldarg_1);
+						ilGen.Emit(OpCodes.Castclass, type);
+						ilGen.Emit(OpCodes.Stloc_1);
 
-                    foreach (FieldInfo field in fields)
-                    {
-                        ilGen.Emit(OpCodes.Ldloc_1);
-                        ilGen.Emit(OpCodes.Ldloc_0);
-                        ilGen.Emit(OpCodes.Ldfld, field);
-                        ilGen.Emit(OpCodes.Stfld, field);
-                    }
-                    ilGen.Emit(OpCodes.Ret);
+						foreach (FieldInfo field in fields)
+						{
+							ilGen.Emit(OpCodes.Ldloc_1);
+							ilGen.Emit(OpCodes.Ldloc_0);
+							ilGen.Emit(OpCodes.Ldfld, field);
+							ilGen.Emit(OpCodes.Stfld, field);
+						}
 
-                    handler = (MemberwiseCopyHandler)dm.CreateDelegate(typeof(MemberwiseCopyHandler));
-                });
+						ilGen.Emit(OpCodes.Ret);
+
+						handler = (MemberwiseCopyHandler)dm.CreateDelegate(typeof(MemberwiseCopyHandler));
+					}
+#if !NETSTANDARD
+				);
+#else
+				;
+				callback();
+#endif
 
                 s_handlerCache[type] = handler;
             }
             return handler;
         }
 
-        #region Field Cache Management for "MemberwiseCopy"
+
+#region Field Cache Management for "MemberwiseCopy"
 
         private const BindingFlags FIELDBINDINGS =
             BindingFlags.Instance | BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic;
@@ -1672,10 +1693,10 @@ namespace SpringUtil
             CollectFieldsRecursive(type.BaseType, fieldList);
         }
 
-        #endregion Field Cache Management for "MemberwiseCopy"
+#endregion Field Cache Management for "MemberwiseCopy"
 
 
-        #region CustomAttributeBuilderBuilder inner class definition
+#region CustomAttributeBuilderBuilder inner class definition
 
         /// <summary>
         /// Creates a <see cref=" CustomAttributeBuilder"/>.
@@ -1683,16 +1704,16 @@ namespace SpringUtil
         /// <author>Bruno Baia</author>
         public class CustomAttributeBuilderBuilder
         {
-            #region Fields
+#region Fields
 
             private Type type;
             private ArrayList constructorArgs;
             private List<PropertyInfo> namedProperties;
             private List<object> propertyValues;
 
-            #endregion
+#endregion
 
-            #region Constructor(s) / Destructor
+#region Constructor(s) / Destructor
 
             /// <summary>
             /// Creates a new instance of the 
@@ -1726,9 +1747,9 @@ namespace SpringUtil
                 this.propertyValues = new List<object>();
             }
 
-            #endregion
+#endregion
 
-            #region Public Methods
+#region Public Methods
 
             /// <summary>
             /// Adds the specified values to the constructor argument list 
@@ -1785,9 +1806,9 @@ namespace SpringUtil
 
             }
 
-            #endregion
+#endregion
         }
 
-        #endregion
+#endregion
     }
 }

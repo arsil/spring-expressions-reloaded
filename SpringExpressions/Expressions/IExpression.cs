@@ -24,6 +24,9 @@ using System.ComponentModel;
 
 namespace SpringExpressions
 {
+      // todo: error: strongly typed results, contexts?
+       // todo: error: this is ALSO the result of parse method!!!! so.... when we are building Linq.Expression? Not in parse!!!!
+
     /// <summary>
     /// Interface that all navigation expression nodes have to implement.
     /// </summary>
@@ -52,6 +55,9 @@ namespace SpringExpressions
         /// <returns>Value of the expression.</returns>
         object GetValue(object context, IDictionary<string, object> variables);
 
+           // todo: error: czy na pewno?
+        TResult GetValue<TResult, TContext>(TContext context, IDictionary<string, object> variables = null);
+
         /// <summary>
         /// Sets expression value.
         /// </summary>
@@ -66,5 +72,15 @@ namespace SpringExpressions
         /// <param name="variables">Expression variables map.</param>
         /// <param name="newValue">New value for the last node of the expression.</param>
         void SetValue(object context, IDictionary<string, object> variables, object newValue);
+    }
+
+
+
+          // todo: error: czy na pewno?
+         // todo: serio? jak siê mamy dowiedzieæ, czy jest kompilowalne
+    public interface ITypedExpression<TValue, in TContext>
+    {
+        TValue GetValue(TContext context, IDictionary<string, object> variables = null);
+        void SetValue(TContext context, TValue value, IDictionary<string, object> variables = null);
     }
 }

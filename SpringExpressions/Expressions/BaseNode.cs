@@ -199,10 +199,12 @@ namespace SpringExpressions
 		/// <returns>Node's value.</returns>
 		public object GetValue(object context, IDictionary<string, object> variables)
         {
+                     // todo: error: strongly typed context?????
+
 			     // todo: oczywiœcie ten lock jest z dupy...
 //	        lock (this)
 	        {
-
+                // todo: error: _compiled jest prawdzie tylko, jeœli context siê nie zmieni³!
 
 		        if (_compiledExpression == null)
 		        {
@@ -251,26 +253,48 @@ namespace SpringExpressions
 			}
         }
 
-	    private object _compiledExpressionAsObject;
+          // todo:
+        class CompiledExpression<TResult, TContext>
+        {
+              // todo: error: EvaluationContext!!! shti!!!!
+
+               // todo: error: wip
+            private Func<TContext, EvaluationContext, TResult> CompiledGet;
+        }
+
+        private object _compiledExpressionAsObject;
 
 
-  // todo: oczywiœcie bez sensu jest robiæ tyle GetXXXValue... totalnie bez sensu....
+        // todo: oczywiœcie bez sensu jest robiæ tyle GetXXXValue... totalnie bez sensu....
+        public TResult GetValue<TResult>(IDictionary<string, object> variables = null)
+        {
+            return GetValue<TResult, object>(null, variables);
+        }
 
-	    public T GetValue<T>(object context, IDictionary<string, object> variables)
+           // todo: error: jeœli tojest w GetValue<> to przecie¿ ktoœ moze to wywo³aæ z nowymi typami
+           // todo: erorr: i ca³oœæ skompilowanego kodu pójdzie siê jebaæ!!! tej!
+           // todo: error: wiêc jak to robniæ? 
+
+           // todo: error: jeœli wiêc nie ca³e expression bêdzie typowane, to lekka dupa, nie?
+
+        public TResult GetValue<TResult, TContext>(TContext context, IDictionary<string, object> variables)
 	    {
+              //todo: typ dla kompiled object....
+  // todo: musimy zapaiêtaæ typy...
+
+    // todo: error: tutaj oczywiœcie jest problem, bo base-node nie jest w ogóle przygotowany na typowanie... st¹d problem!
 		    if (_compiledExpressionAsObject == null)
 		    {
 				// todo: zapamiêtujemy zbudowane expression!
 				// todo: zapamiêtujemy funkcjê, która dostaje na ryja obecta! z contextem!
 				// todo: i go rzutuje!
 				LExpression getContextExpression;
-				var ctxParam = LExpression.Parameter(typeof(object), "context");
+				var ctxParam = LExpression.Parameter(typeof(TContext), "context");
 
 				if (context == null)
-					getContextExpression = LExpression.Constant(null);
+					getContextExpression = LExpression.Constant(null, typeof(TContext));
 				else
-					getContextExpression = LExpression.Convert(ctxParam,
-						context.GetType());
+					getContextExpression = LExpression.Convert(ctxParam, typeof(TContext));
 
 				var getEvalContextExpression = LExpression.Parameter(
 					typeof(EvaluationContext), "evalContext");
@@ -283,8 +307,9 @@ namespace SpringExpressions
 
 				var exp = GetExpressionTreeIfPossible(getContextExpression, getEvalContextExpression);
 
-				Expression<Func<object, EvaluationContext, T>> lambda
-					= LExpression.Lambda<Func<object, EvaluationContext, T>>(exp, ctxParam, getEvalContextExpression);
+  // todo: error; a mo¿e przekazywaæ tutaj nie evaluationContext..  tylko coœ wiêcej???? shit....roota przyk³adowo...
+				Expression<Func<TContext, EvaluationContext, TResult>> lambda
+					= LExpression.Lambda<Func<TContext, EvaluationContext, TResult>>(exp, ctxParam, getEvalContextExpression);
 
 
 
@@ -301,7 +326,7 @@ namespace SpringExpressions
 			else
 				_lastEvaluationContext = new EvaluationContext(context, variables);
 
-			return ((Func<object, EvaluationContext, T>) _compiledExpressionAsObject)(context, _lastEvaluationContext);
+			return ((Func<TContext, EvaluationContext, TResult>) _compiledExpressionAsObject)(context, _lastEvaluationContext);
 	    }
 
 	    /// <summary>

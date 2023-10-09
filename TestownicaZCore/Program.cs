@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
+using System.Text.RegularExpressions;
 using Core.Types;
 using PerformanceMeasurement;
 using SpringCore.TypeResolution;
@@ -119,13 +120,15 @@ namespace TestownicaZCore
 			// działa zajebiście
 			{
 				var exp = Expression.Parse("_Attr.Has('CurrentReceipt.TotalQuantityForArticleIndex0000125837')");
-				var result = (bool)exp.GetValue(promoContext);
+				var result = exp.GetValue<bool, PromoContext>(promoContext);
+                Console.WriteLine($"exp.GetValue<bool, PromoContext>(promoContext) = {result}");
 			}
 
 			{
 				var exp = Expression.Parse("_Attr.Has('CurrentReceipt.TotalQuantityForArticleIndex0000125837') ? 1m : 0m");
-				var result = (decimal)exp.GetValue(promoContext);
-			}
+				var result = (decimal)exp.GetValue<decimal, PromoContext>(promoContext);
+                Console.WriteLine($"exp.GetValue<decimal, PromoContext>(promoContext) = {result}");
+            }
 
 			{
 				var exp = Expression.Parse(
@@ -263,17 +266,17 @@ namespace TestownicaZCore
 				timer.Measure("2 + 3 parsed expression as GetIntValue",
 					() =>
 					{
-						springExp.GetValue<int>(null, null);
-						springExp.GetValue<int>(null, null);
-						springExp.GetValue<int>(null, null);
-						springExp.GetValue<int>(null, null);
-						springExp.GetValue<int>(null, null);
+						springExp.GetValue<int, object>(null, null);
+						springExp.GetValue<int, object>(null, null);
+						springExp.GetValue<int, object>(null, null);
+						springExp.GetValue<int, object>(null, null);
+						springExp.GetValue<int, object>(null, null);
 
-						springExp.GetValue<int>(null, null);
-						springExp.GetValue<int>(null, null);
-						springExp.GetValue<int>(null, null);
-						springExp.GetValue<int>(null, null);
-						springExp.GetValue<int>(null, null);
+						springExp.GetValue<int, object>(null, null);
+						springExp.GetValue<int, object>(null, null);
+						springExp.GetValue<int, object>(null, null);
+						springExp.GetValue<int, object>(null, null);
+						springExp.GetValue<int, object>(null, null);
 					}
 				);
 
@@ -454,4 +457,18 @@ namespace TestownicaZCore
 				{"CurrentReceipt.TotalQuantityForArticleIndex0000125837", 1 }
 			});
 	}
+
+    internal class ByteCodeShower
+    {
+        public void Dupa(RegexOptions sraczka)
+        {
+            var dupa = ~sraczka;
+            Console.WriteLine(dupa);
+        }
+
+        public RegexOptions JebajPlemie(RegexOptions r1, RegexOptions r2)
+        {
+            return r1 ^ r2;
+        }
+    }
 }

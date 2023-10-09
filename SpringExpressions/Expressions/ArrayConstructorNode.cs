@@ -67,6 +67,9 @@ namespace SpringExpressions
 				}
 			}
 
+
+                // todo: error: czy nulle i nullable tutaj jakoœ obs³ugujemy? co gdy mamy string i ktoœ wali null? albo object i null?
+
 			AST rankRoot = getFirstChild();
 			int dimensions = rankRoot.getNumberOfChildren();
 

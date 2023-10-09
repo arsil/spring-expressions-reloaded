@@ -65,19 +65,27 @@ namespace SpringExpressions
 			if (leftExpression.Type == typeof(string) || rightExpression.Type == typeof(string))
 				return LExpression.NotEqual(leftExpression, rightExpression);
 
+                // todo: error: equals robi tonê innych rzeczy!
+                // todo: error: zwin¹æ do do compare utils!!!! ???? jak siê to ma do Equal???
 
-			// TODO: porównanie z nulle-em, czyli objectem! jak to zrobiæ!
-			// TODO: bo... bo trzeba pewnie equals odpaliæ! pytanie tylko na czym!
-			// TODO: tutaj null-a nie rozpoznamy! bo nie mamy wartoœci! tej!
 
-			//TODO: brak obs³ugi np. stringów... czy charów... czy innych takich! to samo przy Less i innych operatorach!
+            // TODO: porównanie z nulle-em, czyli objectem! jak to zrobiæ!
+            // TODO: bo... bo trzeba pewnie equals odpaliæ! pytanie tylko na czym!
+            // TODO: tutaj null-a nie rozpoznamy! bo nie mamy wartoœci! tej!
 
-			// numeric comparision - we do not support other types
-			return CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+            //TODO: brak obs³ugi np. stringów... czy charów... czy innych takich! to samo przy Less i innych operatorach!
+
+            // numeric comparision - we do not support other types
+            var result = CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
 				leftExpression,
 				rightExpression,
 				LExpression.NotEqual);
-		}
+
+            if (result != null) 
+                return result;
+
+            return LExpression.Not(LExpression.Equal(leftExpression, rightExpression));
+        }
 
 	    /// <summary>
 		/// Returns a value for the logical inequality operator node.

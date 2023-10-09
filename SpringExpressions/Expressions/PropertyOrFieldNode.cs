@@ -271,8 +271,24 @@ namespace SpringExpressions
                     contextExpressionType = (Type)((ConstantExpression)contextExpression).Value;
                     finalContextExpression = null;
 
+                    if (contextExpressionType.IsEnum)
+                    {
+                        try
+                        {
+                            return LExpression.Constant(
+                                Enum.Parse(contextExpressionType, name, true), contextExpressionType);
+                        }
+                        catch (ArgumentException)
+                        {
+                            // ArgumentException will be thrown if specified member name is not a valid
+                            // enum value for the context type. We should just ignore it and continue processing,
+                            // because the specified member could be a property of a Type class (i.e. EnumType.FullName)
+                        }
+                    }
+
                     // try inner type (e.g. Int32)
                     acc = GetPropertyOrFieldAccessor(contextExpressionType, name, BINDING_FLAGS);
+
                     if (acc == null)
                     {
                         // not found - going back to System.Type
@@ -284,17 +300,14 @@ namespace SpringExpressions
                 if (acc == null)
                     acc = GetPropertyOrFieldAccessor(contextExpressionType, name, BINDING_FLAGS);
 
-                var propertyAcc = acc as PropertyValueAccessor;
-
-                if (propertyAcc != null)
+                if (acc is PropertyValueAccessor propertyAcc)
                 {
                     return LExpression.Property(
                         finalContextExpression,
                         (PropertyInfo) propertyAcc.MemberInfo);
                 }
 
-                var fieldAcc = acc as FieldValueAccessor;
-                if (fieldAcc != null)
+                if (acc is FieldValueAccessor fieldAcc)
                 {
                     if (fieldAcc.FieldInfo.IsStatic && fieldAcc.FieldInfo.IsLiteral)
                     {
@@ -310,6 +323,12 @@ namespace SpringExpressions
                     return LExpression.Field(
                         finalContextExpression,
                         (FieldInfo)fieldAcc.MemberInfo);
+                }
+
+                if (acc is EnumValueAccessor enumAcc)
+                {
+                    var value = enumAcc.Get(null);
+                    return LExpression.Constant(value, value.GetType());
                 }
 
                 // final call - Type!

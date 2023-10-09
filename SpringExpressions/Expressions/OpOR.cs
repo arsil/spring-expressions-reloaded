@@ -84,6 +84,15 @@ namespace SpringExpressions
                     LExpression.Or);
             }
 
+            if (leftExpression.Type.IsEnum && rightExpression.Type == leftExpression.Type)
+            {
+                return LExpression.Convert(
+                    LExpression.Or(
+                        LExpression.Convert(leftExpression, Enum.GetUnderlyingType(leftExpression.Type)),
+                        LExpression.Convert(rightExpression, Enum.GetUnderlyingType(rightExpression.Type))),
+                    leftExpression.Type);
+            }
+
             // enums or conversions not supported
             return null;
         }

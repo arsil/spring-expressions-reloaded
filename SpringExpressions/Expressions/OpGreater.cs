@@ -20,6 +20,7 @@
 
 using System;
 using System.Runtime.Serialization;
+using SpringExpressions.Expressions.LinqExpressionHelpers;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -58,18 +59,11 @@ namespace SpringExpressions
             if (leftExpression == null || rightExpression == null)
                 return null;
 
-            if (leftExpression.Type == typeof(bool) && rightExpression.Type == typeof(bool))
-            {
-                return LExpression.GreaterThan(
-                    leftExpression,
-                    rightExpression);
-            }
-
-            // numeric comparision - we do not support other types
-            return CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+            return ExpressionCompareUtils.CreateCompare(
                 leftExpression,
                 rightExpression,
-                LExpression.GreaterThan);
+                LExpression.GreaterThan,
+                0);
         }
 
         /// <summary>

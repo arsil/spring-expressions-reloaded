@@ -70,6 +70,12 @@ namespace SpringExpressions
 			if (leftTypeCode < 3 || leftTypeCode > 15 || leftTypeCode == 4)
 				return null;
 
+            if (operandExpression.Type.IsEnum)
+                return LExpression.Convert(
+                    LExpression.Not(
+                        LExpression.Convert(operandExpression, Enum.GetUnderlyingType(operandExpression.Type))),
+                    operandExpression.Type);
+
 			return LExpression.Not(operandExpression);
 		}
 
