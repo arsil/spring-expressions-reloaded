@@ -21,6 +21,7 @@
 #region Imports
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 using SpringUtil;
@@ -50,10 +51,10 @@ namespace SpringCore.TypeResolution
     {
         #region Constants
 
-        /// <summary>
-        /// Name of the .Net config section that contains Spring.Net type aliases.
-        /// </summary>
-        private const string TypeAliasesSectionName = "spring/typeAliases";
+        //// <summary>
+        //// Name of the .Net config section that contains Spring.Net type aliases.
+        //// </summary>
+        // private const string TypeAliasesSectionName = "spring/typeAliases";
 
         /// <summary>
         /// The alias around the 'int' type.
@@ -429,8 +430,8 @@ namespace SpringCore.TypeResolution
 
         #region Fields
 
-        private static readonly object syncRoot = new object();
-        private static IDictionary<string, Type> types = new Dictionary<string, Type>();
+        private static ConcurrentDictionary<string, Type> types
+            = new ConcurrentDictionary<string, Type>();
 
         #endregion
 
@@ -441,117 +442,114 @@ namespace SpringCore.TypeResolution
         /// </summary>
         static TypeRegistry()
         {
-            lock (syncRoot)
-            {
-                types["Int32"] = typeof(Int32);
-                types[Int32Alias] = typeof(Int32);
-                types[Int32AliasVB] = typeof(Int32);
-                types[Int32ArrayAlias] = typeof(Int32[]);
-                types[Int32ArrayAliasVB] = typeof(Int32[]);
+            types["Int32"] = typeof(Int32);
+            types[Int32Alias] = typeof(Int32);
+            types[Int32AliasVB] = typeof(Int32);
+            types[Int32ArrayAlias] = typeof(Int32[]);
+            types[Int32ArrayAliasVB] = typeof(Int32[]);
 
-                types["UInt32"] = typeof(UInt32);
-                types[UInt32Alias] = typeof(UInt32);
-                types[UInt32ArrayAlias] = typeof(UInt32[]);
+            types["UInt32"] = typeof(UInt32);
+            types[UInt32Alias] = typeof(UInt32);
+            types[UInt32ArrayAlias] = typeof(UInt32[]);
 
-                types["Int16"] = typeof(Int16);
-                types[Int16Alias] = typeof(Int16);
-                types[Int16AliasVB] = typeof(Int16);
-                types[Int16ArrayAlias] = typeof(Int16[]);
-                types[Int16ArrayAliasVB] = typeof(Int16[]);
+            types["Int16"] = typeof(Int16);
+            types[Int16Alias] = typeof(Int16);
+            types[Int16AliasVB] = typeof(Int16);
+            types[Int16ArrayAlias] = typeof(Int16[]);
+            types[Int16ArrayAliasVB] = typeof(Int16[]);
 
-                types["UInt16"] = typeof(UInt16);
-                types[UInt16Alias] = typeof(UInt16);
-                types[UInt16ArrayAlias] = typeof(UInt16[]);
+            types["UInt16"] = typeof(UInt16);
+            types[UInt16Alias] = typeof(UInt16);
+            types[UInt16ArrayAlias] = typeof(UInt16[]);
 
-                types["Int64"] = typeof(Int64);
-                types[Int64Alias] = typeof(Int64);
-                types[Int64AliasVB] = typeof(Int64);
-                types[Int64ArrayAlias] = typeof(Int64[]);
-                types[Int64ArrayAliasVB] = typeof(Int64[]);
+            types["Int64"] = typeof(Int64);
+            types[Int64Alias] = typeof(Int64);
+            types[Int64AliasVB] = typeof(Int64);
+            types[Int64ArrayAlias] = typeof(Int64[]);
+            types[Int64ArrayAliasVB] = typeof(Int64[]);
 
-                types["UInt64"] = typeof(UInt64);
-                types[UInt64Alias] = typeof(UInt64);
-                types[UInt64ArrayAlias] = typeof(UInt64[]);
+            types["UInt64"] = typeof(UInt64);
+            types[UInt64Alias] = typeof(UInt64);
+            types[UInt64ArrayAlias] = typeof(UInt64[]);
 
-                types[DoubleAlias] = typeof(double);
-                types[DoubleAliasVB] = typeof(double);
-                types[DoubleArrayAlias] = typeof(double[]);
-                types[DoubleArrayAliasVB] = typeof(double[]);
+            types[DoubleAlias] = typeof(double);
+            types[DoubleAliasVB] = typeof(double);
+            types[DoubleArrayAlias] = typeof(double[]);
+            types[DoubleArrayAliasVB] = typeof(double[]);
 
-                types[FloatAlias] = typeof(float);
-                types[SingleAlias] = typeof(float);
-                types[FloatArrayAlias] = typeof(float[]);
-                types[SingleArrayAliasVB] = typeof(float[]);
+            types[FloatAlias] = typeof(float);
+            types[SingleAlias] = typeof(float);
+            types[FloatArrayAlias] = typeof(float[]);
+            types[SingleArrayAliasVB] = typeof(float[]);
 
-                types[DateTimeAlias] = typeof(DateTime);
-                types[DateAlias] = typeof(DateTime);
-                types[DateAliasVB] = typeof(DateTime);
-                types[DateTimeArrayAlias] = typeof(DateTime[]);
-                types[DateTimeArrayAliasCSharp] = typeof(DateTime[]);
-                types[DateTimeArrayAliasVB] = typeof(DateTime[]);
+            types[DateTimeAlias] = typeof(DateTime);
+            types[DateAlias] = typeof(DateTime);
+            types[DateAliasVB] = typeof(DateTime);
+            types[DateTimeArrayAlias] = typeof(DateTime[]);
+            types[DateTimeArrayAliasCSharp] = typeof(DateTime[]);
+            types[DateTimeArrayAliasVB] = typeof(DateTime[]);
 
-                types[BoolAlias] = typeof(bool);
-                types[BoolAliasVB] = typeof(bool);
-                types[BoolArrayAlias] = typeof(bool[]);
-                types[BoolArrayAliasVB] = typeof(bool[]);
+            types[BoolAlias] = typeof(bool);
+            types[BoolAliasVB] = typeof(bool);
+            types[BoolArrayAlias] = typeof(bool[]);
+            types[BoolArrayAliasVB] = typeof(bool[]);
 
-                types[DecimalAlias] = typeof(decimal);
-                types[DecimalAliasVB] = typeof(decimal);
-                types[DecimalArrayAlias] = typeof(decimal[]);
-                types[DecimalArrayAliasVB] = typeof(decimal[]);
+            types[DecimalAlias] = typeof(decimal);
+            types[DecimalAliasVB] = typeof(decimal);
+            types[DecimalArrayAlias] = typeof(decimal[]);
+            types[DecimalArrayAliasVB] = typeof(decimal[]);
 
-                types[CharAlias] = typeof(char);
-                types[CharAliasVB] = typeof(char);
-                types[CharArrayAlias] = typeof(char[]);
-                types[CharArrayAliasVB] = typeof(char[]);
+            types[CharAlias] = typeof(char);
+            types[CharAliasVB] = typeof(char);
+            types[CharArrayAlias] = typeof(char[]);
+            types[CharArrayAliasVB] = typeof(char[]);
 
-                types[StringAlias] = typeof(string);
-                types[StringAliasVB] = typeof(string);
-                types[StringArrayAlias] = typeof(string[]);
-                types[StringArrayAliasVB] = typeof(string[]);
+            types[StringAlias] = typeof(string);
+            types[StringAliasVB] = typeof(string);
+            types[StringArrayAlias] = typeof(string[]);
+            types[StringArrayAliasVB] = typeof(string[]);
 
-                types[ObjectAlias] = typeof(object);
-                types[ObjectAliasVB] = typeof(object);
-                types[ObjectArrayAlias] = typeof(object[]);
-                types[ObjectArrayAliasVB] = typeof(object[]);
+            types[ObjectAlias] = typeof(object);
+            types[ObjectAliasVB] = typeof(object);
+            types[ObjectArrayAlias] = typeof(object[]);
+            types[ObjectArrayAliasVB] = typeof(object[]);
 
-                types[NullableInt32Alias] = typeof(int?);
-                types[NullableInt32ArrayAlias] = typeof(int?[]);
+            types[NullableInt32Alias] = typeof(int?);
+            types[NullableInt32ArrayAlias] = typeof(int?[]);
 
-                types[NullableDecimalAlias] = typeof(decimal?);
-                types[NullableDecimalArrayAlias] = typeof(decimal?[]);
+            types[NullableDecimalAlias] = typeof(decimal?);
+            types[NullableDecimalArrayAlias] = typeof(decimal?[]);
 
-                types[NullableCharAlias] = typeof(char?);
-                types[NullableCharArrayAlias] = typeof(char?[]);
+            types[NullableCharAlias] = typeof(char?);
+            types[NullableCharArrayAlias] = typeof(char?[]);
 
-                types[NullableInt64Alias] = typeof(long?);
-                types[NullableInt64ArrayAlias] = typeof(long?[]);
+            types[NullableInt64Alias] = typeof(long?);
+            types[NullableInt64ArrayAlias] = typeof(long?[]);
 
-                types[NullableInt16Alias] = typeof(short?);
-                types[NullableInt16ArrayAlias] = typeof(short?[]);
+            types[NullableInt16Alias] = typeof(short?);
+            types[NullableInt16ArrayAlias] = typeof(short?[]);
 
-                types[NullableUInt32Alias] = typeof(uint?);
-                types[NullableUInt32ArrayAlias] = typeof(uint?[]);
+            types[NullableUInt32Alias] = typeof(uint?);
+            types[NullableUInt32ArrayAlias] = typeof(uint?[]);
 
-                types[NullableUInt64Alias] = typeof(ulong?);
-                types[NullableUInt64ArrayAlias] = typeof(ulong?[]);
+            types[NullableUInt64Alias] = typeof(ulong?);
+            types[NullableUInt64ArrayAlias] = typeof(ulong?[]);
 
-                types[NullableUInt16Alias] = typeof(ushort?);
-                types[NullableUInt16ArrayAlias] = typeof(ushort?[]);
+            types[NullableUInt16Alias] = typeof(ushort?);
+            types[NullableUInt16ArrayAlias] = typeof(ushort?[]);
 
-                types[NullableDoubleAlias] = typeof(double?);
-                types[NullableDoubleArrayAlias] = typeof(double?[]);
+            types[NullableDoubleAlias] = typeof(double?);
+            types[NullableDoubleArrayAlias] = typeof(double?[]);
 
-                types[NullableFloatAlias] = typeof(float?);
-                types[NullableFloatArrayAlias] = typeof(float?[]);
+            types[NullableFloatAlias] = typeof(float?);
+            types[NullableFloatArrayAlias] = typeof(float?[]);
 
-                types[NullableBoolAlias] = typeof(bool?);
-                types[NullableBoolArrayAlias] = typeof(bool?[]);
+            types[NullableBoolAlias] = typeof(bool?);
+            types[NullableBoolArrayAlias] = typeof(bool?[]);
 
-                // todo:
-                // register user-configured type aliases
-                // ConfigurationUtils.GetSection(TypeAliasesSectionName);
-            }
+            // todo:
+            // register user-configured type aliases
+            // ConfigurationUtils.GetSection(TypeAliasesSectionName);
         }
 
         #endregion
@@ -610,10 +608,8 @@ namespace SpringCore.TypeResolution
         {
             AssertUtils.ArgumentNotNull(type, "type");
 
-            lock (syncRoot)
-            {
-                types[type.Name] = type;
-            }
+            // we do not care about potential parallel overwrite
+            types[type.Name] = type;
         }
         
         /// <summary> 
@@ -635,10 +631,8 @@ namespace SpringCore.TypeResolution
             AssertUtils.ArgumentHasText(alias, "alias");
             AssertUtils.ArgumentNotNull(type, "type");
 
-            lock (syncRoot)
-            {
-                types[alias] = type;
-            }
+            // we do not care about potential parallel overwrite
+            types[alias] = type;
         }
 
         /// <summary> 

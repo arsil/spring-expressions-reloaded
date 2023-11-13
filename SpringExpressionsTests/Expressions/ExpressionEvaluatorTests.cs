@@ -839,6 +839,49 @@ namespace SpringExpressions
             Assert.AreEqual(typeof(int?[,]), ExpressionEvaluator.GetValue(null, "T(System.Nullable`1[[System.Int32, mscorlib]][,], mscorlib)"));
         }
 
+        // my dangerous invocation protection tests
+
+        /// <summary>
+        /// Tests type node
+        /// </summary>
+        [Test]
+        public void TestTypeNodeIllegalType()
+        {
+               // todo: error: patrz ni¿ej! jak to zabezpieczyæ!
+               // TypeRegisetry.GetSecurityController().SetStrinctTypeREsolution()
+
+            TypeRegistry.RegisterType("System.Environment", typeof(int));
+
+            Assert.AreEqual(typeof(int?[,]), 
+                ExpressionEvaluator.GetValue(null, "T(System.Environment)"));
+        }
+
+
+        /// <summary>
+        /// Tests type node
+        /// </summary>
+        [Test]
+        public void TestDangerousInvocation()
+        {
+            // todo: error: to siê nie powinno udaæ - dziura w System.Diagnostics... nale¿y do wszystgko
+            // todo: error: zabezpieczyæ!!! tej! u¿ywany jest TypeResolutionUtils... wiêc tutaj mo¿na
+            // todo: error: jebn¹æ niedozwolony typ i tyle!!!
+
+                // todo: error: mo¿na nawet zrobiæ jakiœ using! albo w³¹czyæ na sta³e!
+                /*
+                 * using (new OnlyBasicTypesSpringSecurityGuard())
+                 * {
+                 *       ewaluacja  -- tylko to chyba by wymaga³o zajebistej obs³ugi per w¹tek i globalnej te¿ (w jakiœ opcjach!)
+                 * }
+                 */
+
+                // achtung TypeResolutionUtils te¿ jest u¿ywany prze New do pobrania typu! bua ha ha!
+            Assert.AreEqual(typeof(int?[,]),
+                ExpressionEvaluator.GetValue(null, "new System.Diagnostics.Process()"));
+        }
+
+
+
         /// <summary>
         /// Tests constructor node
         /// </summary>

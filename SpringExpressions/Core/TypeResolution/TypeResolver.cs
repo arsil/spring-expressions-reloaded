@@ -57,11 +57,11 @@ namespace SpringCore.TypeResolution
         public virtual Type Resolve(string typeName)
         {
             if (StringUtils.IsNullOrEmpty(typeName))
-            {
                 throw BuildTypeLoadException(typeName);
-            }
+
+
             TypeAssemblyHolder typeInfo = new TypeAssemblyHolder(typeName);
-            Type type = null;
+            Type type;
             try
             {
                 type = (typeInfo.IsAssemblyQualified) ?

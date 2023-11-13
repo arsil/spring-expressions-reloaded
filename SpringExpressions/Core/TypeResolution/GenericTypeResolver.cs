@@ -50,9 +50,9 @@ namespace SpringCore.TypeResolution
         public override Type Resolve(string typeName)
         {
             if (StringUtils.IsNullOrEmpty(typeName))
-            {
                 throw BuildTypeLoadException(typeName);
-            }
+
+
             GenericArgumentsHolder genericInfo = new GenericArgumentsHolder(typeName);
             Type type = null;
             try
@@ -75,7 +75,7 @@ namespace SpringCore.TypeResolution
                         typeName = string.Format("{0}{1},{2}", type.FullName, genericInfo.GetArrayDeclaration(), type.Assembly.FullName);
                         type = null;
                     }
-                }
+                } 
             }
             catch (Exception ex)
             {
@@ -88,6 +88,7 @@ namespace SpringCore.TypeResolution
 
             if (type == null)
             {
+                // probably not generic type - try regular type resolution
                 type = base.Resolve(typeName);
             }
 
