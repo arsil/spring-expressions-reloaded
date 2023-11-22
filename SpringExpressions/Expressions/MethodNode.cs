@@ -127,7 +127,9 @@ namespace SpringExpressions
 				node = node.getNextSibling();
 			}
 
-            if (typeof(ICollection).IsAssignableFrom(instance.Type))
+            if (typeof(ICollection).IsAssignableFrom(instance.Type)
+                || (contextExpression is ConstantExpression constExpression
+                    && constExpression.Value == null))
             {
                 var result = TryCollectionProcessors(instance, methodName, argumentsTypes, arguments);
                 if (result != null)
@@ -252,14 +254,24 @@ namespace SpringExpressions
         private LExpression TryCollectionProcessors(
             LExpression instance,
             string methodName,
-            IEnumerable<Type> argumentsTypes,
-            IEnumerable<LExpression> arguments)
+            List<Type> argumentsTypes,
+            List<LExpression> arguments)
         {
+            if (instance is ConstantExpression constExpression
+                && constExpression.Value == null
+                && argumentsTypes.Count == 0
+                && arguments.Count == 0)
+            {
+                instance = LExpression.Constant(null, typeof(ICollection));
+            }
+
             var processorArgumentTypes = new List<Type> { instance.Type };
             processorArgumentTypes.AddRange(argumentsTypes);
 
             var processorArguments = new List<LExpression> { instance };
             processorArguments.AddRange(arguments);
+
+
 
             Type processorType = null;
 

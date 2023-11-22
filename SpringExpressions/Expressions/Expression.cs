@@ -168,6 +168,12 @@ namespace SpringExpressions
             }
         }
 
+        public static ITypedExpression<TRoot, TResult> Parse<TRoot, TResult>(string expression)
+        {
+                    // todo: error: will it work?----------------------------------------------------------
+            return new TypedExpression<TRoot, TResult>((BaseNode)Parse(expression));
+        }
+
         /// <summary>
         /// Registers lambda expression under the specified <paramref name="functionName"/>.
         /// </summary>

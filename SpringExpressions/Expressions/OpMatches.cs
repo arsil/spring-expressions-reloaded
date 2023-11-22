@@ -71,6 +71,14 @@ namespace SpringExpressions
                     leftExpression);
             }
 
+            if (leftExpression.Type == typeof(string)
+                && rightExpression.Type == typeof(string))
+            {
+                return LExpression.Call(RegexIsMatchStaticMethodInfo,
+                    leftExpression,
+                    rightExpression);
+            }
+
             // there is no point in creating compiled regex if pattern isn't constant.
 
             return rightExpression;
@@ -106,5 +114,7 @@ namespace SpringExpressions
         private static readonly MethodInfo RegexIsMatchMethodInfo
             = typeof(Regex).GetMethod("IsMatch", new[] { typeof(string) });
 
+        private static readonly MethodInfo RegexIsMatchStaticMethodInfo
+            = typeof(Regex).GetMethod("IsMatch", new[] { typeof(string), typeof(string) });
     }
 }

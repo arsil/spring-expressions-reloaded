@@ -19,7 +19,10 @@
 #endregion
 
 using System;
+using System.Linq.Expressions;
 using System.Runtime.Serialization;
+using SpringExpressions.Expressions.LinqExpressionHelpers;
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
@@ -44,7 +47,40 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
+
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression,
+            LExpression evalContext)
+        {
+            var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, evalContext);
+            var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, evalContext);
+
+            if (leftExpression == null || rightExpression == null)
+                return null;
+
+            if (leftExpression is ConstantExpression leftConst
+                && leftConst.Value == null)
+            {
+                return LExpression.Constant(false, typeof(bool));
+            }
+
+            if (rightExpression is ConstantExpression rightConst)
+            {
+                if (rightConst.Value == null)
+                    return LExpression.Constant(false, typeof(bool));
+
+                if (rightConst.Value is Type rightValueType)
+                    return LExpression.Constant(
+                        rightValueType.IsAssignableFrom(leftExpression.Type),
+                        typeof(bool));
+            }
+
+            return LExpression.Constant(
+                rightExpression.Type.IsAssignableFrom(leftExpression.Type), 
+                typeof(bool));
+        }
+
+
         /// <summary>
         /// Returns a value for the logical IS operator node.
         /// </summary>

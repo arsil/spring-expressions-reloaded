@@ -67,9 +67,8 @@ namespace SpringExpressions
             // #this
             if (varName == "this")
             {
-                // todo: error: to musi byæ strongly typed! shit!!!! a nie jest... co jest super s³abe!!!
+                      // todo: error: to musi byæ strongly typed! shit!!!! a nie jest... co jest super s³abe!!!
                 // zwraca object
-
                 return LExpression.Field(evalContext, "ThisContext");
             }
 

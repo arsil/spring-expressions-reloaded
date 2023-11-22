@@ -18,6 +18,7 @@
 
 #endregion
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -55,9 +56,6 @@ namespace SpringExpressions
         /// <returns>Value of the expression.</returns>
         object GetValue(object context, IDictionary<string, object> variables);
 
-           // todo: error: czy na pewno?
-        TResult GetValue<TResult, TContext>(TContext context, IDictionary<string, object> variables = null);
-
         /// <summary>
         /// Sets expression value.
         /// </summary>
@@ -75,12 +73,33 @@ namespace SpringExpressions
     }
 
 
+    // todo: error: problem jest taki, ¿e trzeba by ka¿d¹ klasê zrobiæ generyczn¹! tej!
+    // todo: error: a to jest chujnia z grzybni¹!
 
           // todo: error: czy na pewno?
          // todo: serio? jak siê mamy dowiedzieæ, czy jest kompilowalne
-    public interface ITypedExpression<TValue, in TContext>
+    public interface ITypedExpression<in TRoot, out TResult>
     {
-        TValue GetValue(TContext context, IDictionary<string, object> variables = null);
-        void SetValue(TContext context, TValue value, IDictionary<string, object> variables = null);
+        TResult GetValue(TRoot context, IDictionary<string, object> variables = null);
+          // todo: w³¹czyæ
+//        void SetValue(TContext context, TValue value, IDictionary<string, object> variables = null);
+    }
+
+    class TypedExpression<TRoot, TResult> : ITypedExpression<TRoot, TResult>
+    {
+        public TypedExpression(BaseNode expression)
+        {
+            this.expression = expression ?? throw new ArgumentNullException(nameof(expression));
+        }
+
+        public TResult GetValue(TRoot context, IDictionary<string, object> variables = null)
+        {
+              // todo: error: experssion ma inn¹ kolejnoœæ parametrów! Shit!!! 
+               // todo: error: internal
+            return expression.GetValue<TResult, TRoot>(context, variables);
+        }
+
+
+        private readonly BaseNode expression;
     }
 }
