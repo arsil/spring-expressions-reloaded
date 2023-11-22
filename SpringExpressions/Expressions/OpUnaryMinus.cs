@@ -48,12 +48,12 @@ namespace SpringExpressions
         {
         }
 
-        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+            CompilationContext compilationContext)
         {
              // TODO: konwersja user-typów
 
-            var operandExpression = GetExpressionTreeIfPossible((BaseNode)getFirstChild(), 
-                contextExpression, evalContext);
+            var operandExpression = GetExpressionTreeIfPossible((BaseNode)getFirstChild(), contextExpression, compilationContext);
 
             var leftTypeCode = (int) System.Type.GetTypeCode(operandExpression.Type);
 

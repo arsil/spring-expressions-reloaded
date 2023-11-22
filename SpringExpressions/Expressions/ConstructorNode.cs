@@ -69,7 +69,8 @@ namespace SpringExpressions
         }
 
 
-        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+            CompilationContext compilationContext)
         {
             var arguments = new List<LExpression>();
             var argumentsTypes = new List<Type>();
@@ -88,7 +89,7 @@ namespace SpringExpressions
                 //}
                 //else
 
-                var arg = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, evalContext);
+                var arg = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
                 if (arg == null)
                     return null;
 

@@ -94,7 +94,9 @@ namespace SpringExpressions
         {
         }
 
-	    protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+	    protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression,
+            CompilationContext compilationContext)
 	    {
 // todo: byæ mo¿e trzeba to lockowaæ!
 			string methodName = getText();
@@ -117,7 +119,7 @@ namespace SpringExpressions
 				//}
 				//else
 
-				var arg = GetExpressionTreeIfPossible((BaseNode) node, contextExpression, evalContext);
+				var arg = GetExpressionTreeIfPossible((BaseNode) node, contextExpression, compilationContext);
 				if (arg == null)
 					return null;
 

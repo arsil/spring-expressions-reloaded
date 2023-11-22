@@ -52,7 +52,8 @@ namespace SpringExpressions
         {
         }
 
-        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+            CompilationContext compilationContext)
         {
             if (type == null)
             {

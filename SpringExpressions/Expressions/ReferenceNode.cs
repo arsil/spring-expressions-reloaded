@@ -50,7 +50,8 @@ namespace SpringContext.Support
         {
         }
 
-	    protected override Expression GetExpressionTreeIfPossible(Expression contextExpression, Expression evalContext)
+	    protected override Expression GetExpressionTreeIfPossible(Expression contextExpression,
+            CompilationContext compilationContext)
 	    {
 			if (getNumberOfChildren() == 2)
 			{

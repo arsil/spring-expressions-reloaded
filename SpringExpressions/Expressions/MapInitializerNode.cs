@@ -50,9 +50,8 @@ namespace SpringExpressions
         {
         }
 
-         protected override LExpression GetExpressionTreeIfPossible(
-             LExpression contextExpression,
-             LExpression evalContext)
+         protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+             CompilationContext compilationContext)
          {
              var node = getFirstChild();
              Type commonType = null;
@@ -60,7 +59,7 @@ namespace SpringExpressions
 
              while (node != null)
              {
-                 var item = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, evalContext);
+                 var item = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
                  dictionaryEntries.Add(item);
 
                  var dupa = item.Type.GetGenericTypeDefinition();

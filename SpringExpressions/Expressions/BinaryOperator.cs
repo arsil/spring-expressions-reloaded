@@ -146,17 +146,17 @@ namespace SpringExpressions
 
 
 
-           // todo: error: to siê bêdzie myli³o!!!!!
+             // todo: error: to siê bêdzie myli³o!!!!!
 		protected LExpression CreateBinaryExpressionForAllNumericTypesEvaluatingChildren(
-			LExpression contextExpression, 
-			LExpression evalContext,
-			Func<
-				LExpression, 
-				LExpression, 
-				System.Linq.Expressions.BinaryExpression> binaryFunctionCreator)
+            LExpression contextExpression,
+            CompilationContext compilationContext,
+            Func<
+                LExpression, 
+                LExpression, 
+                System.Linq.Expressions.BinaryExpression> binaryFunctionCreator)
 	    {
-			var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, evalContext);
-			var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, evalContext);
+			var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
+			var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
 			if (leftExpression != null && rightExpression != null)
 			{

@@ -48,15 +48,14 @@ namespace SpringExpressions
         {
         }
 
-        protected override LExpression GetExpressionTreeIfPossible(
-            LExpression contextExpression,
-            LExpression evalContext)
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+            CompilationContext compilationContext)
         {
             var node = getFirstChild();
             if (node == null)
                 return null;
 
-            var key = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, evalContext);
+            var key = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
 
             if (key == null)
                 return null;
@@ -65,7 +64,7 @@ namespace SpringExpressions
             if (node == null)
                 return null;
 
-            var value = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, evalContext);
+            var value = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
 
             var genericKvP = typeof(KeyValuePair<,>).MakeGenericType(key.Type, value.Type);
             var mi = genericKvP.GetConstructor(new[] { key.Type, value.Type });

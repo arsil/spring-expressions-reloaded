@@ -67,7 +67,8 @@ namespace SpringExpressions
             return this.getText();
         }
 
-		protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+		protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+            CompilationContext compilationContext)
 		{
 			return LExpression.Constant(this.getText(), typeof(string));
 		}

@@ -57,8 +57,8 @@ namespace SpringExpressions
         {
         }
 
-        protected override LExpression GetExpressionTreeIfPossible(
-            LExpression contextExpression, LExpression evalContext)
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+            CompilationContext compilationContext)
         {
             return LExpression.Constant(bool.Parse(getText()), typeof(bool));
         }

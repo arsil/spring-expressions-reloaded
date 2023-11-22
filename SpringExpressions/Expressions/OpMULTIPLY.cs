@@ -51,12 +51,14 @@ namespace SpringExpressions
         }
 
 
-		protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+		protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression,
+            CompilationContext compilationContext)
 		{
 // TODO: póki co obs³ugujemy tylko numeryczne mno¿enie! czy jakoœ mo¿e wykrywaæ takie bajery...?
 			return CreateBinaryExpressionForAllNumericTypesEvaluatingChildren(
-				contextExpression,
-				evalContext,
+                contextExpression,
+				compilationContext,
 				LExpression.Multiply);
 		}
 		/// <summary>

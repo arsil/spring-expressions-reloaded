@@ -54,7 +54,8 @@ namespace SpringExpressions
         }
 
 	    protected override LExpression GetExpressionTreeIfPossible(
-			LExpression contextExpression, LExpression evalContext)
+            LExpression contextExpression,
+            CompilationContext compilationContext)
 	    {
 			if (arrayType == null)
 			{
@@ -80,7 +81,7 @@ namespace SpringExpressions
 				var args = new List<LExpression>();
 				while (rankNode != null)
 				{
-					args.Add(GetExpressionTreeIfPossible((BaseNode)rankNode, contextExpression, evalContext));
+					args.Add(GetExpressionTreeIfPossible((BaseNode)rankNode, contextExpression, compilationContext));
 					rankNode = rankNode.getNextSibling();
 				}
 				return LExpression.NewArrayBounds(arrayType, args);
@@ -89,9 +90,7 @@ namespace SpringExpressions
 		    AST valuesRoot = getFirstChild().getNextSibling();
 		    if (valuesRoot != null)
 		    {
-			    var arrayExpression = GetExpressionTreeIfPossible((BaseNode) valuesRoot,
-				    contextExpression,
-				    evalContext);
+			    var arrayExpression = GetExpressionTreeIfPossible((BaseNode) valuesRoot, contextExpression, compilationContext);
 			    var arrayExpressonType = arrayExpression.Type;
 
 			    if (arrayExpressonType.IsGenericType

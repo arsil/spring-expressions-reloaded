@@ -88,7 +88,8 @@ namespace SpringExpressions
             return nodeValue;
         }
 
-        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+            CompilationContext compilationContext)
         {
             string n = getText();
 

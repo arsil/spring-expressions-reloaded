@@ -89,20 +89,21 @@ namespace SpringExpressions
             }
         }
 
-        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+            CompilationContext compilationContext)
         {
             AST node = getFirstChild();
-            var conditionExpression = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, evalContext);
+            var conditionExpression = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
             if (conditionExpression == null)
                 return null;
 
 			node = node.getNextSibling();
-            var trueExpression = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, evalContext);
+            var trueExpression = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
             if (trueExpression == null)
                 return null;
 
             node = node.getNextSibling();
-            var falseExpression = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, evalContext);
+            var falseExpression = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
             if (falseExpression == null)
                 return null;
 

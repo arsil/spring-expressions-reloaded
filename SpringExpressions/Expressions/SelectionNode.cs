@@ -22,6 +22,8 @@ using System;
 using System.Collections;
 using System.Runtime.Serialization;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -45,6 +47,12 @@ namespace SpringExpressions
         protected SelectionNode(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
+        }
+
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+            CompilationContext compilationContext)
+        {
+            return null;
         }
 
         /// <summary>

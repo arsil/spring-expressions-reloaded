@@ -289,7 +289,9 @@ namespace SpringExpressions
             return result;
         }
 
-	    protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression, LExpression evalContext)
+	    protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression,
+            CompilationContext compilationContext)
 	    {
  // todo: napisane na kolanie ale chyba dziaa...... fajno jest, hej ho, hej ho!
 			LExpression currentExpression = contextExpression;
@@ -298,7 +300,9 @@ namespace SpringExpressions
 		    while (node != null)
 		    {
 				currentExpression = GetExpressionTreeIfPossible(
-					node, currentExpression, evalContext);
+                    node,
+                    currentExpression, 
+                    compilationContext);
 
 			    node = (BaseNode) node.getNextSibling();
 				if (currentExpression == null)

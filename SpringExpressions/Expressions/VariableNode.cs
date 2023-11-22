@@ -57,8 +57,8 @@ namespace SpringExpressions
         // todo: nie mamy tutaj w evalContext ani Root ani ThisContext ani Variables!
 /* - bieda */
         protected override LExpression GetExpressionTreeIfPossible(
-            LExpression contextExpression, 
-            LExpression evalContext)
+            LExpression contextExpression,
+            CompilationContext compilationContext)
         {
             // todo: bieda... bo stracimy typ... kurwa... co za bieda... ale dowcip... kurwa.. .bieda. totalna!
             // todo: i po co myœmy to robili... 
@@ -67,9 +67,10 @@ namespace SpringExpressions
             // #this
             if (varName == "this")
             {
-                      // todo: error: to musi byæ strongly typed! shit!!!! a nie jest... co jest super s³abe!!!
+                // todo: error: to musi byæ strongly typed! shit!!!! a nie jest... co jest super s³abe!!!
                 // zwraca object
-                return LExpression.Field(evalContext, "ThisContext");
+                //return LExpression.Field(compilationContext.EvalContext, "ThisContext");
+                return compilationContext.ThisExpression;
             }
 
             // #root
@@ -88,7 +89,7 @@ namespace SpringExpressions
 
                 // zwraca object
                 // todo: error; czy to siê jakoœ zmienia? root? oto jest pyhtanie!---------------------------------- teraz zak³adamy, ¿e siê nie zmienia.... 
-                return contextExpression;
+                return compilationContext.RootContextExpression;
 
                 //return LExpression.Field(evalContext, "RootContext");
             }
@@ -99,7 +100,7 @@ namespace SpringExpressions
 
             // getting object
             return LExpression.Call(
-                LExpression.Field(evalContext, "Variables"), 
+                LExpression.Field(compilationContext.EvalContext, "Variables"), 
                 VariablesDictionaryIndexerMi,
                 arguments);
         }

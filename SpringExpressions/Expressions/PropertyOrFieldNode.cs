@@ -248,14 +248,14 @@ namespace SpringExpressions
 
 
         protected override LExpression GetExpressionTreeIfPossible(
-			LExpression contextExpression, 
-			LExpression evalContext)
+            LExpression contextExpression,
+            CompilationContext compilationContext)
         {
-            // TODO: odczyt const-ów! jak to zrobiæ! bo nie chc¹ siê emitowaæ! kurwa! co za gówno!
+            // TODO: error: odczyt const-ów! jak to zrobiæ! bo nie chc¹ siê emitowaæ! kurwa! co za gówno!
 
 
-            // TODO: czy lock jest potrzebny? tutaj? chyba nie?
-            // TODO: czy czasami nie bêdzie tak, ¿e kompilacja ZAWSZE bêdzie w locku???
+            // TODO: error:  czy lock jest potrzebny? tutaj? chyba nie?
+            // TODO: error:  czy czasami nie bêdzie tak, ¿e kompilacja ZAWSZE bêdzie w locku???
             lock (this)
             {
                 IValueAccessor acc = null;
@@ -264,6 +264,7 @@ namespace SpringExpressions
                 var finalContextExpression = contextExpression;
 
                 var contextExpressionType = contextExpression.Type;
+
                 if (contextExpressionType == typeof(Type)
                     && contextExpression.NodeType == ExpressionType.Constant)
                 {

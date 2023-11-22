@@ -58,11 +58,11 @@ namespace SpringExpressions
 
 
         protected override LExpression GetExpressionTreeIfPossible(
-            LExpression contextExpression, 
-            LExpression evalContext)
+            LExpression contextExpression,
+            CompilationContext compilationContext)
         {
-            var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, evalContext);
-            var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, evalContext);
+            var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
+            var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
             if (leftExpression == null || rightExpression == null)
                 return null;

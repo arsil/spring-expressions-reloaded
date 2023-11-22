@@ -22,6 +22,8 @@ using System;
 using System.Collections;
 using System.Runtime.Serialization;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -45,7 +47,13 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
+
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+            CompilationContext compilationContext)
+        {
+            return null;
+        }
+
         /// <summary>
         /// Returns the first context item that matches selection expression.
         /// </summary>

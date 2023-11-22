@@ -49,11 +49,12 @@ namespace SpringExpressions
         }
 
         protected override LExpression GetExpressionTreeIfPossible(
-            LExpression contextExpression, LExpression evalContext)
+            LExpression contextExpression,
+            CompilationContext compilationContext)
         {
             return CreateBinaryExpressionForAllNumericTypesEvaluatingChildren(
                 contextExpression,
-                evalContext,
+                compilationContext,
                 LExpression.Modulo);
         }
 

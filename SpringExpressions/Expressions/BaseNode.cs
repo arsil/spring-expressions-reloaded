@@ -216,20 +216,22 @@ namespace SpringExpressions
 					// todo: zapamiêtujemy zbudowane expression!
 					// todo: zapamiêtujemy funkcjê, która dostaje na ryja obecta! z contextem!
 					// todo: i go rzutuje!
-					LExpression getContextExpression;
+					LExpression getRootContextExpression;
 			        var ctxParam = LExpression.Parameter(typeof(object), "context");
 
 			        if (context == null)
-				        getContextExpression = LExpression.Constant(null);
+				        getRootContextExpression = LExpression.Constant(null);
 			        else
-				        getContextExpression = LExpression.Convert(ctxParam,
+				        getRootContextExpression = LExpression.Convert(ctxParam,
 					        context.GetType());
 
 					var getEvalContextExpression = LExpression.Parameter(
 						typeof(EvaluationContext), "evalContext");
 
 
-					var exp = GetExpressionTreeIfPossible(getContextExpression, getEvalContextExpression);
+					var exp = GetExpressionTreeIfPossible(
+                        getRootContextExpression, 
+                        new CompilationContext(getRootContextExpression, getEvalContextExpression));
 
 			        exp = LExpression.Convert(exp, typeof(object));
 
@@ -288,13 +290,13 @@ namespace SpringExpressions
 				// todo: zapamiêtujemy zbudowane expression!
 				// todo: zapamiêtujemy funkcjê, która dostaje na ryja obecta! z contextem!
 				// todo: i go rzutuje!
-				LExpression getContextExpression;
+				LExpression getRootContextExpression;
 				var ctxParam = LExpression.Parameter(typeof(TContext), "context");
 
 				if (context == null)
-					getContextExpression = LExpression.Constant(null, typeof(TContext));
+					getRootContextExpression = LExpression.Constant(null, typeof(TContext));
 				else
-					getContextExpression = LExpression.Convert(ctxParam, typeof(TContext));
+					getRootContextExpression = LExpression.Convert(ctxParam, typeof(TContext));
 
 				var getEvalContextExpression = LExpression.Parameter(
 					typeof(EvaluationContext), "evalContext");
@@ -305,7 +307,9 @@ namespace SpringExpressions
 // todo: przeka¿a epression? do wyci¹gniêcia roota? mo¿e to jednak powinien byæ inny evalContext!!!!!!!!!!!!!!!
 // todO:: pewnie powinien to byæ inny eval context....  
 
-				var exp = GetExpressionTreeIfPossible(getContextExpression, getEvalContextExpression);
+				var exp = GetExpressionTreeIfPossible(
+                    getRootContextExpression, 
+                    new CompilationContext(getRootContextExpression, getEvalContextExpression));
 
   // todo: error; a mo¿e przekazywaæ tutaj nie evaluationContext..  tylko coœ wiêcej???? shit....roota przyk³adowo...
 				Expression<Func<TContext, EvaluationContext, TResult>> lambda
@@ -410,13 +414,15 @@ namespace SpringExpressions
         }
 
 		protected LExpression GetExpressionTreeIfPossible(
-			BaseNode node, LExpression contextExpression, LExpression evalContext)
+            BaseNode node, 
+            LExpression contextExpression,
+            CompilationContext compilationContext)
 		{
-			return node.GetExpressionTreeIfPossible(contextExpression, evalContext);
+			return node.GetExpressionTreeIfPossible(contextExpression, compilationContext);
 		}
 
-		protected virtual LExpression GetExpressionTreeIfPossible(
-			LExpression contextExpression, LExpression evalContext)
+		protected virtual LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+            CompilationContext compilationContext)
 	    {
 		    return null;
 	    }

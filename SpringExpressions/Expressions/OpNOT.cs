@@ -58,11 +58,10 @@ namespace SpringExpressions
 
 
 	    protected override LExpression GetExpressionTreeIfPossible(
-			LExpression contextExpression, 
-			LExpression evalContext)
+            LExpression contextExpression,
+            CompilationContext compilationContext)
 	    {
-			var operandExpression = GetExpressionTreeIfPossible((BaseNode)getFirstChild(),
-				contextExpression, evalContext);
+			var operandExpression = GetExpressionTreeIfPossible((BaseNode)getFirstChild(), contextExpression, compilationContext);
 
 			var leftTypeCode = (int)System.Type.GetTypeCode(operandExpression.Type);
 

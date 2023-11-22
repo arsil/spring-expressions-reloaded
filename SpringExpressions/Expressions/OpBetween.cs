@@ -51,12 +51,11 @@ namespace SpringExpressions
         {
         }
 
-        protected override LExpression GetExpressionTreeIfPossible(
-            LExpression contextExpression,
-            LExpression evalContext)
+        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+            CompilationContext compilationContext)
         {
-            var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, evalContext);
-            var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, evalContext);
+            var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
+            var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
             if (rightExpression.Type.IsGenericType &&
                 rightExpression.Type.GetGenericTypeDefinition() == typeof(List<>))
@@ -80,7 +79,7 @@ namespace SpringExpressions
                         0));
             }
 
-            return base.GetExpressionTreeIfPossible(contextExpression, evalContext);
+            return base.GetExpressionTreeIfPossible(contextExpression, compilationContext);
         }
 
         /// <summary>

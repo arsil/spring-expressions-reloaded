@@ -119,14 +119,14 @@ namespace TestownicaZCore
 
 			// działa zajebiście
 			{
-				var exp = Expression.Parse("_Attr.Has('CurrentReceipt.TotalQuantityForArticleIndex0000125837')");
-				var result = exp.GetValue<bool, PromoContext>(promoContext);
+				var exp = Expression.Parse<PromoContext, bool>("_Attr.Has('CurrentReceipt.TotalQuantityForArticleIndex0000125837')");
+				var result = exp.GetValue(promoContext);
                 Console.WriteLine($"exp.GetValue<bool, PromoContext>(promoContext) = {result}");
 			}
 
 			{
-				var exp = Expression.Parse("_Attr.Has('CurrentReceipt.TotalQuantityForArticleIndex0000125837') ? 1m : 0m");
-				var result = (decimal)exp.GetValue<decimal, PromoContext>(promoContext);
+				var exp = Expression.Parse<PromoContext, decimal>("_Attr.Has('CurrentReceipt.TotalQuantityForArticleIndex0000125837') ? 1m : 0m");
+				var result = (decimal)exp.GetValue(promoContext);
                 Console.WriteLine($"exp.GetValue<decimal, PromoContext>(promoContext) = {result}");
             }
 
