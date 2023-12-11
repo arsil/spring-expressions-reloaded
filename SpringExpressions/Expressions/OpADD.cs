@@ -85,7 +85,7 @@ namespace SpringExpressions
                         rightExpression));
             }
 
-            if (leftExpression.Type == typeof(DateTime) && IsNumericExpression(rightExpression))
+            if (leftExpression.Type == typeof(DateTime) && ExpressionTypeHelper.IsNumericExpression(rightExpression))
             {
                 // (DateTime) left + TimeSpan.FromDays(Convert.ToDouble(right));
                 return LExpression.Call(

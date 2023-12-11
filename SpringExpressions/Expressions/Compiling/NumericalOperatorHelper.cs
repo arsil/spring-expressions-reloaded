@@ -23,7 +23,7 @@ namespace SpringExpressions.Expressions.Compiling
             var leftTypeCode = (int)Type.GetTypeCode(leftExpressionType);
 
             // For Char, Boolean, DBNull, Object, Empty, DateTime and String
-            if (leftTypeCode < 5 || leftTypeCode > 15)
+            if (leftTypeCode < 5 || leftTypeCode > 15 || leftExpressionType.IsEnum)
                 return null;
 
             // TODO: konwersja user-typów

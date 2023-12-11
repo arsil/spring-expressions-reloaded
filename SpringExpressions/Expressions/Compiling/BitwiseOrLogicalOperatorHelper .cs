@@ -84,11 +84,11 @@ namespace SpringExpressions.Expressions.Compiling
                 }
             }
 
-            if (NumberUtils.IsInteger(left.Type)
-                && NumberUtils.IsInteger(right.Type))
+            if (ExpressionTypeHelper.IsIntegerExpression(left)
+                && ExpressionTypeHelper.IsIntegerExpression(right))
             {
                 // bitwise AND for integer types
-                return CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+                return NumericalOperatorHelper.Create(
                     left,
                     right,
                     bitwiseOperatorCreator);

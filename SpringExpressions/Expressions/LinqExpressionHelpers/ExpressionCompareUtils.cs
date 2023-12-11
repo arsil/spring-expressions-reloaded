@@ -4,6 +4,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 
 using LExpression = System.Linq.Expressions.Expression;
+using LBinaryExpression = System.Linq.Expressions.BinaryExpression;
 
 namespace SpringExpressions.Expressions.LinqExpressionHelpers
 {
@@ -15,7 +16,7 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
             Func<
                 LExpression,
                 LExpression,
-                BinaryExpression> comparisonExpression,
+                LBinaryExpression> comparisonExpression,
             int comparisonValue)
         {
             if (leftExpression == null || rightExpression == null)
@@ -31,7 +32,7 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
             }
 
             // try numeric comparision
-            var result = NumericalOperatorHelper.Create(
+            LExpression result = NumericalOperatorHelper.Create(
                 leftExpression,
                 rightExpression,
                 comparisonExpression);
@@ -57,7 +58,7 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
             Func<
                 LExpression,
                 LExpression,
-                BinaryExpression> comparisonExpression,
+                LBinaryExpression> comparisonExpression,
             int comparisonValue)
         {
             if (typeof(IComparable).IsAssignableFrom(leftExpression.Type))

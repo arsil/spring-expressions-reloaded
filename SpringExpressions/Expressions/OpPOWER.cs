@@ -21,6 +21,7 @@
 using System;
 using System.Reflection;
 using System.Runtime.Serialization;
+using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -57,8 +58,8 @@ namespace SpringExpressions
 
             if (leftExpression != null 
                 && rightExpression != null
-                && IsNumericExpression(leftExpression)
-                && IsNumericExpression(rightExpression))
+                && ExpressionTypeHelper.IsNumericExpression(leftExpression)
+                && ExpressionTypeHelper.IsNumericExpression(rightExpression))
             {
                 //return Math.Pow(Convert.ToDouble(m), Convert.ToDouble(n));
 

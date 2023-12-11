@@ -1152,6 +1152,24 @@ namespace SpringExpressionsTests.Expressions
             TwoAndFourCombined = Two | Four
         }
 
+        [Test]
+        public void TestInvalidEnumMultiplication()
+        {
+            TypeRegistry.RegisterType(typeof(TestEnumFlags));
+
+            // interpreter
+            Assert.Throws<ArgumentException>( ()=>
+                Expression.ParseGetter<object>(
+                        "TestEnumFlags.TwoAndFourCombined * TestEnumFlags.Four", CompileOptions.MustUseInterpreter)
+                    .GetValue());
+
+            // todo: error:       compiler - should throw compile exception
+            Assert.Throws<ArgumentException>(() =>
+                Expression.ParseGetter<object>(
+                    "TestEnumFlags.TwoAndFourCombined * TestEnumFlags.Four", 
+                    CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+        }
+
         // todo: error: variables? może ExpandoOBject?
         // tood: error; variables - może zapisywać typ variable? ale co to da? skoro można dodać nową variable? a przecież można?
 

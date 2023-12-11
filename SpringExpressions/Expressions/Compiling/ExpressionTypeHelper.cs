@@ -31,10 +31,11 @@ namespace SpringExpressions.Expressions.Compiling
             //  16 - DateTime	
             //  18 - String
 
-            // todo: error!
             // For Enum types, the type code of the underlying integral type is returned.
-            var code = (int)System.Type.GetTypeCode(expression.Type);
-            return (code >= 5 && code <= 15);
+
+            var expressionType = expression.Type;
+            var code = (int)System.Type.GetTypeCode(expressionType);
+            return code >= 5 && code <= 15 && !expressionType.IsEnum;
         }
 
         public static bool IsIntegerExpression([NotNull] LExpression expression)
@@ -60,11 +61,11 @@ namespace SpringExpressions.Expressions.Compiling
             //  16 - DateTime	
             //  18 - String
 
-            // todo: error!
             // For Enum types, the type code of the underlying integral type is returned.
 
-            var code = (int)System.Type.GetTypeCode(expression.Type);
-            return (code >= 5 && code <= 12);
+            var expressionType = expression.Type;
+            var code = (int)System.Type.GetTypeCode(expressionType);
+            return code >= 5 && code <= 12 && !expressionType.IsEnum;
         }
     }
 }
