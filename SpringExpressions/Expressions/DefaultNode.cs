@@ -61,20 +61,26 @@ namespace SpringExpressions
             if (leftExpression is ConstantExpression constExpr && constExpr.Value == null)
                 return rightExpression;
 
-   // todo: sprawdziæ, czy jest null!em
             if (MethodBaseHelpers.IsNullableType(leftExpression.Type))
-                return leftExpression;
+            {
+                var propHasValue = leftExpression.Type.GetProperty("HasValue");
+                var propValue = leftExpression.Type.GetProperty("Value");
+
+                return LExpression.Condition(
+                    LExpression.Property(leftExpression, propHasValue),
+                    LExpression.Property(leftExpression, propValue),
+                    rightExpression);
+            }
 
             if (leftExpression.Type.IsValueType)
                 return leftExpression;
                // todo: error: typy musz¹ pasowaæ!
 
-
                // todo: value types!
-               return LExpression.Condition(
-                   LExpression.NotEqual(leftExpression, LExpression.Constant(null, leftExpression.Type)),
-                   leftExpression,
-                   rightExpression);
+            return LExpression.Condition(
+                LExpression.NotEqual(leftExpression, LExpression.Constant(null, leftExpression.Type)),
+                leftExpression,
+                rightExpression);
             /*
          if (leftExpression.Type == typeof(bool) && rightExpression.Type == typeof(bool))
          {

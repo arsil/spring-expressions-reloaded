@@ -23,7 +23,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Runtime.Serialization;
-
+using SpringExpressions.Expressions;
 using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
@@ -47,7 +47,7 @@ namespace SpringExpressions
         /// <summary>
         /// Holds the state during evaluating an expression.
         /// </summary>
-        protected class EvaluationContext
+        protected internal class EvaluationContext
         {
             #region Holder classes
 
@@ -124,6 +124,7 @@ namespace SpringExpressions
                 this.Variables = globalVariables;
             }
 
+                // todo: error: root context type change?
 			public void Reuse(object rootContext, IDictionary<string, object> globalVariables)
 			{
 				this.RootContext = rootContext;
@@ -233,7 +234,10 @@ namespace SpringExpressions
                         getRootContextExpression, 
                         new CompilationContext(getRootContextExpression, getEvalContextExpression));
 
-			        exp = LExpression.Convert(exp, typeof(object));
+                    if (exp.Type == typeof(void))
+                        exp = LExpression.Block(exp, LExpression.Constant(null, typeof(object)));
+                    else if (exp.Type != typeof(object))
+			            exp = LExpression.Convert(exp, typeof(object));
 
 			        //var convExp = System.Linq.Expressions.Expression.Convert(expr, typeof(object));
 
@@ -255,18 +259,29 @@ namespace SpringExpressions
 			}
         }
 
-          // todo:
-        class CompiledExpression<TResult, TContext>
+           // todo: error?
+        internal object GetValueUsingInterpreter(
+            object context, EvaluationContext evaluationContext)
         {
-              // todo: error: EvaluationContext!!! shti!!!!
-
-               // todo: error: wip
-            private Func<TContext, EvaluationContext, TResult> CompiledGet;
+            return Get(context, evaluationContext);
         }
+
+        internal void SetValueUsingInterpreter(
+            object context, EvaluationContext evaluationContext, object newValue)
+        {
+            Set(context, evaluationContext, newValue);
+        }
+
+        internal void ExecuteVoidExpressionUsingInterpreter(
+            object context, EvaluationContext evaluationContext)
+        {
+            Get(context, evaluationContext);
+        }
+
 
         private object _compiledExpressionAsObject;
 
-
+ // todo: error: Getter Settter typowany nie publiczny !
         // todo: oczywiœcie bez sensu jest robiæ tyle GetXXXValue... totalnie bez sensu....
         public TResult GetValue<TResult>(IDictionary<string, object> variables = null)
         {
@@ -287,43 +302,12 @@ namespace SpringExpressions
     // todo: error: tutaj oczywiœcie jest problem, bo base-node nie jest w ogóle przygotowany na typowanie... st¹d problem!
 		    if (_compiledExpressionAsObject == null)
 		    {
-				// todo: zapamiêtujemy zbudowane expression!
-				// todo: zapamiêtujemy funkcjê, która dostaje na ryja obecta! z contextem!
-				// todo: i go rzutuje!
-				LExpression getRootContextExpression;
-				var ctxParam = LExpression.Parameter(typeof(TContext), "context");
+                _compiledExpressionAsObject = Compiler.CompileGetter<TResult, TContext>(this);
 
-				if (context == null)
-					getRootContextExpression = LExpression.Constant(null, typeof(TContext));
-				else
-					getRootContextExpression = LExpression.Convert(ctxParam, typeof(TContext));
-
-				var getEvalContextExpression = LExpression.Parameter(
-					typeof(EvaluationContext), "evalContext");
-
-// todo: problem: w EvalContext nie mamy ju¿ typowanego roota... i to jest s³abe... kurde...
-// todo: czy da siê to jakoœ za³atwiæ... bo dostêp do roota móg³by byæ... ale potrzebowalibyœmy
-// todo: exp... dla roota... a mo¿e to powinno jeszcze inaczej dzia³aæ...  mo¿e do GetExpressionTree powinniœmy
-// todo: przeka¿a epression? do wyci¹gniêcia roota? mo¿e to jednak powinien byæ inny evalContext!!!!!!!!!!!!!!!
-// todO:: pewnie powinien to byæ inny eval context....  
-
-				var exp = GetExpressionTreeIfPossible(
-                    getRootContextExpression, 
-                    new CompilationContext(getRootContextExpression, getEvalContextExpression));
-
-  // todo: error; a mo¿e przekazywaæ tutaj nie evaluationContext..  tylko coœ wiêcej???? shit....roota przyk³adowo...
-				Expression<Func<TContext, EvaluationContext, TResult>> lambda
-					= LExpression.Lambda<Func<TContext, EvaluationContext, TResult>>(exp, ctxParam, getEvalContextExpression);
-
-
-
-				// no i co dalej... jak 
-				// todo: co z lastEvaluationContext? mo¿e nie jest potrzebny? oto jest pytanie!
-				// todo: mo¿emy go tutaj przekazaæ... albo po prostu utworzyæ w œrodku... 
-				// todo: pytanie, czy mo¿emy do na rz¹danie utworzyæ? kurde... raczej nie...
-				_compiledExpressionAsObject = lambda.Compile();
-
-			}
+                // dupochron
+                if (_compiledExpressionAsObject == null)
+                    throw new InvalidOperationException("Unknown error [_compiledExpressionAsObject == null]!");
+            }
 
 			if (_lastEvaluationContext != null)
 				_lastEvaluationContext.Reuse(context, variables);
@@ -333,7 +317,7 @@ namespace SpringExpressions
 			return ((Func<TContext, EvaluationContext, TResult>) _compiledExpressionAsObject)(context, _lastEvaluationContext);
 	    }
 
-	    /// <summary>
+        /// <summary>
         /// Returns node's value for the given context.
         /// </summary>
         /// <returns>Node's value.</returns>
@@ -413,7 +397,7 @@ namespace SpringExpressions
             node.Set(context, evalContext, newValue);
         }
 
-		protected LExpression GetExpressionTreeIfPossible(
+		protected internal static LExpression GetExpressionTreeIfPossible(
             BaseNode node, 
             LExpression contextExpression,
             CompilationContext compilationContext)
@@ -421,13 +405,35 @@ namespace SpringExpressions
 			return node.GetExpressionTreeIfPossible(contextExpression, compilationContext);
 		}
 
-		protected virtual LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+           // todo: rename?
+		protected virtual LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression,
             CompilationContext compilationContext)
 	    {
-		    return null;
-	    }
+                      // todo: error; change exception to some compilation exception
+            throw new InvalidOperationException("GetExpressionTreeIfPossible not implemented for node: " + GetType().Name);
 
-		     // todo: funkcja, która na twarz dostaje kontext i go zwraca... taki dowcip...
-			 // todo: i jest dalej rootem do budowania!
+        }
+
+        protected virtual LExpression GetExpressionTreeForSetterIfPossible(
+            LExpression contextExpression,
+            CompilationContext compilationContext,
+            LExpression newValueExpression)
+        {
+                   // todo: error; change exception to some compilation exception
+            throw new InvalidOperationException("GetExpressionTreeForSetterIfPossible not implemented for node: " + GetType().Name);
+        }
+
+        protected internal static LExpression GetExpressionTreeForSetterIfPossible(
+            BaseNode node,
+            LExpression contextExpression,
+            CompilationContext compilationContext,
+            LExpression newValueExpression)
+        {
+            return node.GetExpressionTreeForSetterIfPossible(contextExpression, compilationContext, newValueExpression);
+        }
+
+        // todo: funkcja, która na twarz dostaje kontext i go zwraca... taki dowcip...
+        // todo: i jest dalej rootem do budowania!
     }
 }

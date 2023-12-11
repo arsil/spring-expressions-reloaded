@@ -20,6 +20,7 @@
 
 using System;
 using System.Runtime.Serialization;
+using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -67,26 +68,8 @@ namespace SpringExpressions
             if (leftExpression == null || rightExpression == null)
                 return null;
 
-            if (leftExpression.Type == typeof(bool) && rightExpression.Type == typeof(bool))
-            {
-                // logical AND on boolean expressions
-                return LExpression.AndAlso(
-                    leftExpression,
-                    rightExpression);
-            }
-
-            if (NumberUtils.IsInteger(leftExpression.Type)
-                && NumberUtils.IsInteger(rightExpression.Type))
-            {
-                // bitwise AND for integer types
-                return CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
-                    leftExpression,
-                    rightExpression,
-                    LExpression.And);
-            }
-
-            // enums or conversions not supported
-            return null;
+            return BitwiseOrLogicalOperatorHelper.CreateAndExpression(
+                leftExpression, rightExpression);
         }
 
         /// <summary>

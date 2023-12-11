@@ -20,8 +20,18 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
 using System.Runtime.Serialization;
+using System.Threading;
+
+using SpringExpressions.Expressions.LinqExpressionHelpers;
 using SpringExpressions.Parser.antlr.collections;
+
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
@@ -114,6 +124,100 @@ namespace SpringExpressions
                 return result;
             }
         }
+
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression,
+            CompilationContext compilationContext)
+        {
+            int childrenCount = getNumberOfChildren();
+
+            if (childrenCount > 1)
+            {
+                // todo: error: to jest prawdziwe tylko dla kolekcji! -----
+                if (!MethodBaseHelpers.IsGenericEnumerable(contextExpression.Type, out var itemType))
+                    return null;
+
+                var blockNodes = new List<LExpression>();
+                var parameterExpressions = new List<ParameterExpression>();
+                var parameterTypes = new List<Type>();
+
+                        // todo: error: serio? null context? this context?
+                var newCompilationContext = new CompilationContext(
+                    compilationContext.RootContextExpression, null);
+
+                AST argsNode = this.getFirstChild();
+                //var argumentNames = new string[argsNode.getNumberOfChildren()];
+
+                AST argNode = argsNode.getFirstChild();
+
+                while (argNode != null)
+                {
+                    var variableName = argNode.getText();
+
+                    var paramExpression = LExpression.Parameter(
+                        itemType, "param_" + variableName);
+
+                    parameterExpressions.Add(paramExpression);
+                    parameterTypes.Add(itemType);
+
+
+                    // todo:
+//                    var variableExpression = LExpression.Variable(itemType, argName);
+  //                  blockNodes.Add(LExpression.Assign(variableExpression, paramExpression));
+
+                    // todo: to s¹ parametry! tej! w body nowym!!!
+                    //compilationContext.AddParameter()
+                    newCompilationContext.AddLocalVariable(variableName, paramExpression);
+                    //newCompilationContext.AddLocalVariable(argName, variableExpression);
+
+
+                    argNode = argNode.getNextSibling();
+                }
+
+                var bodyExpressionNode = (BaseNode)argsNode.getNextSibling();
+
+                         // todo: error: context expression??? const z null expression? object?
+                var bodyExpr = GetExpressionTreeIfPossible(bodyExpressionNode, null, newCompilationContext);
+
+                if (bodyExpr == null)
+                    return null;
+
+                blockNodes.Add(bodyExpr);
+
+                var blockExpression = LExpression.Block(blockNodes);
+
+
+
+                parameterTypes.Add(blockExpression.Type);
+                var funcType = LExpression.GetFuncType(parameterTypes.ToArray());
+
+                // todo:
+                // Call: Expression.Lambda<>()
+                var finalLambdaMi = _lambdaMi.MakeGenericMethod(funcType);
+                var functionExpr = finalLambdaMi.Invoke(null,
+                    new object[] { blockExpression, parameterExpressions.ToArray() });
+
+                var compileMi = functionExpr.GetType().GetMethod("Compile", System.Type.EmptyTypes);
+
+// todo: error: debug for exception!!!------------------------------------------------------------------------------------------------------------------------
+Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
+Thread.CurrentThread.CurrentUICulture = CultureInfo.InvariantCulture;
+
+                // Call: .Compile()
+                var compiledFunction = compileMi.Invoke(functionExpr, new object[0]);
+
+                     // todo: error: czy na pewno to coœ powinno zwraca? czy mo¿e NIE! czy mo¿e inna metoda nie GetExpressionTreeIfPossible
+                return LExpression.Constant(compiledFunction);
+            }
+
+            return null;
+        }
+
+        private readonly MethodInfo _lambdaMi = typeof(LExpression).GetMethods().FirstOrDefault(
+            x => x.Name.Equals("Lambda", StringComparison.OrdinalIgnoreCase)
+                && x.IsGenericMethod && x.GetParameters().Length == 2
+                && x.GetParameters()[0].ParameterType == typeof(LExpression)
+                && x.GetParameters()[1].ParameterType == typeof(ParameterExpression[]));
 
         private void InitializeLambda()
         {

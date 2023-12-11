@@ -21,6 +21,8 @@
 using System;
 using System.Runtime.Serialization;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -44,7 +46,20 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
+
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression,
+            CompilationContext compilationContext)
+        {
+                   // todo: error: this won't work! it is a hack!!!!!! NamedArguments must be processed separately!
+
+            return GetExpressionTreeIfPossible(
+                (BaseNode)getFirstChild(), 
+                   // todo: error: suspicious?    why RootContext?
+                compilationContext.RootContextExpression,
+                compilationContext);
+        }
+
         /// <summary>
         /// Returns the value of the named argument defined by this node.
         /// </summary>

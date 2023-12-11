@@ -61,7 +61,7 @@ namespace SpringExpressions
               // todo: error: fix it! new name?-----------------------------------------------------------------------------------------------------
         public static TResult GetValue2<TRoot, TResult>(TRoot root, string expression)
         {
-            var exp = Expression.Parse<TRoot, TResult>(expression);
+            var exp = Expression.ParseGetter<TRoot, TResult>(expression);
             return exp.GetValue(root);
         }
 

@@ -32,7 +32,7 @@ using SpringExpressions.Expressions.LinqExpressionHelpers;
 using SpringExpressions.Processors;
 using SpringUtil;
 using SpringReflection.Dynamic;
-
+using DistinctProcessor = SpringExpressions.Processors.DistinctProcessor;
 using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
@@ -69,11 +69,11 @@ namespace SpringExpressions
             collectionProcessorMap.Add("max", new MaxAggregator());
             collectionProcessorMap.Add("min", new MinAggregator());
             collectionProcessorMap.Add("average", new AverageAggregator());
-            collectionProcessorMap.Add("sort", new SortProcessor());
-            collectionProcessorMap.Add("orderBy", new OrderByProcessor());
+            collectionProcessorMap.Add("sort", new Processors.SortProcessor());
+            collectionProcessorMap.Add("orderBy", new Processors.OrderByProcessor());
             collectionProcessorMap.Add("distinct", new DistinctProcessor());
             collectionProcessorMap.Add("nonNull", new NonNullProcessor());
-            collectionProcessorMap.Add("reverse", new ReverseProcessor());
+            collectionProcessorMap.Add("reverse", new Processors.ReverseProcessor());
             collectionProcessorMap.Add("convert", new ConversionProcessor());
 
             extensionMethodProcessorMap.Add("date", new DateConversionProcessor());
@@ -130,6 +130,7 @@ namespace SpringExpressions
 			}
 
             if (typeof(ICollection).IsAssignableFrom(instance.Type)
+                || MethodBaseHelpers.IsGenericEnumerable(instance.Type)
                 || (contextExpression is ConstantExpression constExpression
                     && constExpression.Value == null))
             {
@@ -185,14 +186,24 @@ namespace SpringExpressions
 		    if (methodInfo == null)
 		    {
 			    methodInfo
-				    = contextExpressionType.GetMethod(
-					    methodName,
-					    BINDING_FLAGS | BindingFlags.FlattenHierarchy,
-					    null,
-					    argumentTypesArray,
-					    null);
+                    = !contextExpressionType.IsInterface 
+                        ? contextExpressionType.GetMethod(
+                            methodName,
+                            BINDING_FLAGS | BindingFlags.FlattenHierarchy,
+                            null,
+                            argumentTypesArray,
+                            null)
+                        : contextExpressionType.GetInterfaces()
+                            .Union(new[] { contextExpressionType }).Select(i => i.GetMethod(
+                                methodName,
+                                BINDING_FLAGS | BindingFlags.FlattenHierarchy,
+                                null,
+                                argumentTypesArray,
+                                null))
+                            .Distinct().SingleOrDefault(mi => mi != null)
+                        ;
 
-		    }
+            }
 
             if (methodInfo == null)
             {
@@ -229,29 +240,42 @@ namespace SpringExpressions
                 }
             }
 
+                      // todo: error: extensionMethodProcessorMap
             if (methodInfo == null && methodName == "date")
-		    {
-				// common date() method...
-			    if (arguments.Count == 1)
-			    {
-				    methodInfo = dateTimeParseMi;
-			    }
-			    else if (arguments.Count == 2)
-			    {
-				    methodInfo = dateTimeParseExactMi;
-					arguments.Add(LExpression.Constant(
-						CultureInfo.InvariantCulture, typeof(CultureInfo)));
-			    }
+            {
+                // common date() method...
+                if (arguments.Count == 1)
+                {
+                    methodInfo = dateTimeParseMi;
+                }
+                else if (arguments.Count == 2)
+                {
+                    methodInfo = dateTimeParseExactMi;
+                    arguments.Add(LExpression.Constant(
+                        CultureInfo.InvariantCulture, typeof(CultureInfo)));
+                }
 
-			    // static method
-			    instance = null;
-		    }
+                // static method
+                instance = null;
+            }
 
-		    if (methodInfo == null)
-			    return null;
+            if (methodInfo == null)
+                return null;
 
+            ConvertParameters(methodInfo, arguments);
 			return LExpression.Call(instance, methodInfo, arguments);
 	    }
+
+        private static void ConvertParameters(MethodInfo mi, List<LExpression> arguments)
+        {
+                  // todo: Implicit numeric conversions
+                        var methodParameters = mi.GetParameters();
+            for (int i = 0; i < arguments.Count; i++)
+            {
+                if (arguments[i].Type != methodParameters[i].ParameterType)
+                    arguments[i] = LExpression.ConvertChecked(arguments[i], methodParameters[i].ParameterType);
+            }
+        }
 
         private LExpression TryCollectionProcessors(
             LExpression instance,
@@ -273,38 +297,39 @@ namespace SpringExpressions
             var processorArguments = new List<LExpression> { instance };
             processorArguments.AddRange(arguments);
 
-
+             // todo: error: processors:
+             // Int32 Int64 UInt32 UInt64 Int16 UInt16 Byte SByte
+             // single, double, decimal
 
             Type processorType = null;
 
                     // todo: error: ka¿dy procesor musi mieæ wszystkie metody!!! to jest s³abe!!!
+            //if (instance.Type.IsGenericType)
 
-            if (typeof(IEnumerable<decimal>).IsAssignableFrom(instance.Type))
+            if (MethodBaseHelpers.IsGenericEnumerable(instance.Type, out Type itemType))
             {
-                processorType = typeof(DecimalProcessor);
+                if (GenericProcessorsFacade.TryGetMethodInfo(
+                        methodName, instance.Type, itemType, processorArgumentTypes, out var mi))
+                {
+                    return LExpression.Call(mi, processorArguments.ToArray());
+                }
             }
-            else if (typeof(IEnumerable<int>).IsAssignableFrom(instance.Type))
-            {
-                processorType = typeof(IntProcessor);
-            }
-            else if (typeof(IEnumerable<string>).IsAssignableFrom(instance.Type))
-            {
-                processorType = typeof(StringProcessor);
-            }
-            else if (typeof(ICollection).IsAssignableFrom(instance.Type))
+
+            if (typeof(ICollection).IsAssignableFrom(instance.Type))
             {
                 processorType = typeof(WeaklyTypedCollectionProcessor);
-            }
+                //var decProcMethodInfo = processorType.GetMethod(methodName, processorArgumentTypes.ToArray());
+                
+                
+                var array = processorArgumentTypes.ToArray();
+                array[0] = typeof(ICollection);
 
-            if (processorType != null)
-            {
-                var decProcMethodInfo = processorType.GetMethod(methodName, processorArgumentTypes.ToArray());
+                var decProcMethodInfo = processorType.GetMethod(methodName, array);
                 if (decProcMethodInfo != null)
                 {
                     var result = LExpression.Call(decProcMethodInfo, processorArguments.ToArray());
                     return result;
                 }
-
             }
 
             return null;

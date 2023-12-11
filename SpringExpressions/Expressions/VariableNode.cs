@@ -86,9 +86,7 @@ namespace SpringExpressions
                 // ale dzia³a equal
                  */
 
-
-                // zwraca object
-                // todo: error; czy to siê jakoœ zmienia? root? oto jest pyhtanie!---------------------------------- teraz zak³adamy, ¿e siê nie zmienia.... 
+                  // todo: error; czy to siê jakoœ zmienia? root? oto jest pyhtanie!---------------------------------- teraz zak³adamy, ¿e siê nie zmienia.... 
                 return compilationContext.RootContextExpression;
 
                 //return LExpression.Field(evalContext, "RootContext");
@@ -105,7 +103,26 @@ namespace SpringExpressions
                 arguments);
         }
 
-	    /// <summary>
+        protected override LExpression GetExpressionTreeForSetterIfPossible(
+            LExpression contextExpression, 
+            CompilationContext compilationContext,
+            LExpression newValueExpression)
+        {
+            string variableName = getText();
+
+            ValidateForbiddenVariablesForSetter(variableName);
+
+            var arguments = new List<LExpression>
+                { 
+                    LExpression.Field(compilationContext.EvalContext, "Variables"),
+                    LExpression.Constant(variableName, typeof(string)),
+                    newValueExpression
+                };
+
+            return LExpression.Call(MiSetVariable, arguments);
+        }
+
+        /// <summary>
         /// Returns value of the variable represented by this node.
         /// </summary>
         /// <param name="context">Context to evaluate expressions against.</param>
@@ -113,15 +130,17 @@ namespace SpringExpressions
         /// <returns>Node's value.</returns>
         protected override object Get(object context, EvaluationContext evalContext)
         {
-            string varName = this.getText();
+            string varName = getText();
             if (varName == "this")
             {
                 return evalContext.ThisContext;
             }
-            else if (varName == "root")
+
+            if (varName == "root")
             {
                 return evalContext.RootContext;
             }
+
             return evalContext.Variables[varName];
         }
 
@@ -133,18 +152,37 @@ namespace SpringExpressions
         /// <param name="newValue">New value for this node.</param>
         protected override void Set(object context, EvaluationContext evalContext, object newValue)
         {
-            string varName = this.getText();
-            if (varName == "this" || varName == "root")
+            var variableName = getText();
+
+            ValidateForbiddenVariablesForSetter(variableName);
+            SetVariable(evalContext.Variables, variableName, newValue);
+        }
+
+        private static void ValidateForbiddenVariablesForSetter(string variableName)
+        {
+            if (variableName == "this" || variableName == "root")
             {
-                throw new ArgumentException("You cannot assign a value to intrinsic variable '" + varName + "'.");
+                throw new ArgumentException(
+                    "You cannot assign a value to intrinsic variable '" + variableName + "'.");
             }
-            if (evalContext.Variables == null)
+        }
+
+        private static object SetVariable(IDictionary<string, object> variables, string variableName, object newValue)
+        {
+            if (variables == null)
             {
                 throw new InvalidOperationException(
-                    "You need to provide variables dictionary to expression evaluation engine in order to be able to set variable values.");
+                    "You need to provide variables dictionary to expression evaluation engine " +
+                    "in order to be able to set variable values.");
             }
-            evalContext.Variables[varName] = newValue;
+
+            variables[variableName] = newValue;
+
+            return newValue;
         }
+
+        private static readonly MethodInfo MiSetVariable
+            = ((Func<IDictionary<string, object>, string, object, object>)SetVariable).Method;
 
         private static readonly MethodInfo VariablesDictionaryIndexerMi
             = typeof(IDictionary<string, object>)

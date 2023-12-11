@@ -48,4 +48,8 @@
     <ProjectReference Include="..\SpringExpressions\SpringExpressions.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="Microsoft.CSharp" />
+  </ItemGroup>
+
 </Project>

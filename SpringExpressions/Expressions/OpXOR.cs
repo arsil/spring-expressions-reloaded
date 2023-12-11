@@ -21,6 +21,8 @@
 using System;
 using System.Linq.Expressions;
 using System.Runtime.Serialization;
+using JetBrains.Annotations;
+using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -55,7 +57,8 @@ namespace SpringExpressions
         {
         }
 
-        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression,
             CompilationContext compilationContext)
         {
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
@@ -64,34 +67,9 @@ namespace SpringExpressions
             if (leftExpression == null || rightExpression == null)
                 return null;
 
-            if (leftExpression.Type == typeof(bool) && rightExpression.Type == typeof(bool))
-            {
-                // logical OR on boolean expressions
-                return LExpression.ExclusiveOr(
-                    leftExpression,
-                    rightExpression);
-            }
-
-            if (NumberUtils.IsInteger(leftExpression.Type)
-                && NumberUtils.IsInteger(rightExpression.Type))
-            {
-                // bitwise OR for integer types
-                return CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+            return BitwiseOrLogicalOperatorHelper.CreateXorExpression(
                 leftExpression,
-                    rightExpression,
-                    LExpression.ExclusiveOr);
-            }
-
-            if (leftExpression.Type.IsEnum && rightExpression.Type == leftExpression.Type)
-            {
-                return LExpression.Convert(
-                    LExpression.ExclusiveOr(
-                        LExpression.Convert(leftExpression, Enum.GetUnderlyingType(leftExpression.Type)),
-                        LExpression.Convert(rightExpression, Enum.GetUnderlyingType(rightExpression.Type))),
-                    leftExpression.Type);
-            }
-
-            return null;
+                rightExpression);
         }
 
 		/// <summary>

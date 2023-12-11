@@ -28,6 +28,7 @@ using SpringExpressions.Parser;
 using SpringExpressions.Parser.antlr;
 using SpringExpressions.Parser.antlr.collections;
 using SpringCore;
+using SpringExpressions.Expressions.Compiling.Expressions;
 using SpringReflection.Dynamic;
 using SpringUtil;
 using StringUtils = SpringUtil.StringUtils;
@@ -160,19 +161,75 @@ namespace SpringExpressions
                 {
                     throw new SyntaxErrorException( ex.recog.Message, ex.recog.getLine(), ex.recog.getColumn(), expression );
                 }
-                return (IExpression)parser.getAST();
+
+                var springAst = parser.getAST();
+                /****
+                using (TextWriter tw = Console.Out)
+                    springAst.xmlSerialize(tw);
+                ****/
+                return (IExpression)springAst;
             }
             else
             {
                 return new Expression();
             }
         }
-
-        public static ITypedExpression<TRoot, TResult> Parse<TRoot, TResult>(string expression)
+            // todo: error: a mo¿ê ParseAndCompile()
+            // todo: error: compile options!
+        public static IGetterExpression<TRoot, TResult> ParseGetter<TRoot, TResult>(
+            string expression, 
+            CompileOptions compileOptions = CompileOptions.Default)
         {
-                    // todo: error: will it work?----------------------------------------------------------
-            return new TypedExpression<TRoot, TResult>((BaseNode)Parse(expression));
+            AssertUtils.ArgumentHasText(expression, "expression");
+
+            return new GetterExpression<TRoot, TResult>((BaseNode)Parse(expression), compileOptions);
         }
+
+        public static IGetterExpression<TResult> ParseGetter<TResult>(
+            string expression, 
+            CompileOptions compileOptions = CompileOptions.Default)
+        {
+            AssertUtils.ArgumentHasText(expression, "expression");
+
+            return new GetterExpression<TResult>((BaseNode)Parse(expression), compileOptions);
+        }
+
+        public static ISetterExpression<TRoot, TArgument> ParseSetter<TRoot, TArgument>(
+            string expression,
+            CompileOptions compileOptions = CompileOptions.Default)
+        {
+            AssertUtils.ArgumentHasText(expression, "expression");
+
+            return new SetterExpression<TRoot, TArgument>((BaseNode)Parse(expression), compileOptions);
+        }
+
+        public static ISetterExpression<TArgument> ParseSetter<TArgument>(
+            string expression,
+            CompileOptions compileOptions = CompileOptions.Default)
+        {
+            AssertUtils.ArgumentHasText(expression, "expression");
+
+            return new SetterExpression<TArgument>((BaseNode)Parse(expression), compileOptions);
+        }
+
+        public static IVoidExpression<TRoot> ParseVoidExpression<TRoot>(
+            string expression,
+            CompileOptions compileOptions = CompileOptions.Default)
+        {
+            AssertUtils.ArgumentHasText(expression, "expression");
+
+            return new VoidExpression<TRoot>((BaseNode)Parse(expression), compileOptions);
+        }
+
+        public static IVoidExpression ParseVoidExpression(
+            string expression,
+            CompileOptions compileOptions = CompileOptions.Default)
+        {
+            AssertUtils.ArgumentHasText(expression, "expression");
+
+            return new VoidExpression((BaseNode)Parse(expression), compileOptions);
+        }
+
 
         /// <summary>
         /// Registers lambda expression under the specified <paramref name="functionName"/>.
@@ -293,7 +350,7 @@ namespace SpringExpressions
             LExpression contextExpression,
             CompilationContext compilationContext)
 	    {
- // todo: napisane na kolanie ale chyba dziaa...... fajno jest, hej ho, hej ho!
+ // todo: error: napisane na kolanie ale chyba dziaa...... fajno jest, hej ho, hej ho! - pytanie co to ma robiæ?
 			LExpression currentExpression = contextExpression;
 
 			var node = (BaseNode)getFirstChild();
@@ -312,7 +369,40 @@ namespace SpringExpressions
 			return currentExpression;
 	    }
 
-		/// <summary>
+        protected override LExpression GetExpressionTreeForSetterIfPossible(
+            LExpression contextExpression, 
+            CompilationContext compilationContext,
+            LExpression newValueExpression)
+        {
+            LExpression target = contextExpression;
+            if (getNumberOfChildren() > 0)
+            {
+                var node = getFirstChild();
+
+                for (int i = 0; i < getNumberOfChildren() - 1; i++)
+                {
+                    try
+                    {
+                        target = GetExpressionTreeIfPossible(((BaseNode)node), target, compilationContext);
+                        if (target == null)
+                            return null;
+
+                        node = node.getNextSibling();
+                    }
+                    catch (NotReadablePropertyException e)
+                    {
+                        throw new NotWritablePropertyException(
+                            "Cannot read the value of '" + node.getText() + "' property in the expression.", e);
+                    }
+                }
+
+                return GetExpressionTreeForSetterIfPossible((BaseNode)node, target, compilationContext, newValueExpression);
+            }
+
+            throw new NotSupportedException("You cannot set the value for an empty expression.");
+        }
+
+        /// <summary>
 		/// Evaluates this expression for the specified root object and sets 
 		/// value of the last node.
 		/// </summary>

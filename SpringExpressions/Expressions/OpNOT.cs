@@ -65,6 +65,7 @@ namespace SpringExpressions
 
 			var leftTypeCode = (int)System.Type.GetTypeCode(operandExpression.Type);
 
+                // todo: error: double or decimal!!!!!
 			// For Char, DBNull, Object, Empty, DateTime and String
 			if (leftTypeCode < 3 || leftTypeCode > 15 || leftTypeCode == 4)
 				return null;

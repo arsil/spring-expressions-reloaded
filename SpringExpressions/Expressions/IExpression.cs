@@ -19,15 +19,12 @@
 #endregion
 
 using System;
-using System.Collections;
+
 using System.Collections.Generic;
 using System.ComponentModel;
 
 namespace SpringExpressions
 {
-      // todo: error: strongly typed results, contexts?
-       // todo: error: this is ALSO the result of parse method!!!! so.... when we are building Linq.Expression? Not in parse!!!!
-
     /// <summary>
     /// Interface that all navigation expression nodes have to implement.
     /// </summary>
@@ -72,34 +69,59 @@ namespace SpringExpressions
         void SetValue(object context, IDictionary<string, object> variables, object newValue);
     }
 
+           // todo: error: zmieniæ mo¿e nazwy IGetterExpression
 
-    // todo: error: problem jest taki, ¿e trzeba by ka¿d¹ klasê zrobiæ generyczn¹! tej!
-    // todo: error: a to jest chujnia z grzybni¹!
+          // todo: error: problem jest taki, ¿e trzeba by ka¿d¹ klasê zrobiæ generyczn¹! tej!
+          // todo: error: a to jest chujnia z grzybni¹!
+    public interface IStronglyTypedExpression
+    { }
 
-          // todo: error: czy na pewno?
-         // todo: serio? jak siê mamy dowiedzieæ, czy jest kompilowalne
-    public interface ITypedExpression<in TRoot, out TResult>
+           // todo: error: czy na pewno? - czy mo¿e osobny interface dla Get Set Execute
+          // todo: serio? jak siê mamy dowiedzieæ, czy jest kompilowalne
+    public interface IGetterExpression<in TRoot, out TResult> : IStronglyTypedExpression
     {
         TResult GetValue(TRoot context, IDictionary<string, object> variables = null);
-          // todo: w³¹czyæ
-//        void SetValue(TContext context, TValue value, IDictionary<string, object> variables = null);
     }
 
-    class TypedExpression<TRoot, TResult> : ITypedExpression<TRoot, TResult>
+    public interface IGetterExpression<out TResult> : IStronglyTypedExpression
     {
-        public TypedExpression(BaseNode expression)
-        {
-            this.expression = expression ?? throw new ArgumentNullException(nameof(expression));
-        }
+        TResult GetValue(IDictionary<string, object> variables = null);
+    }
 
-        public TResult GetValue(TRoot context, IDictionary<string, object> variables = null)
-        {
-              // todo: error: experssion ma inn¹ kolejnoœæ parametrów! Shit!!! 
-               // todo: error: internal
-            return expression.GetValue<TResult, TRoot>(context, variables);
-        }
+    public interface ISetterExpression<in TRoot, in TValue> : IStronglyTypedExpression
+    {
+        void SetValue(TRoot context, TValue newValue, IDictionary<string, object> variables = null);
+    }
 
+    public interface ISetterExpression<in TValue> : IStronglyTypedExpression
+    {
+        void SetValue(TValue newValue, IDictionary<string, object> variables = null);
+    }
 
-        private readonly BaseNode expression;
+    public interface IVoidExpression : IStronglyTypedExpression
+    {
+        void Execute(IDictionary<string, object> variables = null);
+    }
+
+    public interface IVoidExpression<in TRoot> : IStronglyTypedExpression
+    {
+        void Execute(TRoot context, IDictionary<string, object> variables = null);
+    }
+
+        // todo: error: SwitchOnCompileFailure SwitchOnExecutionFailure?
+       // todO: error: czy mo¿e rozbiæ jakoœ te opcje???
+    [Flags]
+    public enum CompileOptions
+    {
+        None,
+
+        CompileOnParse = 1,
+        CompileOnFirstExecution = 2,
+
+        MustCompile = 16,
+        TryCompileSwitchToInterpreterOnFailure = 32,
+        MustUseInterpreter = 64,
+
+        Default = CompileOnFirstExecution | TryCompileSwitchToInterpreterOnFailure
     }
 }

@@ -20,6 +20,7 @@
 
 using System;
 using System.Runtime.Serialization;
+using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -65,35 +66,9 @@ namespace SpringExpressions
             if (leftExpression == null || rightExpression == null)
                 return null;
 
-            if (leftExpression.Type == typeof(bool) && rightExpression.Type == typeof(bool))
-            {
-                // logical OR on boolean expressions
-                return LExpression.OrElse(
-                    leftExpression,
-                    rightExpression);
-            }
-
-            if (NumberUtils.IsInteger(leftExpression.Type)
-                && NumberUtils.IsInteger(rightExpression.Type))
-            {
-                // bitwise OR for integer types
-                return CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
-                    leftExpression,
-                    rightExpression,
-                    LExpression.Or);
-            }
-
-            if (leftExpression.Type.IsEnum && rightExpression.Type == leftExpression.Type)
-            {
-                return LExpression.Convert(
-                    LExpression.Or(
-                        LExpression.Convert(leftExpression, Enum.GetUnderlyingType(leftExpression.Type)),
-                        LExpression.Convert(rightExpression, Enum.GetUnderlyingType(rightExpression.Type))),
-                    leftExpression.Type);
-            }
-
-            // enums or conversions not supported
-            return null;
+            return BitwiseOrLogicalOperatorHelper.CreateOrExpression(
+                leftExpression, 
+                rightExpression);
         }
 
         /// <summary>

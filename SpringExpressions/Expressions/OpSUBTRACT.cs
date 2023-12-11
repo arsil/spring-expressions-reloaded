@@ -23,6 +23,7 @@ using System.Collections;
 using System.Reflection;
 using System.Runtime.Serialization;
 using SpringCollections;
+using SpringExpressions.Expressions.Compiling;
 using SpringExpressions.Expressions.LinqExpressionHelpers;
 using SpringUtil;
 
@@ -62,7 +63,7 @@ namespace SpringExpressions
 
             if (leftExpression != null && rightExpression != null)
             {
-                var exp = CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+                var exp = NumericalOperatorHelper.Create(
                     leftExpression,
                     rightExpression,
                     LExpression.Subtract);

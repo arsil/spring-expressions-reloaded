@@ -65,33 +65,13 @@ namespace SpringExpressions
             LExpression contextExpression,
             CompilationContext compilationContext)
         {
-            var node = getFirstChild();
-            var arguments = new List<LExpression>();
-            var argumentsTypes = new List<Type>();
-
-            while (node != null)
+            if (TryGetArguments(contextExpression, compilationContext, 
+                    out var arguments, out var argumentsTypes))
             {
-                //if (node.getFirstChild() is LambdaExpressionNode)
-                //{
-                //	argList.Add((BaseNode)node.getFirstChild());
-                //}
-                //else if (node is NamedArgumentNode)
-                //{
-                //	namedArgs.Add(node.getText(), node);
-                //}
-                //else
-
-                var arg = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
-                if (arg == null)
-                    return null;
-
-                arguments.Add(arg);
-                argumentsTypes.Add(arg.Type);
-
-                node = node.getNextSibling();
+                return null;
             }
 
-            // TODO: mo¿e pobranie arraya? tylko trzeba przetestowaæ, czy nie stracimy typu!.. .bo jak przez object, to syf!
+               // TODO: error: mo¿e pobranie arraya? tylko trzeba przetestowaæ, czy nie stracimy typu!.. .bo jak przez object, to syf!
 	        if (contextExpression.Type.IsArray)
 	        {
 		        return LExpression.ArrayIndex(
@@ -115,6 +95,85 @@ namespace SpringExpressions
 
             return LExpression.Call(contextExpression, methodInfo, arguments);
         }
+
+        protected override LExpression GetExpressionTreeForSetterIfPossible(
+            LExpression contextExpression,
+            CompilationContext compilationContext,
+            LExpression newValueExpression)
+        {
+            if (TryGetArguments(contextExpression, compilationContext,
+                    out var arguments, out var argumentsTypes))
+            {
+                return null;
+            }
+
+                // TODO: error: ??? nie rozumiem komentarza:) mo¿e pobranie arraya? tylko trzeba przetestowaæ, czy nie stracimy typu!.. .bo jak przez object, to syf!
+            if (contextExpression.Type.IsArray)
+            {
+                return LExpression.Assign(
+                    LExpression.ArrayIndex(contextExpression, arguments),
+                    newValueExpression);
+            }
+
+               // todo: what the fuck?
+            var indexerPropertyName = GetIndexerPropertyName(contextExpression.Type);
+            var methodName = "set_" + indexerPropertyName;
+
+            arguments.Add(newValueExpression);
+            argumentsTypes.Add(newValueExpression.Type);
+
+            var methodInfo
+                = contextExpression.Type.GetMethod(
+                    methodName,
+                    BINDING_FLAGS | BindingFlags.FlattenHierarchy,
+                    null,
+                    argumentsTypes.ToArray(),
+                    null);
+
+            if (methodInfo == null)
+                return null;
+
+            return LExpression.Call(contextExpression, methodInfo, arguments);
+
+
+        }
+
+        private bool TryGetArguments(
+            LExpression contextExpression, 
+            CompilationContext compilationContext, 
+            out List<LExpression> arguments,
+            out List<Type> argumentsTypes)
+        {
+            arguments = new List<LExpression>();
+            argumentsTypes = new List<Type>();
+
+            var node = getFirstChild();
+            while (node != null)
+            {
+                //if (node.getFirstChild() is LambdaExpressionNode)
+                //{
+                //	argList.Add((BaseNode)node.getFirstChild());
+                //}
+                //else if (node is NamedArgumentNode)
+                //{
+                //	namedArgs.Add(node.getText(), node);
+                //}
+                //else
+
+                var arg = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
+                if (arg == null)
+                    return true;
+
+                arguments.Add(arg);
+                argumentsTypes.Add(arg.Type);
+
+                node = node.getNextSibling();
+            }
+
+            return false;
+        }
+
+
 
         /// <summary>
         /// Returns node's value for the given context.

@@ -20,9 +20,11 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.Serialization;
 using SpringCollections;
+using SpringExpressions.Expressions.Compiling;
 using SpringExpressions.Expressions.LinqExpressionHelpers;
 using SpringUtil;
 
@@ -61,51 +63,52 @@ namespace SpringExpressions
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
-            if (leftExpression != null && rightExpression != null)
+            if (leftExpression == null || rightExpression == null)
+                return null;
+
+            var exp = NumericalOperatorHelper.Create(
+                leftExpression,
+                rightExpression,
+                LExpression.Add);
+
+            if (exp != null)
+                return exp;
+
+            if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(string))
             {
-                var exp = CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+                // (DateTime) left + TimeSpan.Parse(right);
+                return LExpression.Call(
+                    DateTimeMethods.DateTimeAddTimeSpanMethodInfo,
                     leftExpression,
-                    rightExpression,
-                    LExpression.Add);
+                    LExpression.Call(
+                        TimeSpanMethods.TimeSpanParseMethodInfo,
+                        rightExpression));
+            }
 
-                if (exp != null)
-                    return exp;
+            if (leftExpression.Type == typeof(DateTime) && IsNumericExpression(rightExpression))
+            {
+                // (DateTime) left + TimeSpan.FromDays(Convert.ToDouble(right));
+                return LExpression.Call(
+                    DateTimeMethods.DateTimeAddTimeSpanMethodInfo,
+                    leftExpression,
+                    LExpression.Call(
+                        TimeSpanMethods.TimeSpanFromDaysMethodInfo,
+                        LExpression.Convert(rightExpression, typeof(double))));
+            }
 
-                if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(string))
-                {
-                    // (DateTime) left + TimeSpan.Parse(right);
-                    return LExpression.Call(
-                        DateTimeMethods.DateTimeAddTimeSpanMethodInfo,
-                        leftExpression,
-                        LExpression.Call(
-                            TimeSpanMethods.TimeSpanParseMethodInfo,
-                            rightExpression));
-                }
+            if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(DateTime))
+            {
+                // (DateTime) left + (DateTime) right;
+                return LExpression.Call(
+                    DateTimeMethods.DateTimeAddDateTimeMethodInfo,
+                    leftExpression,
+                    rightExpression);
+            }
 
-                if (leftExpression.Type == typeof(DateTime) && IsNumericExpression(rightExpression))
-                {
-                    // (DateTime) left + TimeSpan.FromDays(Convert.ToDouble(right));
-                    return LExpression.Call(
-                        DateTimeMethods.DateTimeAddTimeSpanMethodInfo,
-                        leftExpression,
-                        LExpression.Call(
-                            TimeSpanMethods.TimeSpanFromDaysMethodInfo,
-                            LExpression.Convert(rightExpression, typeof(double))));
-                }
+            // todo: error: coœ robiæ dla objecta ??????? czy mo¿e œcie¿ka interpretacji?
+            // todo: moim zdaniem jak gdzieœ mamy objecta, to jest klêska i mamy w tupie tak¹ robotê!
 
-                if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(DateTime))
-                {
-                    // (DateTime) left + (DateTime) right;
-                    return LExpression.Call(
-                        DateTimeMethods.DateTimeAddDateTimeMethodInfo,
-                        leftExpression,
-                        rightExpression);
-                }
-
-                // todo: error: coœ robiæ dla objecta ??????? czy mo¿e œcie¿ka interpretacji?
-                // todo: moim zdaniem jak gdzieœ mamy objecta, to jest klêska i mamy w tupie tak¹ robotê!
-
-                /*
+            /*
                 if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(object))
                 {
                     return LExpression.Condition(
@@ -123,25 +126,102 @@ namespace SpringExpressions
                 }*/
 
 
-                // one of exp is a string expression - we use Concat
-                if (leftExpression.Type == typeof(string) || rightExpression.Type == typeof(string))
+            // one of exp is a string expression - we use Concat
+            if (leftExpression.Type == typeof(string) || rightExpression.Type == typeof(string))
+            {
+                if (rightExpression.Type.IsValueType)
                 {
-                    if (rightExpression.Type.IsValueType)
-                    {
-                        return LExpression.Call(
-                            StrConcatObjObjMethodInfo,
-                            leftExpression, LExpression.TypeAs(rightExpression, typeof(object)));
-                    }
-
                     return LExpression.Call(
-                           StrConcatObjObjMethodInfo,
-                           leftExpression, rightExpression);
+                        StrConcatObjObjMethodInfo,
+                        leftExpression, 
+                        LExpression.TypeAs(rightExpression, typeof(object)));
                 }
 
+                return LExpression.Call(
+                    StrConcatObjObjMethodInfo,
+                    leftExpression, 
+                    rightExpression);
+            }
+            
+                // todo: error: wbudowane metody? - patrz date()
+                // todo: error: mo¿e jednak zrobiæ np. _set()
+                // todo: error: i np. _convert(coœtam).To(int))
+                // todo: error: i np. _cast(coœtam).To(int))
+                // todo: error: i np. _cast(coœtam).To(int))
+                // todo: error: mo¿e tylko sety? jednak?
+
+            var leftIsGenericEnumerable = MethodBaseHelpers.IsGenericEnumerable(leftExpression.Type);
+            var rightIsGenericEnumerable = MethodBaseHelpers.IsGenericEnumerable(rightExpression.Type);
+
+            if (leftIsGenericEnumerable&& rightIsGenericEnumerable
+                && leftExpression.Type.GetGenericArguments()[0] == rightExpression.Type.GetGenericArguments()[0]
+                && MethodBaseHelpers.IsGenericEnumerableOfItemType(
+                    leftExpression.Type, leftExpression.Type.GetGenericArguments()[0]))
+            {
+                var finalUnionMi = _genericsUnionMi.MakeGenericMethod(leftExpression.Type.GetGenericArguments()[0]);
+                return LExpression.Call(finalUnionMi, leftExpression, rightExpression);
+            }
+
+
+            var leftIsGenericDictionary = MethodBaseHelpers.IsGenericDictionary(leftExpression.Type);
+            var rightIsGenericDictionary = MethodBaseHelpers.IsGenericDictionary(rightExpression.Type);
+
+            if (leftIsGenericDictionary || rightIsGenericDictionary)
+            {
+                if (leftIsGenericDictionary && rightIsGenericDictionary)
+                {
+                           // todo: error: implementation!
+                    return null;
+                }
+
+                throw new ArgumentException(
+                    $"Cannot add instances of '{leftExpression.Type.FullName}' and '{rightExpression.Type.FullName}'.");
+            }
+
+            if ( (typeof(IList).IsAssignableFrom(leftExpression.Type)
+                    || typeof(ISet).IsAssignableFrom(leftExpression.Type)
+                    || leftIsGenericEnumerable
+                )
+                && (typeof(IList).IsAssignableFrom(rightExpression.Type)
+                    || typeof(ISet).IsAssignableFrom(rightExpression.Type)
+                    || rightIsGenericEnumerable 
+                ))
+            {
+                return LExpression.Call(_typelessUnionMi, leftExpression, rightExpression);
             }
 
             return null;
         }
+
+            // todo: error: return value! why ISet not IList<> ?
+        private static ISet<T> GenericsUnion<T>(IEnumerable<T> arg1, IEnumerable<T> arg2)
+        {
+                 // todo: null-handling
+            var set1 = new HashSet<T>(arg1);
+            set1.UnionWith(arg2);
+            return set1;
+        }
+
+        // todo: error: check declarations of other MethodInfos!!!!
+        private static MethodInfo _genericsUnionMi = typeof(OpADD).GetMethod(
+               nameof(GenericsUnion), BindingFlags.Static | BindingFlags.NonPublic);
+
+        private static ISet TypelessUnion(IEnumerable left, IEnumerable right)
+        {
+            ISet leftset = new HybridSet();
+            ISet rightset = new HybridSet();
+
+            foreach (var e in left)
+                leftset.Add(e);
+
+            foreach (var e in right)
+                rightset.Add(e);
+
+            return leftset.Union(rightset);
+        }
+
+        private static MethodInfo _typelessUnionMi = typeof(OpADD).GetMethod(
+            "TypelessUnion", BindingFlags.Static | BindingFlags.NonPublic);
 
         /// <summary>
         /// Returns a value for the arithmetic addition operator node.

@@ -21,6 +21,7 @@
 using System;
 using System.Reflection;
 using System.Runtime.Serialization;
+using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -54,14 +55,14 @@ namespace SpringExpressions
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
-			if (leftExpression == null || rightExpression == null)
-				return null;
+            if (leftExpression == null || rightExpression == null)
+                return null;
 
-			var res = CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
-				leftExpression, rightExpression, LExpression.Equal);
+            var res = NumericalOperatorHelper.Create(
+                leftExpression, rightExpression, LExpression.Equal);
 
-			if (res != null)
-				return res;
+            if (res != null)
+                return res;
 
                   // todo: error: zwin¹æ do do compare utils!!!! ???? jak siê to ma do notEqual???
 
@@ -69,49 +70,49 @@ namespace SpringExpressions
             if (leftExpression.Type == typeof(bool) && rightExpression.Type == typeof(bool))
                 return LExpression.Equal(leftExpression, rightExpression);
 
-			if (leftExpression.Type == typeof(string) || rightExpression.Type == typeof(string))
-				return LExpression.Equal(leftExpression, rightExpression);
+            if (leftExpression.Type == typeof(string) || rightExpression.Type == typeof(string))
+                return LExpression.Equal(leftExpression, rightExpression);
 
-	        if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(DateTime))
-				return LExpression.Equal(leftExpression, rightExpression);
+            if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(DateTime))
+                return LExpression.Equal(leftExpression, rightExpression);
 
-			// TODO: upewniæ siê, ¿e to dzia³a (dla wybranych typów) tak samo jak interpretacja!
-	        //TODO: brak obs³ugi .. czy charów... czy innych takich! to samo przy Less i innych operatorach!
+            // TODO: upewniæ siê, ¿e to dzia³a (dla wybranych typów) tak samo jak interpretacja!
+            //TODO: brak obs³ugi .. czy charów... czy innych takich! to samo przy Less i innych operatorach!
 
-			// todo: g³upie jest to, i¿ mo¿e to nie zadzia³aæ dla boxowanych typów... oto jest pytanie...
-			// todo: mo¿e nigdy nie powiniœmy eqlals jednak u¿ywaæ... do zastanowienia siê...
+            // todo: g³upie jest to, i¿ mo¿e to nie zadzia³aæ dla boxowanych typów... oto jest pytanie...
+            // todo: mo¿e nigdy nie powiniœmy eqlals jednak u¿ywaæ... do zastanowienia siê...
 
-	        if (leftExpression.Type.IsValueType)
-		        leftExpression = LExpression.Convert(leftExpression, typeof(object));
+            if (leftExpression.Type.IsValueType)
+                leftExpression = LExpression.Convert(leftExpression, typeof(object));
 
-			if (rightExpression.Type.IsValueType)
-				rightExpression = LExpression.Convert(rightExpression, typeof(object));
+            if (rightExpression.Type.IsValueType)
+                rightExpression = LExpression.Convert(rightExpression, typeof(object));
 
-			return LExpression.Condition(
-					LExpression.Equal(leftExpression,
-						LExpression.Constant(null, typeof(object))),
-					// left is null - emitting (rigth == null)
-					LExpression.Equal(rightExpression,
-						LExpression.Constant(null, typeof(object))),
-					// left is not null - checking right
-					LExpression.Condition(
-						LExpression.Equal(rightExpression,
-							LExpression.Constant(null, typeof(object))),
-						// left not null; right is null => false
-						LExpression.Constant(false, typeof(bool)),
-						// left not null; right not null => emitting left.Equals(right)
-						LExpression.Call(leftExpression, objEqualsMi, rightExpression)
-						)
-		        );
+            return LExpression.Condition(
+                    LExpression.Equal(leftExpression,
+                        LExpression.Constant(null, typeof(object))),
+                    // left is null - emitting (rigth == null)
+                    LExpression.Equal(rightExpression,
+                        LExpression.Constant(null, typeof(object))),
+                    // left is not null - checking right
+                    LExpression.Condition(
+                        LExpression.Equal(rightExpression,
+                            LExpression.Constant(null, typeof(object))),
+                        // left not null; right is null => false
+                        LExpression.Constant(false, typeof(bool)),
+                        // left not null; right not null => emitting left.Equals(right)
+                        LExpression.Call(leftExpression, objEqualsMi, rightExpression)
+                        )
+                );
         }
 
-		/// <summary>
-		/// Returns a value for the logical equality operator node.
-		/// </summary>
-		/// <param name="context">Context to evaluate expressions against.</param>
-		/// <param name="evalContext">Current expression evaluation context.</param>
-		/// <returns>Node's value.</returns>
-		protected override object Get(object context, EvaluationContext evalContext)
+        /// <summary>
+        /// Returns a value for the logical equality operator node.
+        /// </summary>
+        /// <param name="context">Context to evaluate expressions against.</param>
+        /// <param name="evalContext">Current expression evaluation context.</param>
+        /// <returns>Node's value.</returns>
+        protected override object Get(object context, EvaluationContext evalContext)
         {
             object left = GetLeftValue(context, evalContext);
             object right = GetRightValue(context, evalContext);

@@ -19,8 +19,12 @@
 #endregion
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Runtime.Serialization;
 using SpringExpressions.Parser.antlr.collections;
+
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
@@ -45,7 +49,28 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
+
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression,
+            CompilationContext compilationContext)
+        {
+            var  expressions = new List<LExpression>();
+            AST node = getFirstChild();
+            while (node != null)
+            {
+                var expression = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
+
+                if (expression == null)
+                    return null;
+
+                expressions.Add(expression);
+
+                node = node.getNextSibling();
+            }
+
+            return LExpression.Block(expressions);
+        }
+
         /// <summary>
         /// Returns a result of the last expression in a list.
         /// </summary>

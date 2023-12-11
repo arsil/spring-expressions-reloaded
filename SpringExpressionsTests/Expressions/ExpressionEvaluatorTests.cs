@@ -29,11 +29,13 @@ using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.Contracts;
 #if !NETCOREAPP
 using System.EnterpriseServices;
 #endif
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
@@ -313,7 +315,8 @@ namespace SpringExpressions
             object value = ExpressionEvaluator.GetValue(null, "'123' + 1");
             Assert.AreEqual("1231", value);
         }
-#if NET_4_0 || NETCOREAPP
+
+
         [Test(Description = "SPRNET-1507 - Test 1")]
         public void TestExpandoObject()
         {
@@ -342,7 +345,7 @@ namespace SpringExpressions
                     ex.Message);
             }
         }
-#endif
+
         [Test(Description = "SPRNET-944")]
         public void DateTests()
         {
@@ -356,6 +359,7 @@ namespace SpringExpressions
             Dictionary<string, object> vars = new Dictionary<string, object>();
             vars["date"] = "2008-05-15";
             object value = ExpressionEvaluator.GetValue(null, "#date", vars);
+            Assert.AreEqual(typeof(string), value.GetType());
             Assert.That(value, Is.EqualTo("2008-05-15"));
         }
 
@@ -365,6 +369,7 @@ namespace SpringExpressions
             Dictionary<string, object> vars = new Dictionary<string, object>();
             vars["Date"] = "2008-05-15";
             object value = ExpressionEvaluator.GetValue(null, "#Date", vars);
+            Assert.AreEqual(typeof(string), value.GetType());
             Assert.That(value, Is.EqualTo("2008-05-15"));
         }
 
@@ -478,10 +483,17 @@ namespace SpringExpressions
             Assert.AreEqual(32, exp.GetValue());
             Assert.AreEqual(32, exp.GetValue());
             Assert.AreEqual(255, ExpressionEvaluator.GetValue(null, "0xFF"));
+            Assert.AreEqual(typeof(int), ExpressionEvaluator.GetValue(null, "0xFF").GetType());
+
             Assert.AreEqual(Int32.MaxValue, ExpressionEvaluator.GetValue(null, "0x7FFFFFFF"));
-            Assert.AreEqual(Int64.MaxValue, ExpressionEvaluator.GetValue(null, "0x7FFFFFFFFFFFFFFF"));
+            Assert.AreEqual(typeof(int), ExpressionEvaluator.GetValue(null, "0x7FFFFFFF").GetType());
             Assert.AreEqual(Int32.MinValue, ExpressionEvaluator.GetValue(null, "0x80000000"));
+            Assert.AreEqual(typeof(int), ExpressionEvaluator.GetValue(null, "0x80000000").GetType());
+
+            Assert.AreEqual(Int64.MaxValue, ExpressionEvaluator.GetValue(null, "0x7FFFFFFFFFFFFFFF"));
+            Assert.AreEqual(typeof(long), ExpressionEvaluator.GetValue(null, "0x7FFFFFFFFFFFFFFF").GetType());
             Assert.AreEqual(Int64.MinValue, ExpressionEvaluator.GetValue(null, "0x8000000000000000"));
+            Assert.AreEqual(typeof(long), ExpressionEvaluator.GetValue(null, "0x8000000000000000").GetType());
         }
 
         /// <summary>
@@ -732,6 +744,7 @@ namespace SpringExpressions
             Assert.AreEqual("Smiljan", placesOfBirth[0]);
             Assert.AreEqual("Idvor", placesOfBirth[1]);
 
+            //IList names = (IList)ExpressionEvaluator.GetValue(ieee, "convert(Officers['advisors']).to(T<Inventor>), T(List<Inventor>)).!{Name}");
             IList names = (IList)ExpressionEvaluator.GetValue(ieee, "Officers['advisors'].!{Name}");
             Assert.AreEqual(2, names.Count);
             Assert.AreEqual("Nikola Tesla", names[0]);
@@ -777,7 +790,7 @@ namespace SpringExpressions
 
             Assert.AreEqual(typeof(DateTime), ExpressionEvaluator.GetValue(null, "T(System.DateTime)"));
             Assert.AreEqual(typeof(DateTime[]), ExpressionEvaluator.GetValue(null, "T(System.DateTime[], mscorlib)"));
-            //Assert.AreEqual(typeof(ExpressionEvaluator), ExpressionEvaluator.GetValue(null, "T(SpringExpressions.ExpressionEvaluator, Spring.Core)"));
+            Assert.AreEqual(typeof(ExpressionEvaluator), ExpressionEvaluator.GetValue(null, "T(SpringExpressions.ExpressionEvaluator, SpringExpressions)"));
             Assert.IsTrue((bool)ExpressionEvaluator.GetValue(tesla, "T(System.DateTime) == DOB.GetType()"));
         }
 
@@ -817,8 +830,9 @@ namespace SpringExpressions
         [Test]
         public void TestGenericDictionary()
         {
-            ExpressionEvaluator.GetValue(null,
-                                         "T(System.Collections.Generic.Dictionary`2[System.String,System.Boolean],mscorlib)");
+            Assert.AreEqual(typeof(Dictionary<string, bool>),
+                ExpressionEvaluator.GetValue(null,
+                    "T(System.Collections.Generic.Dictionary`2[System.String,System.Boolean],mscorlib)"));
         }
 
         /// <summary>
@@ -827,7 +841,7 @@ namespace SpringExpressions
         [Test]
         public void TestTypeNodeWithAliasedGenericArguments()
         {
-            Assert.AreEqual(typeof(System.Collections.Generic.Dictionary<string, bool>), ExpressionEvaluator.GetValue(null, "T(System.Collections.Generic.Dictionary`2[string,bool],mscorlib)"));
+            Assert.AreEqual(typeof(Dictionary<string, bool>), ExpressionEvaluator.GetValue(null, "T(System.Collections.Generic.Dictionary`2[string,bool],mscorlib)"));
         }
 
         /// <summary>
@@ -933,15 +947,15 @@ namespace SpringExpressions
         public void TestExpressionList()
         {
             TypeRegistry.RegisterType("Inventor", typeof(Inventor));
-            Assert.AreEqual(3,
-                            ExpressionEvaluator.GetValue(ieee.Members,
-                                                         "(Add(new Inventor('Aleksandar Seovic', date('1974-08-24'), 'Serbian')); Count)"));
-            Assert.AreEqual(3,
-                            ExpressionEvaluator.GetValue(ieee,
-                                                         "Members.(Add(new Inventor('Ana Maria Seovic', date('2004-08-14'), 'Serbian')); RemoveAt(1); Count)"));
-            Assert.AreEqual("Aleksandar Seovic",
-                            ExpressionEvaluator.GetValue(ieee.Members,
-                                                         "([1].PlaceOfBirth.City = 'Beograd'; [1].PlaceOfBirth.Country = 'Serbia'; [1].Name)"));
+            Assert.AreEqual(3, ExpressionEvaluator.GetValue(ieee.Members,
+                "(Add(new Inventor('Aleksandar Seovic', date('1974-08-24'), 'Serbian')); Count)"));
+
+            Assert.AreEqual(3, ExpressionEvaluator.GetValue(ieee,
+                "Members.(Add(new Inventor('Ana Maria Seovic', date('2004-08-14'), 'Serbian')); RemoveAt(1); Count)"));
+            
+            Assert.AreEqual("Aleksandar Seovic",ExpressionEvaluator.GetValue(ieee.Members,
+                "([1].PlaceOfBirth.City = 'Beograd'; [1].PlaceOfBirth.Country = 'Serbia'; [1].Name)"));
+
             Assert.AreEqual("Beograd", ((Inventor)ieee.Members[1]).PlaceOfBirth.City);
         }
 
@@ -951,15 +965,29 @@ namespace SpringExpressions
         [Test]
         public void TestAssignNode()
         {
-            Inventor inventor = new Inventor();
-            Assert.AreEqual("Aleksandar Seovic", ExpressionEvaluator.GetValue(inventor, "Name = 'Aleksandar Seovic'"));
-            Assert.AreEqual(new DateTime(1974, 8, 24),
-                            ExpressionEvaluator.GetValue(inventor, "DOB = date('1974-08-24')"));
-            Assert.AreEqual("Serbian", ExpressionEvaluator.GetValue(inventor, "Nationality = 'Serbian'"));
-            Assert.AreEqual("Ana Maria Seovic",
-                            ExpressionEvaluator.GetValue(inventor,
-                                                         "(DOB = date('2004-08-14'); Name = 'Ana Maria Seovic')"));
+            var inventor = new Inventor();
+
+            {
+                var exp = Expression.ParseGetter<Inventor, string>("Name = 'Aleksandar Seovic666'");
+                var result = exp.GetValue(inventor);
+
+                Assert.AreEqual("Aleksandar Seovic666", result);
+            }
+
+            Assert.AreEqual("Aleksandar Seovic", ExpressionEvaluator.GetValue(
+                inventor, "Name = 'Aleksandar Seovic'"));
+
+            Assert.AreEqual(new DateTime(1974, 8, 24), ExpressionEvaluator.GetValue(
+                inventor, "DOB = date('1974-08-24')"));
+
+            Assert.AreEqual("Serbian", ExpressionEvaluator.GetValue(
+                inventor, "Nationality = 'Serbian'"));
+
+            Assert.AreEqual("Ana Maria Seovic", ExpressionEvaluator.GetValue(
+                inventor,
+                "(DOB = date('2004-08-14'); Name = 'Ana Maria Seovic')"));
             Assert.AreEqual(new DateTime(2004, 8, 14), inventor.DOB);
+
             ExpressionEvaluator.GetValue(ieee, "Officers['vp'] = Members[0]");
             Assert.AreEqual("Nikola Tesla", ((Inventor)ieee.Officers["vp"]).Name);
         }
@@ -1087,12 +1115,16 @@ namespace SpringExpressions
         {
             Assert.AreEqual( 1 | 2, ExpressionEvaluator.GetValue(null, "1 or 2"));
             Assert.AreEqual( 1 | -2, ExpressionEvaluator.GetValue(null, "1 or -2"));
-            Assert.AreEqual(typeof(string), 
-                ExpressionEvaluator.GetValue(
-                    null, "T(System.Text.RegularExpressions.RegexOptions).IgnoreCase or T(System.Text.RegularExpressions.RegexOptions).Compiled").GetType());
             Assert.AreEqual(
                 RegexOptions.IgnoreCase | RegexOptions.Compiled, 
-                ExpressionEvaluator.GetValue(null, "T(System.Text.RegularExpressions.RegexOptions).IgnoreCase or T(System.Text.RegularExpressions.RegexOptions).Compiled"));
+                ExpressionEvaluator.GetValue(null, "T(System.Text.RegularExpressions.RegexOptions).IgnoreCase " +
+                    "or T(System.Text.RegularExpressions.RegexOptions).Compiled"));
+
+            Assert.AreEqual(typeof(RegexOptions),
+                ExpressionEvaluator.GetValue(
+                    null, "T(System.Text.RegularExpressions.RegexOptions).IgnoreCase " +
+                    "or T(System.Text.RegularExpressions.RegexOptions).Compiled").GetType());
+
         }
 
         /// <summary>
@@ -1139,7 +1171,7 @@ namespace SpringExpressions
         }
 
         /// <summary>
-        /// Tests bitwise OR operator
+        /// Tests bitwise XOR operator
         /// </summary>
         [Test]
         public void TestXorOperator()
@@ -1152,10 +1184,10 @@ namespace SpringExpressions
         }
 
         /// <summary>
-        /// Tests logical operator presedance
+        /// Tests logical operator precedence
         /// </summary>
         [Test]
-        public void TestLogicalOperatorPresedance()
+        public void TestLogicalOperatorPrecedence()
         {
             // NOT over AND
             Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "!false and false"));
@@ -1497,7 +1529,7 @@ namespace SpringExpressions
             ExpressionEvaluator.GetValue2<string, bool>(emailCheck, "'A' matches #root");
 
             {
-                var expr = Expression.Parse<string, bool>("'A' matches #root");
+                var expr = Expression.ParseGetter<string, bool>("'A' matches #root");
                 Assert.IsFalse(expr.GetValue(emailCheck));
             }
 
@@ -2026,10 +2058,11 @@ namespace SpringExpressions
                             ExpressionEvaluator.GetValue(arr3, "sort()"));
 
             Assert.AreEqual(new object[] { -3.3, 1.2, 5.5 }, ExpressionEvaluator.GetValue(null, "{1.2, 5.5, -3.3}.sort()"));
-            Assert.IsNull(ExpressionEvaluator.GetValue(null, "sort()"));
 
             var set = new List<int>(arr);
             Assert.AreEqual(new int[] { 6, 8, 14, 24 }, ExpressionEvaluator.GetValue(set, "sort()"));
+
+            Assert.IsNull(ExpressionEvaluator.GetValue(null, "sort()"));
         }
 
         [Test(Description="sort supports any ICollection containing elements of uniform type")]
@@ -2042,40 +2075,149 @@ namespace SpringExpressions
         [Test]
         public void TestNonNullProcessor()
         {
-            string[] arr2 = new string[] { "abc", "xyz", null, "abc", "def", null };
-            Assert.AreEqual(new string[] { "abc", "xyz", "abc", "def" },
+            string[] arr2 = { "abc", "xyz", null, "abc", "def", null };
+            Assert.AreEqual(new[] { "abc", "xyz", "abc", "def" },
                             ExpressionEvaluator.GetValue(arr2, "nonNull()"));
-            Assert.AreEqual(new string[] { "abc", "abc", "def", "xyz" },
+            Assert.AreEqual(new[] { "abc", "abc", "def", "xyz" },
                             ExpressionEvaluator.GetValue(arr2, "nonNull().sort()"));
         }
 
         [Test]
         public void TestDistinctProcessor()
         {
-            int[] arr = new int[] { 24, 8, 8, 6, 24, 6, 8, 6 };
-            Assert.AreEqual(new int[] { 6, 8, 24 }, ExpressionEvaluator.GetValue(arr, "distinct().sort()"));
+            int[] arr = { 24, 8, 8, 6, 24, 6, 8, 6 };
+            Assert.AreEqual(new[] { 6, 8, 24 }, ExpressionEvaluator.GetValue(arr, "distinct().sort()"));
 
-            string[] arr2 = new string[] { "abc", "xyz", "abc", "def", null, "def", null };
-            Assert.AreEqual(new string[] { null, "abc", "def", "xyz" },
+            string[] arr2 = { "abc", "xyz", "abc", "def", null, "def", null };
+
+            Assert.AreEqual(new[] { null, "abc", "def", "xyz" },
                             ExpressionEvaluator.GetValue(arr2, "distinct(true).sort()"));
-            Assert.AreEqual(new string[] { "abc", "def", "xyz" },
+            Assert.AreEqual(new[] { "abc", "def", "xyz" },
                             ExpressionEvaluator.GetValue(arr2, "distinct(false).sort()"));
-            Assert.AreEqual(new string[] { "abc", "def", "xyz" },
+            Assert.AreEqual(new[] { "abc", "def", "xyz" },
                             ExpressionEvaluator.GetValue(arr2, "distinct().sort()"));
+
+            var arr3 = new List<string>{ "abc", "xyz", "abc", "def", null, "def", null };
+            Assert.AreEqual(new[] { "abc", "def", "xyz" },
+                ExpressionEvaluator.GetValue(arr3, "distinct().sort()"));
+
+            {
+                var expr = Expression.ParseGetter<IList<string>, List<string>>("distinct().sort()");
+                Assert.AreEqual(new[] { "abc", "def", "xyz" }, expr.GetValue(arr3));
+            }
+
+            {
+                var expr = Expression.ParseGetter<IEnumerable<string>, IEnumerable<string>>("distinct().sort()");
+                Assert.AreEqual(new[] { "abc", "def", "xyz" }, expr.GetValue(arr3));
+            }
+
+            {
+                var expr = Expression.ParseGetter<string[], IEnumerable<string>>("distinct().sort()");
+                Assert.AreEqual(new[] { "abc", "def", "xyz" }, expr.GetValue(arr2));
+            }
+
+        }
+
+        [Test]
+        public void TestDistinctEquatable()
+        {
+            var arr = new List<Cow> { new Cow("Krasula"), new Cow("Zenon"), new Cow("Janina"), new Cow("Krasula") };
+            var expr = Expression.ParseGetter<IEnumerable<Cow>, List<Cow>>("distinct()");
+
+            var result = expr.GetValue(arr);
+
+            Assert.AreEqual(3, result.Count);
+            Assert.IsTrue(result.Contains(new Cow("Janina")));
+            Assert.IsTrue(result.Contains(new Cow("Zenon")));
+            Assert.IsTrue(result.Contains(new Cow("Krasula")));
+
+            arr = new List<Cow> { new Cow("Krasula"), null, new Cow("Zenon"), null, new Cow("Janina"), new Cow("Krasula") };
+
+            result = expr.GetValue(arr);
+
+            Assert.AreEqual(3, result.Count);
+            Assert.IsTrue(result.Contains(new Cow("Janina")));
+            Assert.IsTrue(result.Contains(new Cow("Zenon")));
+            Assert.IsTrue(result.Contains(new Cow("Krasula")));
+
+            expr = Expression.ParseGetter<IEnumerable<Cow>, List<Cow>>("distinct(true)");
+            result = expr.GetValue(arr);
+
+            Assert.AreEqual(4, result.Count);
+            Assert.IsTrue(result.Contains(new Cow("Janina")));
+            Assert.IsTrue(result.Contains(new Cow("Zenon")));
+            Assert.IsTrue(result.Contains(new Cow("Krasula")));
+            Assert.IsTrue(result.Contains(null));
+        }
+
+            // todo: error: general Equals and not-generic collection old ArrayList!!!
+        [Test]
+        public void TestDistinctListOfObjects()
+        {
+           // var arr = new ArrayList { new Cow("Krasula"), null, new Cow("Zenon"), null, new Cow("Janina"), new Cow("Krasula") };
+            var arr = new List<object> { new Cow("Krasula"), null, new Cow("Zenon"), null, new Cow("Janina"), new Cow("Krasula") };
+            var result = (ICollection) ExpressionEvaluator.GetValue(arr, "distinct()");
+            Assert.AreEqual(3, result.Count);
+
+            Assert.IsTrue(result.Cast<Cow>().Contains(new Cow("Janina")));
+            Assert.IsTrue(result.Cast<Cow>().Contains(new Cow("Zenon")));
+            Assert.IsTrue(result.Cast<Cow>().Contains(new Cow("Krasula")));
+
+
+            result = (ICollection)ExpressionEvaluator.GetValue(arr, "distinct(true)");
+            Assert.AreEqual(4, result.Count);
+            Assert.IsTrue(result.Cast<Cow>().Contains(new Cow("Janina")));
+            Assert.IsTrue(result.Cast<Cow>().Contains(new Cow("Zenon")));
+            Assert.IsTrue(result.Cast<Cow>().Contains(new Cow("Krasula")));
+            Assert.IsTrue(result.Cast<Cow>().Contains(null));
+        }
+
+
+
+        class Cow : IEquatable<Cow>
+        {
+            public string Name { get; }
+
+            public bool Equals(Cow other)
+                => Name.Equals(other?.Name);
+
+            public override bool Equals(object obj)
+                => obj is Cow cow && Equals(cow);
+
+            public override int GetHashCode()
+                => Name.GetHashCode();
+
+
+            public Cow(string name)
+            { Name = name; }
         }
 
         [Test]
         public void TestDistinctProcessorWithInvalidArgumentType()
         {
-            int[] arr = new int[] { 24, 8, 8, 6, 24, 6, 8, 6 };
+            int[] arr = { 24, 8, 8, 6, 24, 6, 8, 6 };
             Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(arr, "distinct(6)"));
         }
 
         [Test]
         public void TestDistinctProcessorWithInvalidNumberOfArguments()
         {
-            int[] arr = new int[] { 24, 8, 8, 6, 24, 6, 8, 6 };
+            int[] arr = { 24, 8, 8, 6, 24, 6, 8, 6 };
             Assert.Throws<ArgumentException>(() => ExpressionEvaluator.GetValue(arr, "distinct(true, 4, 'xyz')"));
+        }
+
+        [Test]
+        public void TestOrderByProcessor()
+        {
+            var arr = new List<Cow> { new Cow("Krasula"), new Cow("Zenon"), new Cow("Janina"), new Cow("Deponia") };
+            var result = (ICollection)ExpressionEvaluator.GetValue(
+                arr, "orderBy({|a,b| $a.Name.CompareTo($b.Name)})");
+            Assert.IsNotNull(result);
+            Assert.AreEqual("Deponia", result.Cast<Cow>().ElementAt(0).Name);
+            Assert.AreEqual("Janina", result.Cast<Cow>().ElementAt(1).Name);
+            Assert.AreEqual("Krasula", result.Cast<Cow>().ElementAt(2).Name);
+            Assert.AreEqual("Zenon", result.Cast<Cow>().ElementAt(3).Name);
+
         }
 
         [Test]
@@ -2093,9 +2235,13 @@ namespace SpringExpressions
         [Test]
         public void TestReverseProcessor()
         {
-            object[] arr = new object[] { "0", 1, 2.1m, "3", 4.1f };
+            object[] arr = { "0", 1, 2.1m, "3", 4.1f };
             object[] result = new ArrayList( (ICollection) ExpressionEvaluator.GetValue(arr, "reverse()") ).ToArray();
             Assert.AreEqual(new object[] { 4.1f, "3", 2.1m, 1, "0" }, result);
+
+            string[] w = { "a", "b", "c", "d", "e" };
+            var wRes = ExpressionEvaluator.GetValue(w, "reverse()");
+            Assert.AreEqual(new[] {"e", "d", "c", "b", "a"} , wRes);
         }
 
 #endregion
@@ -2739,17 +2885,33 @@ namespace SpringExpressions
         [Test]
         public void TestUnionOperator()
         {
-            object o = ExpressionEvaluator.GetValue(null, "{1,2,3} + {3,4,5}");
-            Assert.IsInstanceOf(typeof(ISet), o);
-            ISet union = (ISet)o;
-            Assert.AreEqual(5, union.Count);
-            Assert.IsTrue(union.Contains(1));
-            Assert.IsTrue(union.Contains(3));
-            Assert.IsTrue(union.Contains(5));
+            object oo = ExpressionEvaluator.GetValue(null, "{1,2,3} + {3,4,5}");
+            if (oo is ISet)
+            {
+                Assert.IsInstanceOf(typeof(ISet), oo);
+                ISet set1 = (ISet)oo;
+                Assert.AreEqual(5, set1.Count);
+                Assert.IsTrue(set1.Contains(1));
+                Assert.IsTrue(set1.Contains(3));
+                Assert.IsTrue(set1.Contains(5));
+            }
+            else if (oo is ISet<int>)
+            {
+                Assert.IsInstanceOf(typeof(ISet<int>), oo);
+                ISet<int> set2 = (ISet<int>)oo;
+                Assert.AreEqual(5, set2.Count);
+                Assert.IsTrue(set2.Contains(1));
+                Assert.IsTrue(set2.Contains(3));
+                Assert.IsTrue(set2.Contains(5));
+            }
+            else
+            {
+                Assert.Fail("Should be set!");
+            }
 
-            o = ExpressionEvaluator.GetValue(null, "{1,2,3} + {3,4,5} + {'ivan', 'gox', 'damjao', 5}");
+            var o = ExpressionEvaluator.GetValue(null, "{1,2,3} + {3,4,5} + {'ivan', 'gox', 'damjao', 5}");
             Assert.IsInstanceOf(typeof(ISet), o);
-            union = (ISet)o;
+            var union = (ISet)o;
             Assert.AreEqual(8, union.Count);
             Assert.IsTrue(union.Contains(1));
             Assert.IsTrue(union.Contains("ivan"));

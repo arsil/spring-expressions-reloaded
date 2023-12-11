@@ -20,7 +20,62 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
             return (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>));
         }
 
+        public static bool IsGenericDictionary(Type type)
+        {
+            return
+                type.EnumerateInterfaces().Where(@interface => @interface.IsGenericType)
+                .Any(@interface => @interface.GetGenericTypeDefinition() == typeof(IDictionary<,>));
+        }
 
+        public static bool IsGenericEnumerable(Type type)
+        {
+            return 
+                type.EnumerateInterfaces().Where(@interface => @interface.IsGenericType)
+                .Any(@interface => @interface.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+        }
+
+        public static bool IsGenericEnumerable(Type type, out Type itemType)
+        {
+            Type enumerableType = type.EnumerateInterfaces()
+                .Where(@interface => @interface.IsGenericType)
+                .FirstOrDefault(@interface => @interface.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+
+            itemType = enumerableType?.GetGenericArguments()[0];
+            return enumerableType != null;
+        }
+
+
+        public static bool IsGenericEnumerableOfItemType(Type type, Type itemType)
+        {
+            return type.EnumerateInterfaces()
+                .Where(@interface => @interface.IsGenericType)
+                .Any(@interface => @interface.GetGenericTypeDefinition() == typeof(IEnumerable<>)
+                    && @interface.GetGenericArguments()[0] == itemType);
+        }
+
+
+        public static bool IsGenericList(Type type)
+        {
+            return type.EnumerateInterfaces()
+                .Where(@interface => @interface.IsGenericType)
+                .Any(@interface => @interface.GetGenericTypeDefinition() == typeof(IList<>));
+        }
+
+        public static bool IsGenericSet(Type type)
+        {
+            return type.EnumerateInterfaces()
+                .Where(@interface => @interface.IsGenericType)
+                .Any(@interface => @interface.GetGenericTypeDefinition() == typeof(ISet<>));
+        }
+
+        private static IEnumerable<Type> EnumerateInterfaces(this Type type)
+        {
+            if (type.IsInterface)
+                yield return type;
+
+            foreach (var interfaceType in type.GetInterfaces())
+                yield return interfaceType;
+        }
 
         public static Tuple<MethodInfo, LExpression[]> GetMethodByArgumentValues(
             IEnumerable<MethodInfo> methods, LExpression[] arguments)
@@ -104,7 +159,7 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
                         }
                     }
                 }
-                // todo: error: dlaczego InvalidCastException         !!!!! ??????? -------------------- !!!!!!! ??????? ---------------------------------------
+                    // todo: error: dlaczego InvalidCastException         !!!!! ??????? -------------------- !!!!!!! ??????? ---------------------------------------
                 catch (InvalidCastException)
                 {
                     isMatch = false;

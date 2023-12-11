@@ -1,11 +1,13 @@
-﻿using System;
+﻿using SpringExpressions.Expressions.Compiling;
+using System;
 using System.Linq.Expressions;
 using System.Reflection;
+
 using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions.Expressions.LinqExpressionHelpers
 {
-    internal class ExpressionCompareUtils
+    internal static class ExpressionCompareUtils
     {
         public static LExpression CreateCompare(
             LExpression leftExpression,
@@ -29,7 +31,7 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
             }
 
             // try numeric comparision
-            var result = BinaryOperator.CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+            var result = NumericalOperatorHelper.Create(
                 leftExpression,
                 rightExpression,
                 comparisonExpression);

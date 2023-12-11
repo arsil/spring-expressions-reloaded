@@ -20,6 +20,7 @@
 
 using System;
 using System.Runtime.Serialization;
+using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -75,7 +76,7 @@ namespace SpringExpressions
             //TODO: brak obs³ugi np. stringów... czy charów... czy innych takich! to samo przy Less i innych operatorach!
 
             // numeric comparision - we do not support other types
-            var result = CreateBinaryExpressionForAllNumericTypesForNotNullChildren(
+            var result = NumericalOperatorHelper.Create(
 				leftExpression,
 				rightExpression,
 				LExpression.NotEqual);

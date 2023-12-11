@@ -18,11 +18,15 @@
 
 #endregion
 
+
+using System.Dynamic;
+
 #region Imports
 
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.Remoting;
@@ -38,6 +42,7 @@ using SpringReflection.Dynamic;
 #endregion
 
 using LExpression = System.Linq.Expressions.Expression;
+
 
 namespace SpringExpressions
 {
@@ -174,9 +179,14 @@ namespace SpringExpressions
         /// </returns>
         private static IValueAccessor GetPropertyOrFieldAccessor(Type contextType, string memberName, BindingFlags bindingFlags)
         {
+                  // todo: error; getProperty does not work for interfaces------------------------------------------------------------------------------------------
             try
             {
-                PropertyInfo pi = contextType.GetProperty(memberName, bindingFlags);
+                var pi = contextType.IsInterface 
+                    ? contextType.GetInterfaces()
+                        .Union(new [] { contextType }).Select(i => i.GetProperty(memberName, bindingFlags))
+                        .Distinct().SingleOrDefault(propertyInfo => propertyInfo != null)
+                    : contextType.GetProperty(memberName, bindingFlags);
                 if (pi == null)
                 {
                     FieldInfo fi = contextType.GetField(memberName, bindingFlags);
@@ -265,6 +275,11 @@ namespace SpringExpressions
 
                 var contextExpressionType = contextExpression.Type;
 
+                if (contextExpressionType == typeof(ExpandoObject))
+                {
+                    return HandleExpandoForGetter(contextExpression, name);
+                }
+
                 if (contextExpressionType == typeof(Type)
                     && contextExpression.NodeType == ExpressionType.Constant)
                 {
@@ -303,6 +318,9 @@ namespace SpringExpressions
 
                 if (acc is PropertyValueAccessor propertyAcc)
                 {
+                    if (!acc.IsReadable)
+                        throw new NotReadablePropertyException("Cannot get a non-readable property [" + name + "]");
+
                     return LExpression.Property(
                         finalContextExpression,
                         (PropertyInfo) propertyAcc.MemberInfo);
@@ -353,6 +371,92 @@ namespace SpringExpressions
 
                 return null;
             }
+        }
+
+        protected override LExpression GetExpressionTreeForSetterIfPossible(
+            LExpression contextExpression, 
+            CompilationContext compilationContext,
+            LExpression newValueExpression)
+        {
+                 // todo: error: what for (lock)!
+            lock (this)
+            {
+                IValueAccessor acc = null;
+                var name = getText();
+                var finalContextExpression = contextExpression;
+                var contextExpressionType = contextExpression.Type;
+
+                acc = GetPropertyOrFieldAccessor(contextExpressionType, name, BINDING_FLAGS);
+
+                if (acc is PropertyValueAccessor propertyAcc)
+                {
+                    if (!acc.IsWriteable)
+                        throw new NotWritablePropertyException(
+                            "Can't change the value of the read-only property or field '" + memberName + "'.");
+                    /*
+                    return LExpression.Property(
+                        finalContextExpression,
+                        (PropertyInfo)propertyAcc.MemberInfo,
+                        newValueExpression);*/
+
+                    var memberInfo = (PropertyInfo)propertyAcc.MemberInfo;
+
+                    // special object handling
+                    if (newValueExpression.Type == typeof(object)
+                        && newValueExpression.Type != memberInfo.PropertyType)
+                    {
+                        newValueExpression = LExpression.ConvertChecked(newValueExpression, memberInfo.PropertyType);
+                    }
+
+                    return LExpression.Assign(
+                        LExpression.Property(finalContextExpression, memberInfo),
+                        newValueExpression);
+                }
+
+                if (acc is FieldValueAccessor fieldAcc)
+                {
+                    // todo: error:
+                        // todo: error:
+                    /*
+                    if (fieldAcc.FieldInfo.IsStatic && fieldAcc.FieldInfo.IsLiteral)
+                    {
+                        // const field - have to JIT a value!
+                        object fieldValue = fieldAcc.Get(null);
+
+                        return LExpression.Constant(
+                            fieldValue,
+                            fieldAcc.FieldInfo.FieldType);
+                    }
+
+
+                    return LExpression.Field(
+                        finalContextExpression,
+                        (FieldInfo)fieldAcc.MemberInfo,
+                        newValueExpression);
+                    */
+                    var memberInfo = (FieldInfo)fieldAcc.MemberInfo;
+
+                    // special object handling
+                    if (newValueExpression.Type == typeof(object)
+                        && newValueExpression.Type != memberInfo.FieldType)
+                    {
+                        newValueExpression = LExpression.ConvertChecked(newValueExpression, memberInfo.FieldType);
+                    }
+
+                    return LExpression.Assign(
+                        LExpression.Field(finalContextExpression, memberInfo),
+                        newValueExpression);
+                }
+
+                return null;
+            }
+        }
+
+        private LExpression HandleExpandoForGetter(LExpression contextExpression, string name)
+        {
+            return LExpression.Call(
+                MiGetValueFromExpando, contextExpression,
+                LExpression.Constant(name, typeof(string)));
         }
 
         /// <summary>
@@ -860,6 +964,18 @@ namespace SpringExpressions
         }
 
         #endregion
+
+        private static object GetValueFromExpando(ExpandoObject expando, string memberName)
+        {
+            if (((IDictionary<string, object>)expando).TryGetValue(memberName, out var value))
+                return value;
+
+            throw new InvalidPropertyException("'" + memberName + "' node " +
+                "cannot be resolved for the specified context [" + expando + "].");
+        }
+
+        private static readonly MethodInfo MiGetValueFromExpando
+            = ((Func<ExpandoObject, string, object>)GetValueFromExpando).Method;
 
         #region TypeValueAccessor implementation
 

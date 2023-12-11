@@ -22,6 +22,8 @@ using System;
 using System.Runtime.Serialization;
 using SpringExpressions.Parser.antlr.collections;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -44,6 +46,23 @@ namespace SpringExpressions
         protected AssignNode(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
+        }
+
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression, CompilationContext compilationContext)
+        {
+            AST left = getFirstChild();
+            AST right = left.getNextSibling();
+
+            var rightExpression = GetExpressionTreeIfPossible((BaseNode)right, contextExpression, compilationContext);
+            if (rightExpression == null)
+                return null;
+
+               
+                 // todo: error: lambda - wykrywanie lambda
+                 // todo: erro: syfon jest jakiœ...  bo context to chyba jest coœ, do czego przypisujemy... nie? i to ju¿ jest zewaluowane? -----------------------------------------------------------------
+            return GetExpressionTreeForSetterIfPossible(
+                (BaseNode)left, contextExpression, compilationContext, rightExpression);
         }
 
         /// <summary>

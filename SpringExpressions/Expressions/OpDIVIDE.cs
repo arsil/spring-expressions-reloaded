@@ -21,6 +21,7 @@
 using System;
 using System.Collections;
 using System.Runtime.Serialization;
+using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -53,10 +54,18 @@ namespace SpringExpressions
             LExpression contextExpression,
             CompilationContext compilationContext)
         {
-            return CreateBinaryExpressionForAllNumericTypesEvaluatingChildren(
-                contextExpression,
-                compilationContext,
-                LExpression.Divide);
+            var leftExpr = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
+            var rightExpr = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
+
+            if (leftExpr != null && rightExpr != null)
+            {
+                return NumericalOperatorHelper.Create(
+                    leftExpr,
+                    rightExpr,
+                    LExpression.Divide);
+            }
+
+            return null;
         }
 
         /// <summary>

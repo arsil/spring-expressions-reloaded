@@ -22,6 +22,7 @@ using System;
 using System.Collections;
 using System.Runtime.Serialization;
 using SpringCollections;
+using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -55,12 +56,19 @@ namespace SpringExpressions
             LExpression contextExpression,
             CompilationContext compilationContext)
 		{
-// TODO: póki co obs³ugujemy tylko numeryczne mno¿enie! czy jakoœ mo¿e wykrywaæ takie bajery...?
-			return CreateBinaryExpressionForAllNumericTypesEvaluatingChildren(
-                contextExpression,
-				compilationContext,
-				LExpression.Multiply);
-		}
+            var leftExpr = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
+            var rightExpr = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
+
+            if (leftExpr != null && rightExpr != null)
+            {
+                return NumericalOperatorHelper.Create(
+                    leftExpr,
+                    rightExpr,
+                    LExpression.Multiply);
+            }
+
+            return null;
+        }
 		/// <summary>
 		/// Returns a value for the arithmetic multiplication operator node.
 		/// </summary>
@@ -76,6 +84,9 @@ namespace SpringExpressions
             {
                 return NumberUtils.Multiply(left, right);
             }
+
+   // todo: error: bad idea:!!!!
+
             else if (left is IList || left is ISet)
             {
                 ISet leftset = new HybridSet(left as ICollection);

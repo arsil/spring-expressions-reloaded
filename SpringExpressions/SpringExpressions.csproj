@@ -44,6 +44,10 @@
   <ItemGroup>
     <None Include="D:\ExperimentalProjects\SpringExpressionsMaster-2wip\SpringExpressions\.editorconfig" />
   </ItemGroup>
+  
+  <ItemGroup>
+    <Reference Include="Microsoft.CSharp" />
+  </ItemGroup>
 
   <!--PropertyGroup>
     <DocumentationFile>bin\Release\$(TargetFramework)\Forcom.TextMarkupLanguage.xml</DocumentationFile>

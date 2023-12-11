@@ -22,6 +22,8 @@ using System;
 using System.Collections;
 using System.Runtime.Serialization;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions
 {
     /// <summary>
@@ -62,6 +64,18 @@ namespace SpringExpressions
             {
                 return locals[varName];
             }
+            return null;
+        }
+
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression,
+            CompilationContext compilationContext)
+        {
+            var variableName = getText();
+
+            if (compilationContext.TryGetLocalVariable(variableName, out var variableExpression))
+                return variableExpression;
+
             return null;
         }
 

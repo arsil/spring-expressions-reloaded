@@ -20,6 +20,10 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
 using System.Runtime.Serialization;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -52,8 +56,68 @@ namespace SpringExpressions
         protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
             CompilationContext compilationContext)
         {
-            return null;
+            if (!typeof(IEnumerable).IsAssignableFrom(contextExpression.Type))
+            {
+                throw new ArgumentException(
+                    "Projection can only be used on an instance of the type that implements IEnumerable.");
+            }
+
+            if (!contextExpression.Type.IsGenericType)
+                return null;
+
+            var itemType = contextExpression.Type.GetGenericArguments()[0];
+
+            BaseNode expressionNode = (BaseNode)getFirstChild();
+
+            BaseNode minIndexExpression = (BaseNode)expressionNode.getNextSibling();
+            if (minIndexExpression != null)
+                return null;
+
+            // selector
+            var ctxParam = LExpression.Parameter(itemType, "item");
+            var getRootContextExpression = LExpression.Convert(ctxParam, itemType);
+
+            var selectionExpression = GetExpressionTreeIfPossible(
+                expressionNode,
+                getRootContextExpression,
+                compilationContext.CreateWithNewThisContext(getRootContextExpression));
+
+            if (selectionExpression.Type != typeof(bool))
+                return null;
+
+            var finalSelectionMi = _selectionMi.MakeGenericMethod(itemType);
+            var funcType = LExpression.GetFuncType(itemType, typeof(bool));
+
+            // Expression.Lambda<>() - call
+            var finalLambdaMi = _lambdaMi.MakeGenericMethod(funcType);
+            var functionExpr = finalLambdaMi.Invoke(null,
+                new object[] { selectionExpression, new ParameterExpression[] { ctxParam } });
+
+            var compileMi = functionExpr.GetType().GetMethod("Compile", System.Type.EmptyTypes);
+
+            // .Compile()
+            var compiledFunction = compileMi.Invoke(functionExpr, new object[0]);
+
+            return LExpression.Call(
+                finalSelectionMi,
+                contextExpression,
+                LExpression.Constant(compiledFunction));
         }
+
+        public static List<T> Selection<T>(
+            IEnumerable<T> source, Func<T, bool> whereFunction)
+        {
+            return new List<T>(from el in source where whereFunction(el) select el);
+        }
+
+        private readonly MethodInfo _selectionMi = typeof(SelectionNode).GetMethod("Selection");
+
+        private readonly MethodInfo _lambdaMi = typeof(LExpression).GetMethods().FirstOrDefault(
+            x => x.Name.Equals("Lambda", StringComparison.OrdinalIgnoreCase)
+                && x.IsGenericMethod && x.GetParameters().Length == 2
+                && x.GetParameters()[0].ParameterType == typeof(LExpression)
+                && x.GetParameters()[1].ParameterType == typeof(ParameterExpression[]));
+
 
         /// <summary>
         /// Returns a <see cref="IList"/> containing results of evaluation
