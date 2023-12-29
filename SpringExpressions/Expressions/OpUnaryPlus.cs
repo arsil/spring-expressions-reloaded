@@ -20,6 +20,7 @@
 
 using System;
 using System.Runtime.Serialization;
+using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -51,17 +52,19 @@ namespace SpringExpressions
         protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
             CompilationContext compilationContext)
         {
-            // TODO: konwersja user-typów
-
             var operandExpression = GetExpressionTreeIfPossible((BaseNode)getFirstChild(), contextExpression, compilationContext);
+            if (UnaryNumericOperatorHelper.TryCreate(operandExpression,
+                    UnaryNumericOperatorHelper.UnaryOperator.UnaryPlus, out var result))
+            {
+                return result;
+            }
+            /*
+            if (ExpressionTypeHelper.IsNumericOrNullableNumericExpression(operandExpression, out _, out _))
+            {
+                return operandExpression;
+            }*/
 
-            var leftTypeCode = (int)System.Type.GetTypeCode(operandExpression.Type);
-
-            // For Char, Boolean, DBNull, Object, Empty, DateTime and String
-            if (leftTypeCode < 5 || leftTypeCode > 15)
-                return null;
-
-            return operandExpression;
+            return base.GetExpressionTreeIfPossible(contextExpression, compilationContext);
         }
 
         /// <summary>
@@ -74,12 +77,19 @@ namespace SpringExpressions
         {
             object n = GetValue(Operand, context, evalContext);
 
+            // Nullable value types are boxed as values or nulls, so we may get
+            // null values for Nullable<T>
+            // Any math operation involving value and null returns null
+            if (n == null)
+                return null;
+
             if (!NumberUtils.IsNumber(n))
             {
                 throw new ArgumentException(
                     "Specified operand is not a number. Only numbers support unary plus operator.");
             }
-            return n;
+
+            return NumberUtils.UnaryPlus(n);
         }
     }
 }

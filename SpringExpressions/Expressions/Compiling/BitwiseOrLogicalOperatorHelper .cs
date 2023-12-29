@@ -84,17 +84,22 @@ namespace SpringExpressions.Expressions.Compiling
                 }
             }
 
-            if (ExpressionTypeHelper.IsIntegerExpression(left)
-                && ExpressionTypeHelper.IsIntegerExpression(right))
+            if (ExpressionTypeHelper.IsIntegerOrNullableIntegerExpression(left, out _, out _)
+                && ExpressionTypeHelper.IsIntegerOrNullableIntegerExpression(right, out _, out _))
             {
                 // bitwise AND for integer types
-                return NumericalOperatorHelper.Create(
+                if (BinaryNumericOperatorHelper.TryCreate(
                     left,
                     right,
-                    bitwiseOperatorCreator);
+                    bitwiseOperatorCreator, out var resultExpression))
+                {
+                    return resultExpression;
+                }
             }
 
-            return null;
+                    // todo: error: which operation???
+                // todo: error:
+                throw new ArgumentException($"Cannot perform operation on {left.Type} and {right.Type}.");
         }
     }
 }

@@ -21,7 +21,7 @@
 using System;
 using System.Collections;
 using System.Runtime.Serialization;
-using SpringExpressions.Expressions.LinqExpressionHelpers;
+using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -59,11 +59,16 @@ namespace SpringExpressions
             if (leftExpression == null || rightExpression == null)
                 return null;
 
-            return ExpressionCompareUtils.CreateCompare(
+            if (ComparisonHelper.CreateCompare(
                 leftExpression,
                 rightExpression,
                 LExpression.LessThanOrEqual,
-                0);
+                out var result))
+            {
+                return result;
+            }
+
+            return null;
         }
 
         /// <summary>

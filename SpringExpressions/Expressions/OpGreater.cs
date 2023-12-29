@@ -20,7 +20,7 @@
 
 using System;
 using System.Runtime.Serialization;
-using SpringExpressions.Expressions.LinqExpressionHelpers;
+using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -58,11 +58,15 @@ namespace SpringExpressions
             if (leftExpression == null || rightExpression == null)
                 return null;
 
-            return ExpressionCompareUtils.CreateCompare(
-                leftExpression,
-                rightExpression,
+            if (ComparisonHelper.CreateCompare(
+                leftExpression, rightExpression,
                 LExpression.GreaterThan,
-                0);
+                out var result))
+            {
+                return result;
+            }
+
+            return null;
         }
 
         /// <summary>

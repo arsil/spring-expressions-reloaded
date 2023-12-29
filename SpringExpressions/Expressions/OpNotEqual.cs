@@ -21,6 +21,7 @@
 using System;
 using System.Runtime.Serialization;
 using SpringExpressions.Expressions.Compiling;
+using SpringExpressions.Util;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -59,6 +60,9 @@ namespace SpringExpressions
 			if (leftExpression == null || rightExpression == null)
 				return null;
 
+            return EqualityHelper.CreateNotEqualExpression(leftExpression, rightExpression);
+
+            /*
 			if (leftExpression.Type == typeof(bool) && rightExpression.Type == typeof(bool))
 				return LExpression.NotEqual(leftExpression, rightExpression);
 
@@ -76,24 +80,25 @@ namespace SpringExpressions
             //TODO: brak obs³ugi np. stringów... czy charów... czy innych takich! to samo przy Less i innych operatorach!
 
             // numeric comparision - we do not support other types
-            var result = NumericalOperatorHelper.Create(
+            if (BinaryNumericOperatorHelper.Create(
 				leftExpression,
 				rightExpression,
-				LExpression.NotEqual);
-
-            if (result != null) 
-                return result;
+				LExpression.NotEqual, out var resultExpression))
+            {
+                return resultExpression;
+            }
 
             return LExpression.Not(LExpression.Equal(leftExpression, rightExpression));
+            */
         }
 
-	    /// <summary>
-		/// Returns a value for the logical inequality operator node.
-		/// </summary>
-		/// <param name="context">Context to evaluate expressions against.</param>
-		/// <param name="evalContext">Current expression evaluation context.</param>
-		/// <returns>Node's value.</returns>
-		protected override object Get(object context, EvaluationContext evalContext)
+        /// <summary>
+        /// Returns a value for the logical inequality operator node.
+        /// </summary>
+        /// <param name="context">Context to evaluate expressions against.</param>
+        /// <param name="evalContext">Current expression evaluation context.</param>
+        /// <returns>Node's value.</returns>
+        protected override object Get(object context, EvaluationContext evalContext)
         {
             object leftVal = GetLeftValue( context, evalContext );
             object rightVal = GetRightValue( context, evalContext );
@@ -102,25 +107,24 @@ namespace SpringExpressions
             {
                 return (rightVal != null);
             }
-            else if (rightVal == null)
+
+            if (rightVal == null)
             {
                 return true;
             }
-            else if (leftVal.GetType() == rightVal.GetType())
+
+            if (leftVal.GetType() == rightVal.GetType())
             {
-                if (leftVal is Array)
+                if (leftVal is Array val)
                 {
-                    return !ArrayUtils.AreEqual(leftVal as Array, rightVal as Array);
+                    return !ArrayUtils.AreEqual(val, rightVal as Array);
                 }
-                else
-                {
-                    return !leftVal.Equals(rightVal);
-                }
+
+                return EqualityUtils.NotEqualsForObjectsOfTheSameType(leftVal, rightVal);
+                //return !leftVal.Equals(rightVal);
             }
-            else
-            {
-                return CompareUtils.Compare(leftVal, rightVal) != 0;
-            }
+
+            return CompareUtils.Compare(leftVal, rightVal) != 0;
         }
     }
 }

@@ -20,7 +20,12 @@
 
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using SpringCollections;
+using SpringExpressions.Expressions.LinqExpressionHelpers;
 
 namespace SpringExpressions.Processors
 {
@@ -72,12 +77,84 @@ namespace SpringExpressions.Processors
                 throw new ArgumentException("Only a single argument can be specified for a distinct() processor.");
             }
 
+            if (MethodBaseHelpers.IsGenericEnumerable(source.GetType(), out Type itemType))
+            {
+                // what comes as generics leaves as generics.
+                var method = _methods.GetOrAdd(itemType, CreateMethod);
+                return method(source, includeNulls);
+            }
+
             HybridSet set = new HybridSet(source);
             if (!includeNulls)
             {
                 set.Remove(null);
             }
+
             return set;
         }
+
+        private static object DistinctNullsWithCast<T>(ICollection collection, bool includeNulls)
+        {
+            var cast = (IEnumerable<T>) collection;
+            if (includeNulls)
+                return new List<T>(cast.Distinct());
+
+            return new List<T>(from it in cast.Distinct() where it != null select it);
+        }
+
+        private static readonly MethodInfo MiDistinctNullsWithCast = typeof(DistinctProcessor)
+            .GetMethod(nameof(DistinctNullsWithCast), BindingFlags.Static | BindingFlags.NonPublic);
+
+        static DistinctProcessor()
+        {
+            AddMethodForType<int>();
+            AddMethodForType<decimal>();
+            AddMethodForType<double>();
+            AddMethodForType<float>();
+            AddMethodForType<long>();
+            AddMethodForType<DateTime>();
+            AddMethodForType<TimeSpan>();
+            AddMethodForType<string>();
+            AddMethodForType<ulong>();
+            AddMethodForType<uint>();
+            AddMethodForType<short>();
+            AddMethodForType<ushort>();
+            AddMethodForType<byte>();
+            AddMethodForType<sbyte>();
+            AddMethodForType<char>();
+            AddMethodForType<bool>();
+
+            AddMethodForType<int?>();
+            AddMethodForType<decimal?>();
+            AddMethodForType<double?>();
+            AddMethodForType<float?>();
+            AddMethodForType<long?>();
+            AddMethodForType<DateTime?>();
+            AddMethodForType<TimeSpan?>();
+            AddMethodForType<ulong?>();
+            AddMethodForType<uint?>();
+            AddMethodForType<short?>();
+            AddMethodForType<ushort?>();
+            AddMethodForType<byte?>();
+            AddMethodForType<sbyte?>();
+            AddMethodForType<char?>();
+            AddMethodForType<bool?>();
+        }
+
+        private static void AddMethodForType<T>()
+        {
+            _methods[typeof(T)] = DistinctNullsWithCast<T>;
+        }
+
+        private static Func<ICollection, bool, object> CreateMethod(Type itemType)
+        {
+            var genericMethod = MiDistinctNullsWithCast.MakeGenericMethod(itemType);
+            return (Func<ICollection, bool, object>)Delegate
+                .CreateDelegate(typeof(Func<ICollection, bool, object>), genericMethod);
+        }
+
+        private static readonly ConcurrentDictionary<Type, Func<ICollection, bool, object>> _methods
+            = new ConcurrentDictionary<Type, Func<ICollection, bool, object>>();
+
     }
 }

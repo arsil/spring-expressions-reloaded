@@ -61,10 +61,12 @@ namespace SpringExpressions
 
             if (leftExpr != null && rightExpr != null)
             {
-                return NumericalOperatorHelper.Create(
-                    leftExpr,
-                    rightExpr,
-                    LExpression.Multiply);
+                if (BinaryNumericOperatorHelper.TryCreate(
+                    leftExpr, rightExpr,
+                    LExpression.Multiply, out var resultExpression))
+                {
+                    return resultExpression;
+                }
             }
 
             return null;
@@ -77,73 +79,83 @@ namespace SpringExpressions
 		/// <returns>Node's value.</returns>
 		protected override object Get(object context, EvaluationContext evalContext)
         {
-			object left = GetLeftValue( context, evalContext );
-            object right = GetRightValue( context, evalContext );
+			object leftValue = GetLeftValue( context, evalContext );
+            object rightValue = GetRightValue( context, evalContext );
 
-            if (NumberUtils.IsNumber(left) && NumberUtils.IsNumber(right))
+            var leftIsNumber = NumberUtils.IsNumber(leftValue);
+            var rightIsNumber = NumberUtils.IsNumber(rightValue);
+
+            if (leftIsNumber && rightIsNumber)
             {
-                return NumberUtils.Multiply(left, right);
+                return NumberUtils.Multiply(leftValue, rightValue);
             }
 
-   // todo: error: bad idea:!!!!
-
-            else if (left is IList || left is ISet)
+            // Nullable value types are boxed as values or nulls, so we may get
+            // null values for Nullable<T>
+            // Any math operation involving value and null returns null
+            if ((leftIsNumber || rightIsNumber) && (leftValue == null || rightValue == null))
             {
-                ISet leftset = new HybridSet(left as ICollection);
+                return null;
+            }
+
+               // todo: error: bad idea:!!!!
+
+            if (leftValue is IList || leftValue is ISet)
+            {
+                ISet leftset = new HybridSet(leftValue as ICollection);
                 ISet rightset;
-                if (right is IList || right is ISet)
+                if (rightValue is IList || rightValue is ISet)
                 {
-                    rightset = new HybridSet(right as ICollection);
+                    rightset = new HybridSet(rightValue as ICollection);
                 }
-                else if (right is IDictionary)
+                else if (rightValue is IDictionary)
                 {
-                    rightset = new HybridSet(((IDictionary)right).Keys);
+                    rightset = new HybridSet(((IDictionary)rightValue).Keys);
                 }
                 else
                 {
                     throw new ArgumentException("Cannot subtract instances of '"
-                    + left.GetType().FullName
+                    + leftValue.GetType().FullName
                     + "' and '"
-                    + right.GetType().FullName
+                    + rightValue.GetType().FullName
                     + "'.");
                 }
                 return leftset.Intersect(rightset);
             }
-            else if (left is IDictionary)
+
+            if (leftValue is IDictionary)
             {
-                ISet leftset = new HybridSet(((IDictionary)left).Keys);
+                ISet leftset = new HybridSet(((IDictionary)leftValue).Keys);
                 ISet rightset;
-                if (right is IList || right is ISet)
+                if (rightValue is IList || rightValue is ISet)
                 {
-                    rightset = new HybridSet(right as ICollection);
+                    rightset = new HybridSet(rightValue as ICollection);
                 }
-                else if (right is IDictionary)
+                else if (rightValue is IDictionary)
                 {
-                    rightset = new HybridSet(((IDictionary)right).Keys);
+                    rightset = new HybridSet(((IDictionary)rightValue).Keys);
                 }
                 else
                 {
                     throw new ArgumentException("Cannot subtract instances of '"
-                    + left.GetType().FullName
+                    + leftValue.GetType().FullName
                     + "' and '"
-                    + right.GetType().FullName
+                    + rightValue.GetType().FullName
                     + "'.");
                 }
                 IDictionary result = new Hashtable(rightset.Count);
                 foreach (object key in leftset.Intersect(rightset))
                 {
-                    result.Add(key, ((IDictionary)left)[key]);
+                    result.Add(key, ((IDictionary)leftValue)[key]);
                 }
                 return result;
             }
-            else
-            {
-                throw new ArgumentException("Cannot multiply instances of '"
-                                            + left.GetType().FullName
-                                            + "' and '"
-                                            + right.GetType().FullName
-                                            + "'.");
-            }
+
+            throw new ArgumentException("Cannot multiply instances of '"
+                + leftValue?.GetType().FullName
+                + "' and '"
+                + rightValue?.GetType().FullName
+                + "'.");
         }
     }
 }

@@ -23,6 +23,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Runtime.Serialization;
+using JetBrains.Annotations;
 using SpringExpressions.Expressions;
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -398,17 +399,17 @@ namespace SpringExpressions
         }
 
 		protected internal static LExpression GetExpressionTreeIfPossible(
-            BaseNode node, 
-            LExpression contextExpression,
-            CompilationContext compilationContext)
+            [NotNull] BaseNode node,
+            [NotNull] LExpression contextExpression,
+            [NotNull] CompilationContext compilationContext)
 		{
 			return node.GetExpressionTreeIfPossible(contextExpression, compilationContext);
 		}
 
            // todo: rename?
 		protected virtual LExpression GetExpressionTreeIfPossible(
-            LExpression contextExpression,
-            CompilationContext compilationContext)
+            [NotNull] LExpression contextExpression,
+            [NotNull] CompilationContext compilationContext)
 	    {
                       // todo: error; change exception to some compilation exception
             throw new InvalidOperationException("GetExpressionTreeIfPossible not implemented for node: " + GetType().Name);
@@ -416,19 +417,19 @@ namespace SpringExpressions
         }
 
         protected virtual LExpression GetExpressionTreeForSetterIfPossible(
-            LExpression contextExpression,
-            CompilationContext compilationContext,
-            LExpression newValueExpression)
+            [NotNull] LExpression contextExpression,
+            [NotNull] CompilationContext compilationContext,
+            [NotNull] LExpression newValueExpression)
         {
                    // todo: error; change exception to some compilation exception
             throw new InvalidOperationException("GetExpressionTreeForSetterIfPossible not implemented for node: " + GetType().Name);
         }
 
         protected internal static LExpression GetExpressionTreeForSetterIfPossible(
-            BaseNode node,
-            LExpression contextExpression,
-            CompilationContext compilationContext,
-            LExpression newValueExpression)
+            [NotNull] BaseNode node,
+            [NotNull] LExpression contextExpression,
+            [NotNull] CompilationContext compilationContext,
+            [NotNull] LExpression newValueExpression)
         {
             return node.GetExpressionTreeForSetterIfPossible(contextExpression, compilationContext, newValueExpression);
         }

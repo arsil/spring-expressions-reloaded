@@ -1170,6 +1170,186 @@ namespace SpringExpressionsTests.Expressions
                     CompileOptions.CompileOnParse | CompileOptions.MustCompile));
         }
 
+        /// <summary>
+        /// Tests logical NOT operator
+        /// </summary>
+        [Test]
+        public void TestLogicalNotOperator()
+        {
+            TestCompiledVsInterpreted<bool>("!true");
+            TestCompiledVsInterpreted<bool>("!false");
+
+            Assert.IsFalse(CompileGetter<bool>("!true").GetValue());
+            Assert.IsTrue(CompileGetter<bool>("!false").GetValue());
+            
+            string expression = @"IsMember('Nikola Tesla') and !IsMember('Mihajlo Pupin')";
+
+            var ieee = GetIEEE(out _, out _);
+
+            Assert.IsFalse(CompileGetter<Society, bool>(expression).GetValue(ieee));
+
+            TestCompiledVsInterpreted<RegexOptions>("!T(System.Text.RegularExpressions.RegexOptions).Compiled");
+
+            
+            Assert.AreEqual(~RegexOptions.Compiled,
+                CompileGetter<RegexOptions>("!T(System.Text.RegularExpressions.RegexOptions).Compiled").GetValue());
+        }
+
+        /// <summary>
+        /// Tests bitwise XOR operator
+        /// </summary>
+        [Test]
+        public void TestXorOperator()
+        {
+            TestCompiledVsInterpreted<int>("1 xor 3");
+            TestCompiledVsInterpreted<bool>("true xor true");
+
+            Assert.AreEqual(1 ^ 3, CompileGetter<int>("1 xor 3").GetValue());
+            Assert.AreEqual(1 ^ -1, CompileGetter<int>("1 xor -1").GetValue());
+            Assert.AreEqual(true ^ false, CompileGetter<bool>("true xor false").GetValue());
+            Assert.AreEqual(true ^ true, CompileGetter<bool>("true xor true").GetValue());
+            Assert.AreEqual(RegexOptions.IgnoreCase ^ RegexOptions.Compiled, 
+                CompileGetter<RegexOptions>("T(System.Text.RegularExpressions.RegexOptions).IgnoreCase " +
+                    "xor T(System.Text.RegularExpressions.RegexOptions).Compiled").GetValue());
+        }
+
+        /// <summary>
+        /// Tests logical operator precedence
+        /// </summary>
+        [Test]
+        public void TestLogicalOperatorPrecedence()
+        {
+            // NOT over AND
+            Assert.IsFalse(CompileGetter<bool>("!false and false").GetValue());
+            Assert.IsTrue(CompileGetter<bool>("!false and true").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("!true and false").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("!true and true").GetValue());
+
+            Assert.IsTrue(CompileGetter<bool>("!(false and false)").GetValue());
+            Assert.IsTrue(CompileGetter<bool>("!(false and true)").GetValue());
+            Assert.IsTrue(CompileGetter<bool>("!(true and false)").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("!(true and true)").GetValue());
+
+            // NOT over OR
+            Assert.IsTrue(CompileGetter<bool>("!false or false").GetValue());
+            Assert.IsTrue(CompileGetter<bool>("!false or true").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("!true or false").GetValue());
+            Assert.IsTrue(CompileGetter<bool>("!true or true").GetValue());
+
+            Assert.IsTrue(CompileGetter<bool>("!(false or false)").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("!(false or true)").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("!(true or false)").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("!(true or true)").GetValue());
+
+            // AND over OR
+            Assert.IsFalse(CompileGetter<bool>("false and false or false").GetValue());
+            Assert.IsTrue(CompileGetter<bool>("false and false or true").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("false and true or false").GetValue());
+            Assert.IsTrue(CompileGetter<bool>("false and true or true").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("true and false or false").GetValue());
+            Assert.IsTrue(CompileGetter<bool>("true and false or true").GetValue());
+            Assert.IsTrue(CompileGetter<bool>("true and true or false").GetValue());
+            Assert.IsTrue(CompileGetter<bool>("true and true or true").GetValue());
+
+            Assert.IsFalse(CompileGetter<bool>("false and (false or false)").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("false and (false or true)").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("false and (true or false)").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("false and (true or true)").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("true and (false or false)").GetValue());
+            Assert.IsTrue(CompileGetter<bool>("true and (false or true)").GetValue());
+            Assert.IsTrue(CompileGetter<bool>("true and (true or false)").GetValue());
+            Assert.IsTrue(CompileGetter<bool>("true and (true or true)").GetValue());
+        }
+
+        /// <summary>
+        /// Tests equality operator.
+        /// </summary>
+        [Test]
+        public void TestEqualityOperator()
+        {
+            // Null
+            TestCompiledVsInterpreted<bool>("null == null");
+            Assert.IsTrue(CompileGetter<bool>("null == null").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("null == 'xyz'").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("123 == null").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("null == 123").GetValue());
+
+            // Bool
+            Assert.IsTrue(CompileGetter<bool>("false == false").GetValue());
+            Assert.IsTrue(CompileGetter<bool>("true == true").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("false == true").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("true == false").GetValue());
+
+            // Int
+            Assert.IsTrue(CompileGetter<bool>("2 == 2").GetValue());
+            Assert.IsTrue(CompileGetter<bool>("-5 == -5").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("2 == -5").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("-5 == 2").GetValue());
+
+            // String
+            Assert.IsTrue(CompileGetter<bool>("'test' == 'test'").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("'Test' == 'test'").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("'test' == 'Test'").GetValue());
+
+            // DateTime
+            Assert.IsTrue(CompileGetter<bool>("date('1974-08-24') == date('1974-08-24')").GetValue());
+            Assert.IsTrue(CompileGetter<bool>("DateTime.Today == DateTime.Today").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("DateTime.Today == date('1974-08-24')").GetValue());
+            Assert.IsFalse(CompileGetter<bool>("date('1974-08-24') == DateTime.Today").GetValue());
+
+            // Enums
+            Foo foo = new Foo(FooType.One);
+            TypeRegistry.RegisterType("FooType", typeof(FooType));
+
+            Assert.IsTrue(CompileGetter<Foo, bool>("Type == FooType.One").GetValue(foo));
+
+            // todo: error:  enum (FooType) vs String... should it work?
+            Assert.IsTrue(CompileGetter<Foo, bool>("Type == 'One'").GetValue(foo));
+            Assert.IsFalse(CompileGetter<Foo, bool>("Type == 'Two'").GetValue(foo));
+            Assert.IsTrue(CompileGetter<Foo, bool>("FooType.One == Type").GetValue(foo));
+            Assert.IsTrue(CompileGetter<Foo, bool>("'One' == Type").GetValue(foo));
+            Assert.IsFalse(CompileGetter<Foo, bool>("'Two' == Type").GetValue(foo));
+        }
+
+        /// <summary>
+        /// Tests inequality operator.
+        /// </summary>
+        [Test]
+        public void TestInequalityOperator()
+        {
+            // Null
+            TestCompiledVsInterpreted<bool>("null != null");
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("null != null"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("123 != null"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("null != 'xyz'"));
+
+            // Bool
+            TestCompiledVsInterpreted<bool>("false != false");
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("false != false"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("true != true"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("false != true"));
+
+            // Int
+            TestCompiledVsInterpreted<bool>("2 != 2.0");
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("2 != 2.0"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("-5.0 != -5"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("2.0 != -5"));
+
+            // String
+            TestCompiledVsInterpreted<bool>("'test' != 'test'");
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("'test' != 'test'"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("'Test' != 'test'"));
+
+            // DateTime
+            TestCompiledVsInterpreted<bool>("date('1974-08-24') != date('1974-08-24')");
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("date('1974-08-24') != date('1974-08-24')"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("DateTime.Today != DateTime.Today"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("DateTime.Today != date('1974-08-24')"));
+        }
+
+
+
+
         // todo: error: variables? może ExpandoOBject?
         // tood: error; variables - może zapisywać typ variable? ale co to da? skoro można dodać nową variable? a przecież można?
 
@@ -1220,6 +1400,26 @@ namespace SpringExpressionsTests.Expressions
         {
             return Expression.ParseSetter<TArg>(
                 expression, CompileOptions.CompileOnParse | CompileOptions.MustCompile);
+        }
+
+        private static void TestCompiledVsInterpreted<TResult>(string expression)
+        {
+            var compiledObjectValue = CompileGetter<object>(expression);
+            var interpretedObjectValue = Expression.ParseGetter<object>(expression, CompileOptions.MustUseInterpreter);
+
+            var expectedType = interpretedObjectValue.GetValue().GetType();
+            var actualType = compiledObjectValue.GetValue().GetType();
+            Assert.AreEqual(expectedType, actualType, $"Type mismatch: Expected {expectedType}, but was {actualType}. " +
+                $"Expression: {expression}");
+
+            var compiled = CompileGetter<TResult>(expression);
+            var interpreted = Expression.ParseGetter<TResult>(expression, CompileOptions.MustUseInterpreter);
+
+            var expectedValue = interpreted.GetValue();
+            var actualValue = compiled.GetValue();
+
+            Assert.AreEqual(expectedValue, actualValue, $"Value mismatch: Expected {expectedValue}, but was {actualValue}. " +
+                $"Expression: {expression}");
         }
 
         private static Inventor GetTesla()

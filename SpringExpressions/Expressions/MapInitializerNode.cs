@@ -118,6 +118,7 @@ namespace SpringExpressions
          /// <returns>Node's value.</returns>
         protected override object Get(object context, EvaluationContext evalContext)
         {
+            // todo: error: uspójniæ z kodem kompilatora - szczególnie typy!!!!!
             IDictionary entries = new Hashtable();
             AST entryNode = this.getFirstChild();
             while (entryNode != null)

@@ -22,7 +22,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
-using SpringExpressions.Expressions.LinqExpressionHelpers;
+using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -64,19 +64,27 @@ namespace SpringExpressions
                           // todo: error handling! null!
                 var methodInfo = rightExpression.Type.GetMethod("get_Item");
 
-                // todo: error! to dzia³a tyko dla numerycznych! nie zadzia³a dla innych....
-                // todo: error! i te¿ musz¹ mieæ ten sam typ!!! jak nie maj¹, do te¿ nie dzia³a... bo nie robi siê List tylko ArrayList
+                    // todo: error! to dzia³a tyko dla numerycznych! nie zadzia³a dla innych....
+                    // todo: error! i te¿ musz¹ mieæ ten sam typ!!! jak nie maj¹, do te¿ nie dzia³a... bo nie robi siê List tylko ArrayList
+                ComparisonHelper.CreateCompare(
+                    leftExpression,
+                    LExpression.Call(rightExpression, methodInfo, LExpression.Constant(0, typeof(int))),
+                    LExpression.GreaterThanOrEqual,
+                    out var greaterThanOrEqualExpression);
+
+                ComparisonHelper.CreateCompare(
+                    leftExpression,
+                    LExpression.Call(rightExpression, methodInfo, LExpression.Constant(1, typeof(int))),
+                    LExpression.LessThanOrEqual,
+                    out var lessThanOrEqualExpression);
+
+                // todo: exception!!!!!!!!!!!
+                if (lessThanOrEqualExpression == null | greaterThanOrEqualExpression == null)
+                    return null;
+
                 return LExpression.And(
-                    ExpressionCompareUtils.CreateCompare(
-                        leftExpression,
-                        LExpression.Call(rightExpression, methodInfo, LExpression.Constant(0, typeof(int))),
-                        LExpression.GreaterThanOrEqual,
-                        0),
-                    ExpressionCompareUtils.CreateCompare(
-                        leftExpression,
-                        LExpression.Call(rightExpression, methodInfo, LExpression.Constant(1, typeof(int))),
-                        LExpression.LessThanOrEqual,
-                        0));
+                    greaterThanOrEqualExpression,
+                    lessThanOrEqualExpression);
             }
 
             return base.GetExpressionTreeIfPossible(contextExpression, compilationContext);

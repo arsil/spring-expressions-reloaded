@@ -149,6 +149,7 @@ namespace SpringExpressions
                 AST valuesRoot = getFirstChild().getNextSibling();
                 if (valuesRoot != null)
                 {
+                       // todo: error: same type as compiled one! ----------------------------------------------------------------------------------------------------------------------
                     ArrayList values = (ArrayList)GetValue(((BaseNode)valuesRoot), context, evalContext);
                     return values.ToArray(arrayType);
                 }

@@ -20,6 +20,7 @@
 
 using System;
 using System.Runtime.Serialization;
+using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -48,20 +49,25 @@ namespace SpringExpressions
         {
         }
 
-        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression,
             CompilationContext compilationContext)
         {
-             // TODO: konwersja user-typów
-
             var operandExpression = GetExpressionTreeIfPossible((BaseNode)getFirstChild(), contextExpression, compilationContext);
 
-            var leftTypeCode = (int) System.Type.GetTypeCode(operandExpression.Type);
+            if (UnaryNumericOperatorHelper.TryCreate(operandExpression, 
+                UnaryNumericOperatorHelper.UnaryOperator.UnaryMinus, out var result))
+            {
+                return result;
+            }
 
-            // For Char, Boolean, DBNull, Object, Empty, DateTime and String
-            if (leftTypeCode < 5 || leftTypeCode > 15)
-                return null;
+            /*
+            if (ExpressionTypeHelper.IsNumericOrNullableNumericExpression(operandExpression, out _, out _))
+            {
+                return LExpression.Negate(operandExpression);
+            }*/
 
-            return LExpression.Negate(operandExpression);
+            return base.GetExpressionTreeIfPossible(contextExpression, compilationContext);
         }
 
         /// <summary>
@@ -73,6 +79,12 @@ namespace SpringExpressions
         protected override object Get(object context, EvaluationContext evalContext)
         {
             object n = GetValue(Operand, context, evalContext );
+
+            // Nullable value types are boxed as values or nulls, so we may get
+            // null values for Nullable<T>
+            // Any math operation involving value and null returns null
+            if (n == null)
+                return null;
 
             if (!NumberUtils.IsNumber(n))
             {

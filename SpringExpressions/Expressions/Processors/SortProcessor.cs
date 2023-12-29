@@ -22,7 +22,12 @@
 
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using SpringCollections;
+using SpringExpressions.Expressions.LinqExpressionHelpers;
 
 #endregion
 
@@ -71,6 +76,14 @@ namespace SpringExpressions.Processors
                 sortAscending = (bool) args[0];
             }
 
+            if (MethodBaseHelpers.IsGenericEnumerable(source.GetType(), out Type itemType))
+            {
+                // what comes as generics leaves as generics.
+                var method = Methods.GetOrAdd(itemType, CreateMethod);
+                return method(source, sortAscending);
+            }
+
+
             ArrayList list = new ArrayList(source);
             list.Sort();
             if (!sortAscending)
@@ -78,18 +91,85 @@ namespace SpringExpressions.Processors
                 list.Reverse();
             }
 
+            // todo: error: why?-------------------------------------------------------------------------------------
             Type elementType = DetermineElementType(list);
             return list.ToArray(elementType);
         }
 
         private Type DetermineElementType(IList list)
         {
-            for(int i=0;i<list.Count;i++)
+            for (int i=0; i<list.Count; i++)
             {
                 object element = list[i];
                 if (element != null) return element.GetType();
             }
             return typeof (object);
         }
+
+
+        static SortProcessor()
+        {
+            AddMethodForType<int>();
+            AddMethodForType<decimal>();
+            AddMethodForType<double>();
+            AddMethodForType<float>();
+            AddMethodForType<long>();
+            AddMethodForType<DateTime>();
+            AddMethodForType<TimeSpan>();
+            AddMethodForType<string>();
+            AddMethodForType<ulong>();
+            AddMethodForType<uint>();
+            AddMethodForType<short>();
+            AddMethodForType<ushort>();
+            AddMethodForType<byte>();
+            AddMethodForType<sbyte>();
+            AddMethodForType<char>();
+            AddMethodForType<bool>();
+
+            AddMethodForType<int?>();
+            AddMethodForType<decimal?>();
+            AddMethodForType<double?>();
+            AddMethodForType<float?>();
+            AddMethodForType<long?>();
+            AddMethodForType<DateTime?>();
+            AddMethodForType<TimeSpan?>();
+            AddMethodForType<ulong?>();
+            AddMethodForType<uint?>();
+            AddMethodForType<short?>();
+            AddMethodForType<ushort?>();
+            AddMethodForType<byte?>();
+            AddMethodForType<sbyte?>();
+            AddMethodForType<char?>();
+            AddMethodForType<bool?>();
+        }
+
+        private static object SortWithCast<T>(ICollection collection, bool sortAscending)
+        {
+            var cast = (IEnumerable<T>)collection;
+            var result = new List<T>(cast);
+            result.Sort();
+
+            if (!sortAscending)
+                result.Reverse();
+
+            return result;
+        }
+
+        private static readonly MethodInfo MiSortWithCast = typeof(SortProcessor)
+            .GetMethod(nameof(SortWithCast), BindingFlags.Static | BindingFlags.NonPublic);
+
+        private static void AddMethodForType<T>()
+        { Methods[typeof(T)] = SortWithCast<T>; }
+
+        private static Func<ICollection, bool, object> CreateMethod(Type itemType)
+        {
+            var genericMethod = MiSortWithCast.MakeGenericMethod(itemType);
+            return (Func<ICollection, bool, object>)Delegate
+                .CreateDelegate(typeof(Func<ICollection, bool, object>), genericMethod);
+        }
+
+        private static readonly ConcurrentDictionary<Type, Func<ICollection, bool, object>> Methods
+            = new ConcurrentDictionary<Type, Func<ICollection, bool, object>>();
+
     }
 }

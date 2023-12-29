@@ -20,6 +20,7 @@
 
 #region Imports
 
+using SpringExpressions.Util;
 using System;
 using System.ComponentModel;
 
@@ -124,43 +125,88 @@ namespace SpringUtil
         /// </exception>
         public static object Negate(object number)
         {
-            if (number is Int32)
-                return -((Int32)number);
-			else if (number is Decimal)
-				return -((Decimal)number);
-            else if (number is Int64)
-                return -((Int64)number);
-			else if (number is Int16)
-				return -((Int16)number);
-            else if (number is UInt16)
-                return -((Int32)number);
-            else if (number is UInt32)
-                return -((Int64)number);
-            else if (number is UInt64)
-                return -(Convert.ToDecimal(number));
-            else if (number is Byte)
-                return -((Int16)number);
-            else if (number is SByte)
-                return -((Int16)number);
-            else if (number is Single)
-                return -((Single)number);
-            else if (number is Double)
-                return -((Double)number);
-            else
+            switch (number)
             {
-                if (number != null)
-                {
-                    var converter = TypeDescriptor.GetConverter(number);
-                    if (converter.CanConvertTo(typeof (Decimal)))
-                    {
-                        var value = converter.ConvertTo(number, typeof (Decimal));
-                        if (value != null)
-                            return -((Decimal) value);
-                    }
-                }
-                throw new ArgumentException(string.Format("'{0}' is not one of the supported numeric types.", number));
+                case Int32 int32Value:
+                    return -int32Value;
+                case Decimal decimalValue:
+                    return -decimalValue;
+                case Int64 int64Value:
+                    return -int64Value;
+                case Int16 int16Value:
+                    return -int16Value;
+                case UInt16 uint16Value:
+                    return -uint16Value;
+                case UInt32 uint32Value:
+                    return -uint32Value;
+                
+                case ulong _:
+                    throw new ArgumentException("Operator '-' cannot be applied to operand of type 'ulong'");
+
+                case Byte byteValue:
+                    return -byteValue;
+                case SByte sbyteValue:
+                    return -sbyteValue;
+                case Single floatValue:
+                    return -floatValue;
+                case Double doubleValue:
+                    return -doubleValue;
             }
+
+            if (number != null)
+            {
+                var converter = TypeDescriptor.GetConverter(number);
+                if (converter.CanConvertTo(typeof (Decimal)))
+                {
+                    var value = converter.ConvertTo(number, typeof (Decimal));
+                    if (value != null)
+                        return -((Decimal) value);
+                }
+            }
+            throw new ArgumentException(string.Format("'{0}' is not one of the supported numeric types.", number));
         }
+
+        public static object UnaryPlus(object number)
+        {
+            switch (number)
+            {
+                case Int32 int32Value:
+                    return +int32Value;
+                case Decimal decimalValue:
+                    return +decimalValue;
+                case Int64 int64Value:
+                    return +int64Value;
+                case Int16 int16Value:
+                    return +int16Value;
+                case UInt16 uint16Value:
+                    return +uint16Value;
+                case UInt32 uint32Value:
+                    return +uint32Value;
+                case ulong ulongValue:
+                    return +ulongValue;
+                case Byte byteValue:
+                    return +byteValue;
+                case SByte sbyteValue:
+                    return +sbyteValue;
+                case Single floatValue:
+                    return +floatValue;
+                case Double doubleValue:
+                    return +doubleValue;
+            }
+
+            if (number != null)
+            {
+                var converter = TypeDescriptor.GetConverter(number);
+                if (converter.CanConvertTo(typeof(Decimal)))
+                {
+                    var value = converter.ConvertTo(number, typeof(Decimal));
+                    if (value != null)
+                        return -((Decimal)value);
+                }
+            }
+            throw new ArgumentException(string.Format("'{0}' is not one of the supported numeric types.", number));
+        }
+
 
         /// <summary>
         /// Returns the bitwise not (~) of the supplied <paramref name="number"/>.
@@ -206,6 +252,8 @@ namespace SpringUtil
         /// </exception>
         public static object BitwiseAnd(object m, object n)
         {
+            return NumericBinaryOperations.And(m, n);
+            /*
             CoerceTypes(ref m, ref n);
 
             if (n is bool)
@@ -230,6 +278,7 @@ namespace SpringUtil
             {
                 throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported integral types.", m, n));
             }
+            */
         }
 
         /// <summary>
@@ -242,6 +291,8 @@ namespace SpringUtil
         /// </exception>
         public static object BitwiseOr(object m, object n)
         {
+            return NumericBinaryOperations.Or(m, n);
+            /*
             CoerceTypes(ref m, ref n);
 
             if (n is bool)
@@ -272,6 +323,7 @@ namespace SpringUtil
                 return (SByte) ((SByte) m | (SByte) n);
             }
             throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported integral types.", m, n));
+            */
         }
 
         /// <summary>
@@ -284,6 +336,8 @@ namespace SpringUtil
         /// </exception>
         public static object BitwiseXor(object m, object n)
         {
+            return NumericBinaryOperations.Xor(m, n);
+            /*
             CoerceTypes(ref m, ref n);
 
             if (n is bool)
@@ -308,6 +362,7 @@ namespace SpringUtil
             {
                 throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported integral types.", m, n));
             }
+            */
         }
 
         /// <summary>
@@ -317,6 +372,8 @@ namespace SpringUtil
         /// <param name="n">The second number.</param>
         public static object Add(object m, object n)
         {
+            return NumericBinaryOperations.Add(m, n);
+            /*
             CoerceTypes(ref m, ref n);
 
             if (n is Int32)
@@ -344,7 +401,7 @@ namespace SpringUtil
             else
             {
                 throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported numeric types.", m, n));
-            }
+            }*/
         }
 /*
 	    public static bool AddIfPossible(object m, object n, out object result)
@@ -380,6 +437,8 @@ namespace SpringUtil
         /// <param name="n">The second number.</param>
         public static object Subtract(object m, object n)
         {
+            return NumericBinaryOperations.Sub(m, n);
+            /*
             CoerceTypes(ref m, ref n);
 
             if (n is Int32)
@@ -408,6 +467,7 @@ namespace SpringUtil
             {
                 throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported numeric types.", m, n));
             }
+            */
         }
 
         /// <summary>
@@ -417,6 +477,8 @@ namespace SpringUtil
         /// <param name="n">The second number.</param>
         public static object Multiply(object m, object n)
         {
+            return NumericBinaryOperations.Mul(m, n);
+            /*
             CoerceTypes(ref m, ref n);
 
             if (n is Int32)
@@ -445,6 +507,7 @@ namespace SpringUtil
             {
                 throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported numeric types.", m, n));
             }
+            */
         }
 
         /// <summary>
@@ -454,6 +517,8 @@ namespace SpringUtil
         /// <param name="n">The second number.</param>
         public static object Divide(object m, object n)
         {
+            return NumericBinaryOperations.Div(m, n);
+            /*
             CoerceTypes(ref m, ref n);
 
             if (n is Int32)
@@ -482,6 +547,7 @@ namespace SpringUtil
             {
                 throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported numeric types.", m, n));
             }
+            */
         }
 
         /// <summary>
@@ -491,6 +557,8 @@ namespace SpringUtil
         /// <param name="n">The second number (divisor).</param>
         public static object Modulus(object m, object n)
         {
+            return NumericBinaryOperations.Mod(m, n);
+            /*
             CoerceTypes(ref m, ref n);
 
             if (n is Int32)
@@ -518,7 +586,7 @@ namespace SpringUtil
             else
             {
                 throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported numeric types.", m, n));
-            }
+            }*/
         }
 
         /// <summary>

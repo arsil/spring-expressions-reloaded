@@ -19,9 +19,12 @@
 #endregion
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.Serialization;
 using SpringExpressions.Expressions.Compiling;
+using SpringExpressions.Util;
 using SpringUtil;
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -52,58 +55,14 @@ namespace SpringExpressions
         protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
             CompilationContext compilationContext)
         {
+
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
             if (leftExpression == null || rightExpression == null)
                 return null;
 
-            var res = NumericalOperatorHelper.Create(
-                leftExpression, rightExpression, LExpression.Equal);
-
-            if (res != null)
-                return res;
-
-                  // todo: error: zwin¹æ do do compare utils!!!! ???? jak siê to ma do notEqual???
-
-
-            if (leftExpression.Type == typeof(bool) && rightExpression.Type == typeof(bool))
-                return LExpression.Equal(leftExpression, rightExpression);
-
-            if (leftExpression.Type == typeof(string) || rightExpression.Type == typeof(string))
-                return LExpression.Equal(leftExpression, rightExpression);
-
-            if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(DateTime))
-                return LExpression.Equal(leftExpression, rightExpression);
-
-            // TODO: upewniæ siê, ¿e to dzia³a (dla wybranych typów) tak samo jak interpretacja!
-            //TODO: brak obs³ugi .. czy charów... czy innych takich! to samo przy Less i innych operatorach!
-
-            // todo: g³upie jest to, i¿ mo¿e to nie zadzia³aæ dla boxowanych typów... oto jest pytanie...
-            // todo: mo¿e nigdy nie powiniœmy eqlals jednak u¿ywaæ... do zastanowienia siê...
-
-            if (leftExpression.Type.IsValueType)
-                leftExpression = LExpression.Convert(leftExpression, typeof(object));
-
-            if (rightExpression.Type.IsValueType)
-                rightExpression = LExpression.Convert(rightExpression, typeof(object));
-
-            return LExpression.Condition(
-                    LExpression.Equal(leftExpression,
-                        LExpression.Constant(null, typeof(object))),
-                    // left is null - emitting (rigth == null)
-                    LExpression.Equal(rightExpression,
-                        LExpression.Constant(null, typeof(object))),
-                    // left is not null - checking right
-                    LExpression.Condition(
-                        LExpression.Equal(rightExpression,
-                            LExpression.Constant(null, typeof(object))),
-                        // left not null; right is null => false
-                        LExpression.Constant(false, typeof(bool)),
-                        // left not null; right not null => emitting left.Equals(right)
-                        LExpression.Call(leftExpression, objEqualsMi, rightExpression)
-                        )
-                );
+            return EqualityHelper.CreateEqualExpression(leftExpression, rightExpression);
         }
 
         /// <summary>
@@ -114,42 +73,64 @@ namespace SpringExpressions
         /// <returns>Node's value.</returns>
         protected override object Get(object context, EvaluationContext evalContext)
         {
-            object left = GetLeftValue(context, evalContext);
-            object right = GetRightValue(context, evalContext);
+            var leftValue = GetLeftValue(context, evalContext);
+            var rightValue = GetRightValue(context, evalContext);
 
-            if (left == null)
-            {
-                return (right == null);
-            }
-            else if (right == null)
-            {
+            if (leftValue == null)
+                return rightValue == null;
+
+            if (rightValue == null)
                 return false;
-            }
-            else if (left.GetType() == right.GetType())
+
+            // both values are not null
+
+            var leftType = leftValue.GetType();
+            var rightType = rightValue.GetType();
+
+            if (leftType == rightType)
             {
-                if (left is Array)
+                      // todo: error: czy na pewno? nie ma to chyba sensu!!!!
+                if (leftValue is Array array)
                 {
-                    return ArrayUtils.AreEqual(left as Array, right as Array);
+                    return ArrayUtils.AreEqual(array, rightValue as Array);
                 }
-                else
-                {
-                    return left.Equals(right);
-                }
+
+                return EqualityUtils.EqualsForObjectsOfTheSameType(leftValue, rightValue);
+
+                // todo: error: cache methods!
+                return CreateMethod(leftType)(leftValue, rightValue);
+                //return left.Equals(right);
             }
-            else if (left.GetType().IsEnum && right is string)
+
+            // todo: error; to nie ma sensu (te enumy)...  bo not eq tego nie robi!!!!!
+            if (leftType.IsEnum && rightValue is string)
             {
-                return left.Equals(Enum.Parse(left.GetType(), (string)right));
+                return leftValue.Equals(Enum.Parse(leftType, (string)rightValue));
             }
-            else if (right.GetType().IsEnum && left is string)
+            
+            if (rightType.IsEnum && leftValue is string)
             {
-                return right.Equals(Enum.Parse(right.GetType(), (string)left));
+                return rightValue.Equals(Enum.Parse(rightType, (string)leftValue));
             }
-            else
-            {
-                return CompareUtils.Compare(left, right) == 0;
-            }
+
+            return CompareUtils.Compare(leftValue, rightValue) == 0;
         }
 
-	    private static readonly MethodInfo objEqualsMi = typeof(object).GetMethod("Equals", BindingFlags.Instance | BindingFlags.Public);
+        private static bool EqualsUsingEqualityComparer<T>(object t1, object t2)
+        {
+            return EqualityComparer<T>.Default.Equals((T)t1, (T)t2);
+        }
+
+        private static readonly MethodInfo MiEqualsUsingEqualityComparer = typeof(OpEqual)
+            .GetMethod(nameof(EqualsUsingEqualityComparer), BindingFlags.Static | BindingFlags.NonPublic);
+
+
+        private static Func<object, object, bool> CreateMethod(Type itemType)
+        {
+            var genericMethod = MiEqualsUsingEqualityComparer.MakeGenericMethod(itemType);
+            return (Func<object, object, bool>)Delegate
+                .CreateDelegate(typeof(Func<object, object, bool>), genericMethod);
+        }
+
     }
 }

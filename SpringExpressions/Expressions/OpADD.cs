@@ -66,13 +66,12 @@ namespace SpringExpressions
             if (leftExpression == null || rightExpression == null)
                 return null;
 
-            var exp = NumericalOperatorHelper.Create(
-                leftExpression,
-                rightExpression,
-                LExpression.Add);
-
-            if (exp != null)
-                return exp;
+            if (BinaryNumericOperatorHelper.TryCreate(
+                leftExpression, rightExpression,
+                LExpression.Add, out var resultExpression))
+            {
+                return resultExpression;
+            }
 
             if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(string))
             {
@@ -231,41 +230,56 @@ namespace SpringExpressions
         /// <returns>Node's value.</returns>
         protected override object Get(object context, EvaluationContext evalContext)
         {
-            object left = GetLeftValue(context, evalContext);
-            object right = GetRightValue(context, evalContext);
+            object leftValue = GetLeftValue(context, evalContext);
+            object rightValue = GetRightValue(context, evalContext);
 
-            if (NumberUtils.IsNumber(left) && NumberUtils.IsNumber(right))
+            var leftIsNumber = NumberUtils.IsNumber(leftValue);
+            var rightIsNumber = NumberUtils.IsNumber(rightValue);
+
+            if (leftIsNumber && rightIsNumber)
             {
-                return NumberUtils.Add(left, right);
+                return NumberUtils.Add(leftValue, rightValue);
             }
 
-            else if (left is DateTime && (right is TimeSpan || right is string || NumberUtils.IsNumber(right)))
+            // Nullable value types are boxed as values or nulls, so we may get
+            // null values for Nullable<T>
+            // Any math operation involving value and null returns null
+            if ((leftIsNumber || rightIsNumber) && (leftValue == null || rightValue == null))
             {
-                if (NumberUtils.IsNumber(right))
+                return null;
+            }
+
+            // todo: error: string???? parsing here?--------
+            if (leftValue is DateTime && (rightValue is TimeSpan || rightValue is string || rightIsNumber))
+            {
+                if (rightIsNumber)
                 {
-                    right = TimeSpan.FromDays(Convert.ToDouble(right));
+                    rightValue = TimeSpan.FromDays(Convert.ToDouble(rightValue));
                 }
-                else if (right is string)
+                else if (rightValue is string)
                 {
-                    right = TimeSpan.Parse((string) right);
+                    rightValue = TimeSpan.Parse((string) rightValue);
                 }
 
-                return (DateTime) left + (TimeSpan) right;
+                return (DateTime) leftValue + (TimeSpan) rightValue;
             }
-            else if (left is String || right is String)
+
+            if (leftValue is String || rightValue is String)
             {
-                return string.Concat(left, right);
+                return string.Concat(leftValue, rightValue);
             }
-            else if ((left is IList || left is ISet) && (right is IList || right is ISet))
+
+            if ((leftValue is IList || leftValue is ISet) && (rightValue is IList || rightValue is ISet))
             {
-                ISet leftset = new HybridSet(left as ICollection);
-                ISet rightset = new HybridSet(right as ICollection);
+                ISet leftset = new HybridSet(leftValue as ICollection);
+                ISet rightset = new HybridSet(rightValue as ICollection);
                 return leftset.Union(rightset);
             }
-            else if (left is IDictionary && right is IDictionary)
+
+            if (leftValue is IDictionary && rightValue is IDictionary)
             {
-                ISet leftset = new HybridSet(((IDictionary) left).Keys);
-                ISet rightset = new HybridSet(((IDictionary) right).Keys);
+                ISet leftset = new HybridSet(((IDictionary) leftValue).Keys);
+                ISet rightset = new HybridSet(((IDictionary) rightValue).Keys);
                 ISet unionset = leftset.Union(rightset);
                 
                 IDictionary result = new Hashtable(unionset.Count);
@@ -273,23 +287,21 @@ namespace SpringExpressions
                 {
                     if(leftset.Contains(key))
                     {
-                        result.Add(key, ((IDictionary)left)[key]);
+                        result.Add(key, ((IDictionary)leftValue)[key]);
                     }
                     else
                     {
-                        result.Add(key, ((IDictionary)right)[key]);
+                        result.Add(key, ((IDictionary)rightValue)[key]);
                     }
                 }
                 return result;
             }
-            else
-            {
-                throw new ArgumentException("Cannot add instances of '"
-                                            + left.GetType().FullName
-                                            + "' and '"
-                                            + right.GetType().FullName
-                                            + "'.");
-            }
+
+            throw new ArgumentException("Cannot add instances of '"
+                + leftValue?.GetType().FullName
+                + "' and '"
+                + rightValue?.GetType().FullName
+                + "'.");
         }
 
         private static readonly MethodInfo StrConcatObjObjMethodInfo

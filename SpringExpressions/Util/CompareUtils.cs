@@ -21,6 +21,9 @@
 #region Imports
 
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Reflection;
 
 #endregion
 
@@ -30,7 +33,7 @@ namespace SpringUtil
     /// Utility class containing helper methods for object comparison.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    class CompareUtils
+    static class CompareUtils
     {
         /// <summary>Compares two objects.</summary>
         /// <param name="first">First object.</param>
@@ -46,33 +49,42 @@ namespace SpringUtil
             {
                 return (second == null ? 0 : -1);
             }
-            else if (second == null)
+
+            if (second == null)
             {
                 return 1;
             }
 
-            if (!first.GetType().Equals(second.GetType()))
+            var firstArgType = first.GetType();
+            var secondArgType = second.GetType();
+
+            if (firstArgType != secondArgType)
             {
                 if (!CoerceTypes(ref first, ref second))
                 {
                     throw new ArgumentException("Cannot compare instances of ["
-                        + first.GetType().FullName
+                        + firstArgType.FullName
                         + "] and ["
-                        + second.GetType().FullName
+                        + secondArgType.FullName
                         + "] because they cannot be coerced to the same type.");
                 }
             }
 
-            if (first is IComparable)
+            // here types must be equal
+              // todo: error: GetOrAdd Throws????1111-----------------------------------------------------------------------------
+            var method = Methods.GetOrAdd(firstArgType, CreateMethod);
+            return method(first, second);
+
+            /*
+            if (first is IComparable comparable)
             {
-                return ((IComparable)first).CompareTo(second);
+                return comparable.CompareTo(second);
             }
-            else
-            {
-                throw new ArgumentException("Cannot compare instances of the type ["
-                    + first.GetType().FullName
-                    + "] because it doesn't implement IComparable");
-            }
+
+            throw new ArgumentException("Cannot compare instances of the type ["
+                + firstArgType.FullName
+                + "] because it doesn't implement IComparable");
+            */
         }
 
         private static bool CoerceTypes(ref object left, ref object right)
@@ -84,6 +96,65 @@ namespace SpringUtil
             }
             return false;
         }
+
+
+        private static int CompareSameTypes<T>(object first, object second)
+        {
+            return Comparer<T>.Default.Compare((T)first, (T)second);
+        }
+
+        static CompareUtils()
+        {
+            AddMethodForType<int>();
+            AddMethodForType<decimal>();
+            AddMethodForType<double>();
+            AddMethodForType<float>();
+            AddMethodForType<long>();
+            AddMethodForType<DateTime>();
+            AddMethodForType<TimeSpan>();
+            AddMethodForType<string>();
+            AddMethodForType<ulong>();
+            AddMethodForType<uint>();
+            AddMethodForType<short>();
+            AddMethodForType<ushort>();
+            AddMethodForType<byte>();
+            AddMethodForType<sbyte>();
+            AddMethodForType<char>();
+            AddMethodForType<bool>();
+
+            AddMethodForType<int?>();
+            AddMethodForType<decimal?>();
+            AddMethodForType<double?>();
+            AddMethodForType<float?>();
+            AddMethodForType<long?>();
+            AddMethodForType<DateTime?>();
+            AddMethodForType<TimeSpan?>();
+            AddMethodForType<ulong?>();
+            AddMethodForType<uint?>();
+            AddMethodForType<short?>();
+            AddMethodForType<ushort?>();
+            AddMethodForType<byte?>();
+            AddMethodForType<sbyte?>();
+            AddMethodForType<char?>();
+            AddMethodForType<bool?>();
+        }
+
+        private static void AddMethodForType<T>()
+        { Methods[typeof(T)] = CompareSameTypes<T>; }
+
+        private static readonly MethodInfo MiCompareSameTypes = typeof(CompareUtils)
+            .GetMethod(nameof(CompareSameTypes), BindingFlags.Static | BindingFlags.NonPublic);
+
+        private static Func<object, object, int> CreateMethod(Type itemType)
+        {
+            var genericMethod = MiCompareSameTypes.MakeGenericMethod(itemType);
+            return (Func<object, object, int>)Delegate
+                .CreateDelegate(typeof(Func<object, object, int>), genericMethod);
+        }
+
+
+        private static readonly ConcurrentDictionary<Type, Func<object, object, int>> Methods
+            = new ConcurrentDictionary<Type, Func<object, object, int>>();
 
     }
 }

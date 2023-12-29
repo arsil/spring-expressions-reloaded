@@ -57,16 +57,21 @@ namespace SpringExpressions
             var leftExpr = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpr = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
-            if (leftExpr != null && rightExpr != null)
-            {
-                return NumericalOperatorHelper.Create(
+            if (leftExpr == null || rightExpr == null)
+                return null;
+
+            if (BinaryNumericOperatorHelper.TryCreate(
                     leftExpr,
                     rightExpr,
-                    LExpression.Divide);
+                    LExpression.Divide,
+                    out var resultExpression))
+            {
+                return resultExpression;
             }
 
             return null;
         }
+
 
         /// <summary>
         /// Returns a value for the arithmetic division operator node.
@@ -76,21 +81,30 @@ namespace SpringExpressions
         /// <returns>Node's value.</returns>
         protected override object Get(object context, EvaluationContext evalContext)
         {
-            object left = GetLeftValue(context, evalContext);
-            object right = GetRightValue(context, evalContext);
+            object leftValue = GetLeftValue(context, evalContext);
+            object rightValue = GetRightValue(context, evalContext);
 
-            if (NumberUtils.IsNumber(left) && NumberUtils.IsNumber(right))
+            var leftIsNumber = NumberUtils.IsNumber(leftValue);
+            var rightIsNumber = NumberUtils.IsNumber(rightValue);
+
+            if (leftIsNumber && rightIsNumber)
             {
-                return NumberUtils.Divide(left, right);
+                return NumberUtils.Divide(leftValue, rightValue);
             }
-            else
+
+            // Nullable value types are boxed as values or nulls, so we may get
+            // null values for Nullable<T>
+            // Any math operation involving value and null returns null
+            if ((leftIsNumber || rightIsNumber) && (leftValue == null || rightValue == null))
             {
-                throw new ArgumentException("Cannot divide instances of '"
-                                            + left.GetType().FullName
-                                            + "' and '"
-                                            + right.GetType().FullName
-                                            + "'.");
+                return null;
             }
+
+            throw new ArgumentException("Cannot divide instances of '"
+                + leftValue?.GetType().FullName
+                + "' and '"
+                + rightValue?.GetType().FullName
+                + "'.");
         }
     }
 }

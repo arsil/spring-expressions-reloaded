@@ -20,6 +20,36 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
             return (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>));
         }
 
+        /// <summary>
+        /// Checks, if the specified type is a nullable
+        /// </summary>
+        public static bool IsNullableType(Type type, out Type itemType)
+        {
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+            {
+                itemType = type.GetGenericArguments()[0];
+                return true;
+            }
+
+            itemType = null;
+            return false;
+        }
+
+        /// <summary>
+        /// Checks, if the specified type is a nullable
+        /// </summary>
+        public static bool IsNullableType(Type type, ref int itemTypeCode)
+        {
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+            {
+                itemTypeCode = (int)Type.GetTypeCode(type.GetGenericArguments()[0]);
+                return true;
+            }
+
+            return false;
+        }
+
+
         public static bool IsGenericDictionary(Type type)
         {
             return

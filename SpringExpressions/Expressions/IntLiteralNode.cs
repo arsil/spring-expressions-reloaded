@@ -19,6 +19,7 @@
 #endregion
 
 using System;
+using System.Globalization;
 using System.Linq.Expressions;
 using System.Runtime.Serialization;
 
@@ -57,7 +58,7 @@ namespace SpringExpressions
             : base(info, context)
         {
         }
-        
+
         /// <summary>
         /// Returns a value for the integer literal node.
         /// </summary>
@@ -66,6 +67,7 @@ namespace SpringExpressions
         /// <returns>Node's value.</returns>
         protected override object Get(object context, EvaluationContext evalContext)
         {
+            // todo: error: rise condition!-------------
             if (nodeValue == null)
             {
                 lock (this)
@@ -73,13 +75,34 @@ namespace SpringExpressions
                     if (nodeValue == null)
                     {
                         string n = this.getText();
-                        try
+                        char lastChar = char.ToLowerInvariant(n[n.Length - 1]);
+
+                        if (char.IsDigit(lastChar))
                         {
-                            nodeValue = Int32.Parse(n);
+                            try
+                            {
+                                nodeValue = int.Parse(n);
+                            }
+                            catch (OverflowException)
+                            {
+                                nodeValue = long.Parse(n);
+                            }
                         }
-                        catch (OverflowException)
+                        else
                         {
-                            nodeValue = Int64.Parse(n);
+                            n = n.Substring(0, n.Length - 1);
+
+                            if (lastChar == 'l')
+                            {
+                                if (char.ToLowerInvariant(n[n.Length - 1]) == 'u')
+                                    nodeValue = ulong.Parse(n.Substring(0, n.Length - 1), CultureInfo.InvariantCulture);
+                                else
+                                    nodeValue = long.Parse(n, CultureInfo.InvariantCulture);
+                            }
+                            else if (lastChar == 'u')
+                            {
+                                nodeValue = uint.Parse(n, CultureInfo.InvariantCulture);
+                            }
                         }
                     }
                 }
@@ -88,21 +111,42 @@ namespace SpringExpressions
             return nodeValue;
         }
 
-        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+        protected override LExpression GetExpressionTreeIfPossible(
+            LExpression contextExpression,
             CompilationContext compilationContext)
         {
             string n = getText();
 
-            try
+            char lastChar = char.ToLowerInvariant(n[n.Length - 1]);
+
+            if (char.IsDigit(lastChar))
             {
-                int value = Int32.Parse(n);
-                return LExpression.Constant(value, typeof(int));
+                try
+                {
+                    return LExpression.Constant(int.Parse(n, CultureInfo.InvariantCulture), typeof(int));
+                }
+                catch (OverflowException)
+                {
+                    return LExpression.Constant(long.Parse(n, CultureInfo.InvariantCulture), typeof(long));
+                }
             }
-            catch (OverflowException)
+
+            n = n.Substring(0, n.Length - 1);
+
+            if (lastChar == 'l')
             {
-                long value = Int64.Parse(n);
-                return LExpression.Constant(value, typeof(long));
+                if (char.ToLowerInvariant(n[n.Length - 1]) == 'u')
+                    return LExpression.Constant(ulong.Parse(n.Substring(0, n.Length - 1), CultureInfo.InvariantCulture), typeof(ulong));
+
+                return LExpression.Constant(long.Parse(n, CultureInfo.InvariantCulture), typeof(long));
             }
+
+            if (lastChar == 'u')
+            {
+                return LExpression.Constant(uint.Parse(n, CultureInfo.InvariantCulture), typeof(uint));
+            }
+
+            return null;
         }
     }
 }

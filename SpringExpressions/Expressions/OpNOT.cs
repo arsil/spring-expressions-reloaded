@@ -20,6 +20,7 @@
 
 using System;
 using System.Runtime.Serialization;
+using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -76,8 +77,14 @@ namespace SpringExpressions
                         LExpression.Convert(operandExpression, Enum.GetUnderlyingType(operandExpression.Type))),
                     operandExpression.Type);
 
-			return LExpression.Not(operandExpression);
-		}
+            if (UnaryNumericOperatorHelper.TryCreate(operandExpression,
+                    UnaryNumericOperatorHelper.UnaryOperator.UnaryNot, out var result))
+            {
+                return result;
+            }
+
+            return base.GetExpressionTreeIfPossible(contextExpression, compilationContext);
+        }
 
 	    /// <summary>
         /// Returns a value for the logical NOT operator node.

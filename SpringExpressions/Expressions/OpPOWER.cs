@@ -22,6 +22,7 @@ using System;
 using System.Reflection;
 using System.Runtime.Serialization;
 using SpringExpressions.Expressions.Compiling;
+using SpringExpressions.Expressions.LinqExpressionHelpers;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -56,6 +57,39 @@ namespace SpringExpressions
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
+            if (leftExpression == null || rightExpression == null)
+                return null;
+
+            if (ExpressionTypeHelper.IsNumericOrNullableNumericExpression(
+                   leftExpression, out var leftIsNullable, out var leftTypeCode)
+                &&
+                ExpressionTypeHelper.IsNumericOrNullableNumericExpression(
+                    rightExpression, out var rightIsNullable, out var rightTypeCode))
+            {
+                if (leftTypeCode != TypeCode.Double)
+                {
+                    leftExpression =
+                        LExpression.Convert(leftExpression, leftIsNullable ? typeof(double?) : typeof(double));
+                }
+
+                if (rightTypeCode != TypeCode.Double)
+                {
+                    rightExpression =
+                        LExpression.Convert(rightExpression, rightIsNullable ? typeof(double?) : typeof(double));
+                }
+
+
+                if (BinaryNumericOperatorHelper.TryCreate(
+                        leftExpression, rightExpression,
+                        LExpression.Power, out var resultExpression))
+                {
+                    return resultExpression;
+                }
+            }
+
+
+            /*
+                    // todo: error: nullable!----------------- ---------------------- -------------------------------------------------------
             if (leftExpression != null 
                 && rightExpression != null
                 && ExpressionTypeHelper.IsNumericExpression(leftExpression)
@@ -68,7 +102,7 @@ namespace SpringExpressions
                     LExpression.Convert(leftExpression, typeof(double)),
                     LExpression.Convert(rightExpression, typeof(double)));
             }
-
+            */
             return base.GetExpressionTreeIfPossible(contextExpression, compilationContext);
         }
 
@@ -80,21 +114,31 @@ namespace SpringExpressions
         /// <returns>Node's value.</returns>
         protected override object Get(object context, EvaluationContext evalContext)
         {
-            object left = GetLeftValue( context, evalContext );
-            object right = GetRightValue( context, evalContext );
+            object leftValue = GetLeftValue( context, evalContext );
+            object rightValue = GetRightValue( context, evalContext );
 
-            if (NumberUtils.IsNumber(left) && NumberUtils.IsNumber(right))
+            var leftIsNumber = NumberUtils.IsNumber(leftValue);
+            var rightIsNumber = NumberUtils.IsNumber(rightValue);
+
+            if (leftIsNumber && rightIsNumber)
             {
-                return NumberUtils.Power(left, right);
+                return NumberUtils.Power(leftValue, rightValue);
             }
-            else
+
+            // Nullable value types are boxed as values or nulls, so we may get
+            // null values for Nullable<T>
+            // Any math operation involving value and null returns null
+            if ((leftIsNumber || rightIsNumber) && (leftValue == null || rightValue == null))
             {
-                throw new ArgumentException("Cannot calculate exponent for the instances of '"
-                                            + left.GetType().FullName
-                                            + "' and '"
-                                            + right.GetType().FullName
-                                            + "'.");
+                return null;
             }
+
+            throw new ArgumentException("Cannot calculate exponent for the instances of '"
+                + leftValue?.GetType().FullName
+                + "' and '"
+                + rightValue?.GetType().FullName
+                + "'.");
+            
         }
 
         private static readonly MethodInfo MathPowMethodInfo

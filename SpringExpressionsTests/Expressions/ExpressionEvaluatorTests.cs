@@ -1281,7 +1281,7 @@ namespace SpringExpressions
         /// Tests inequality operator.
         /// </summary>
         [Test]
-        public void TestInqualityOperator()
+        public void TestInequalityOperator()
         {
             // Null
             Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "null != null"));

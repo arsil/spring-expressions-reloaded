@@ -67,8 +67,9 @@ namespace SpringExpressions
                     if (nodeValue == null)
                     {
                         string n = this.getText();
-                        char lastChar = n.ToLower()[n.Length - 1];
-                        if (Char.IsDigit(lastChar))
+                        char lastChar = Char.ToLowerInvariant(n[n.Length - 1]);
+
+                        if (char.IsDigit(lastChar))
                         {
                             nodeValue = Double.Parse(n, NumberFormatInfo.InvariantInfo);
                         }
@@ -105,8 +106,9 @@ namespace SpringExpressions
 			if (constantExpression == null)
             {
                 string n = this.getText();
-                char lastChar = n.ToLower()[n.Length - 1];
-                if (Char.IsDigit(lastChar))
+                char lastChar = Char.ToLowerInvariant(n[n.Length - 1]);
+
+                if (char.IsDigit(lastChar))
                 {
                     double value = double.Parse(n, NumberFormatInfo.InvariantInfo);
                     constantExpression

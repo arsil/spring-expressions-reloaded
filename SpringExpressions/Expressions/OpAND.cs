@@ -81,18 +81,26 @@ namespace SpringExpressions
         protected override object Get(object context, EvaluationContext evalContext)
         {
             object l = GetLeftValue(context, evalContext);
+            object r = GetRightValue(context, evalContext);
 
-            if (NumberUtils.IsInteger(l))
+            var leftIsInteger = NumberUtils.IsInteger(l);
+            var rightIsInteger = NumberUtils.IsInteger(r);
+
+            if (leftIsInteger && rightIsInteger)
             {
-                object r = GetRightValue(context, evalContext);
-                if (NumberUtils.IsInteger(r))
-                {
-                    return NumberUtils.BitwiseAnd(l, r);
-                }
+                return NumberUtils.BitwiseAnd(l, r);
             }
-            else if (l is Enum)
+
+            // Nullable value types are boxed as values or nulls, so we may get
+            // null values for Nullable<T>
+            // Any math operation involving value and null returns null
+            if ((leftIsInteger || rightIsInteger) && (l == null || r == null))
             {
-                object r = GetRightValue(context, evalContext);
+                return null;
+            }
+
+            if (l is Enum)
+            {
                 if (l.GetType() == r.GetType())
                 {
                     Type enumType = l.GetType();

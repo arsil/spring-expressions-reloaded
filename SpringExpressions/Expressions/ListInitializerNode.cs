@@ -162,6 +162,8 @@ namespace SpringExpressions
         protected override object Get(object context, EvaluationContext evalContext)
         {
             object[] values = ResolveArguments(evalContext);
+
+               // todo: error: uspójniæ z kodem kompilatora - szczególnie typy!!!!!
             return new ArrayList(values);
         }
     }

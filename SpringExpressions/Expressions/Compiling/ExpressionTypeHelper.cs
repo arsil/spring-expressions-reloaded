@@ -1,4 +1,5 @@
-﻿using JetBrains.Annotations;
+﻿using System;
+using JetBrains.Annotations;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -34,9 +35,42 @@ namespace SpringExpressions.Expressions.Compiling
             // For Enum types, the type code of the underlying integral type is returned.
 
             var expressionType = expression.Type;
-            var code = (int)System.Type.GetTypeCode(expressionType);
+            var code = (int)Type.GetTypeCode(expressionType);
             return code >= 5 && code <= 15 && !expressionType.IsEnum;
         }
+
+        public static bool IsNumericOrNullableNumericExpression(
+            [NotNull] LExpression expression, out bool isNullable, out TypeCode typeCode)
+        {
+            var expressionType = expression.Type;
+
+            var expressionTypeCode = Type.GetTypeCode(expressionType);
+            var code = (int)expressionTypeCode;
+            if (code >= 5 && code <= 15 && !expressionType.IsEnum)
+            {
+                isNullable = false;
+                typeCode = expressionTypeCode;
+                return true;
+            }
+
+            if (expressionType.IsGenericType && expressionType.GetGenericTypeDefinition() == typeof(Nullable<>))
+            {
+                var itemType = Type.GetTypeCode(expressionType.GetGenericArguments()[0]);
+                code = (int)itemType;
+
+                if (code >= 5 && code <= 15 && !expressionType.IsEnum)
+                {
+                    isNullable = true;
+                    typeCode = itemType;
+                    return true;
+                }
+            }
+
+            isNullable = false;
+            typeCode = expressionTypeCode;
+            return false;
+        }
+
 
         public static bool IsIntegerExpression([NotNull] LExpression expression)
         {
@@ -66,6 +100,38 @@ namespace SpringExpressions.Expressions.Compiling
             var expressionType = expression.Type;
             var code = (int)System.Type.GetTypeCode(expressionType);
             return code >= 5 && code <= 12 && !expressionType.IsEnum;
+        }
+
+        public static bool IsIntegerOrNullableIntegerExpression(
+            [NotNull] LExpression expression, out bool isNullable, out TypeCode typeCode)
+        {
+            var expressionType = expression.Type;
+
+            var expressionTypeCode = Type.GetTypeCode(expressionType);
+            var code = (int)expressionTypeCode;
+            if (code >= 5 && code <= 12 && !expressionType.IsEnum)
+            {
+                isNullable = false;
+                typeCode = expressionTypeCode;
+                return true;
+            }
+
+            if (expressionType.IsGenericType && expressionType.GetGenericTypeDefinition() == typeof(Nullable<>))
+            {
+                var itemType = Type.GetTypeCode(expressionType.GetGenericArguments()[0]);
+                code = (int)itemType;
+
+                if (code >= 5 && code <= 12 && !expressionType.IsEnum)
+                {
+                    isNullable = true;
+                    typeCode = itemType;
+                    return true;
+                }
+            }
+
+            isNullable = false;
+            typeCode = expressionTypeCode;
+            return false;
         }
     }
 }

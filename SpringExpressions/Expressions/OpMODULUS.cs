@@ -58,10 +58,12 @@ namespace SpringExpressions
 
             if (leftExpr != null && rightExpr != null)
             {
-                return NumericalOperatorHelper.Create(
-                    leftExpr,
-                    rightExpr,
-                    LExpression.Modulo);
+                if (BinaryNumericOperatorHelper.TryCreate(
+                    leftExpr, rightExpr,
+                    LExpression.Modulo, out var resultExpression))
+                {
+                    return resultExpression;
+                }
             }
 
             return null;
@@ -75,21 +77,31 @@ namespace SpringExpressions
         /// <returns>Node's value.</returns>
         protected override object Get(object context, EvaluationContext evalContext)
         {
-            object leftVal = GetLeftValue(context, evalContext );
-            object rightVal = GetRightValue(context, evalContext );
+            object leftValue = GetLeftValue(context, evalContext );
+            object rightValue = GetRightValue(context, evalContext );
 
-            if (NumberUtils.IsNumber(leftVal) && NumberUtils.IsNumber(rightVal))
+            var leftIsNumber = NumberUtils.IsNumber(leftValue);
+            var rightIsNumber = NumberUtils.IsNumber(rightValue);
+
+            if (leftIsNumber && rightIsNumber)
             {
-                return NumberUtils.Modulus(leftVal, rightVal);
+                return NumberUtils.Modulus(leftValue, rightValue);
             }
-            else
+
+            // Nullable value types are boxed as values or nulls, so we may get
+            // null values for Nullable<T>
+            // Any math operation involving value and null returns null
+            if ((leftIsNumber || rightIsNumber) && (leftValue == null || rightValue == null))
             {
-                throw new ArgumentException("Cannot calculate modulus for instances of '"
-                                            + leftVal.GetType().FullName
-                                            + "' and '"
-                                            + rightVal.GetType().FullName
-                                            + "'.");
+                return null;
             }
+
+            throw new ArgumentException("Cannot calculate modulus for instances of '"
+                + leftValue?.GetType().FullName
+                + "' and '"
+                + rightValue?.GetType().FullName
+                + "'.");
+            
         }
     }
 }
