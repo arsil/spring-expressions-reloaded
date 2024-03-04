@@ -5,15 +5,13 @@ using static SpringExpressions.BaseNode;
 
 namespace SpringExpressions.Expressions.Compiling.Expressions
 {
-    abstract class BaseGetterExpression<TRoot, TResult>
+    abstract class BaseGetterExpression<TRoot, TResult> : BaseStronglyTypedExpression
     {
         protected BaseGetterExpression(
-            BaseNode expressionNode,
-            CompileOptions compileOptions)
+                BaseNode expressionNode,
+                CompileOptions compileOptions)
+            : base(expressionNode, compileOptions)
         {
-            _expressionNode = expressionNode;
-            _compileOptions = compileOptions;
-
             // todo: error handling!!!!
             if (_compileOptions.HasFlag(CompileOptions.CompileOnParse))
                 _compiledExpression = Compiler.CompileGetter<TResult, TRoot>(_expressionNode);
@@ -37,12 +35,7 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
 
         }
 
-        private readonly BaseNode _expressionNode;
         private Func<TRoot, EvaluationContext, TResult> _compiledExpression;
-
-        private EvaluationContext _lastEvaluationContext;
-
-        private readonly CompileOptions _compileOptions;
     }
 
     class GetterExpression<TRoot, TResult>

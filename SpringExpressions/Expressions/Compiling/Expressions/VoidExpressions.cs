@@ -5,15 +5,13 @@ using static SpringExpressions.BaseNode;
 
 namespace SpringExpressions.Expressions.Compiling.Expressions
 {
-    abstract class BaseVoidExpression<TRoot>
+    abstract class BaseVoidExpression<TRoot>: BaseStronglyTypedExpression
     {
         protected BaseVoidExpression(
-            BaseNode expressionNode,
-            CompileOptions compileOptions)
+                BaseNode expressionNode,
+                CompileOptions compileOptions)
+            : base(expressionNode, compileOptions)
         {
-            _expressionNode = expressionNode;
-            _compileOptions = compileOptions;
-
             // todo: error handling!!!!
             if (_compileOptions.HasFlag(CompileOptions.CompileOnParse))
                 _compiledExpression = Compiler.CompileExecuteWithVoidReturnType<TRoot>(_expressionNode);
@@ -40,12 +38,7 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
             _compiledExpression(context, _lastEvaluationContext);
         }
 
-        private readonly BaseNode _expressionNode;
         private Action<TRoot, EvaluationContext> _compiledExpression;
-
-        private EvaluationContext _lastEvaluationContext;
-
-        private readonly CompileOptions _compileOptions;
     }
 
     class VoidExpression<TRoot> : BaseVoidExpression<TRoot>, IVoidExpression<TRoot>
