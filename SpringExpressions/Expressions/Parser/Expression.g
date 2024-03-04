@@ -1,7 +1,7 @@
 options
 {
 	language = "CSharp";
-	namespace = "Spring.Expressions.Parser";
+	namespace = "SpringExpressions.Parser";
 }
 
 class ExpressionParser extends Parser;
@@ -11,7 +11,7 @@ options {
 	codeGenBitsetTestThreshold = 4;
 	classHeaderPrefix = "internal"; 
 	buildAST=true;
-	ASTLabelType = "Spring.Expressions.SpringAST";
+	ASTLabelType = "SpringExpressions.SpringAST";
 	k = 2;
 }
 
@@ -29,6 +29,8 @@ tokens {
 	LIKE = "like";
 	MATCHES = "matches";
 	NULL_LITERAL = "null";
+	TYPEOF = "typeof";
+	AS = "as";
 }
 
 {
@@ -50,17 +52,17 @@ tokens {
     {
         switch (op)
         {
-            case "==" : return "Spring.Expressions.OpEqual";
-            case "!=" : return "Spring.Expressions.OpNotEqual";
-            case "<" : return "Spring.Expressions.OpLess";
-            case "<=" : return "Spring.Expressions.OpLessOrEqual";
-            case ">" : return "Spring.Expressions.OpGreater";
-            case ">=" : return "Spring.Expressions.OpGreaterOrEqual";
-            case "in" : return "Spring.Expressions.OpIn";
-            case "is" : return "Spring.Expressions.OpIs";
-            case "between" : return "Spring.Expressions.OpBetween";
-            case "like" : return "Spring.Expressions.OpLike";
-            case "matches" : return "Spring.Expressions.OpMatches";
+            case "==" : return "SpringExpressions.OpEqual";
+            case "!=" : return "SpringExpressions.OpNotEqual";
+            case "<" : return "SpringExpressions.OpLess";
+            case "<=" : return "SpringExpressions.OpLessOrEqual";
+            case ">" : return "SpringExpressions.OpGreater";
+            case ">=" : return "SpringExpressions.OpGreaterOrEqual";
+            case "in" : return "SpringExpressions.OpIn";
+            case "is" : return "SpringExpressions.OpIs";
+            case "between" : return "SpringExpressions.OpBetween";
+            case "like" : return "SpringExpressions.OpLike";
+            case "matches" : return "SpringExpressions.OpMatches";
             default : 
                 throw new ArgumentException("Node type for operator '" + op + "' is not defined.");
         }
@@ -71,25 +73,25 @@ expr : expression EOF!;
 
 exprList 
     : LPAREN! expression (SEMI! expression)+ RPAREN!
-        { #exprList = #([EXPR,"expressionList","Spring.Expressions.ExpressionListNode"], #exprList); }
+        { #exprList = #([EXPR,"expressionList","SpringExpressions.ExpressionListNode"], #exprList); }
     ;
 
 expression	:	logicalOrExpression 
 				(
-					(ASSIGN^ <AST = Spring.Expressions.AssignNode> logicalOrExpression) 
-				|   (DEFAULT^ <AST = Spring.Expressions.DefaultNode> logicalOrExpression) 
-				|	(QMARK^ <AST = Spring.Expressions.TernaryNode> expression COLON! expression)
+					(ASSIGN^ <AST = SpringExpressions.AssignNode> logicalOrExpression) 
+				|   (DEFAULT^ <AST = SpringExpressions.DefaultNode> logicalOrExpression) 
+				|	(QMARK^ <AST = SpringExpressions.TernaryNode> expression COLON! expression)
 				)?
 			;
 			
 parenExpr
     : LPAREN! expression RPAREN!;
     
-logicalOrExpression : logicalXorExpression (OR^ <AST = Spring.Expressions.OpOR> logicalXorExpression)* ;
+logicalOrExpression : logicalXorExpression (OR^ <AST = SpringExpressions.OpOR> logicalXorExpression)* ;
 
-logicalXorExpression : logicalAndExpression (XOR^ <AST = Spring.Expressions.OpXOR> logicalAndExpression)* ;
+logicalXorExpression : logicalAndExpression (XOR^ <AST = SpringExpressions.OpXOR> logicalAndExpression)* ;
                         
-logicalAndExpression : relationalExpression (AND^ <AST = Spring.Expressions.OpAND> relationalExpression)* ;                        
+logicalAndExpression : relationalExpression (AND^ <AST = SpringExpressions.OpAND> relationalExpression)* ;                        
 
 relationalExpression
     :   e1:sumExpr 
@@ -99,29 +101,37 @@ relationalExpression
     ;
 
 sumExpr  : prodExpr (
-                        (PLUS^ <AST = Spring.Expressions.OpADD> 
-                        | MINUS^ <AST = Spring.Expressions.OpSUBTRACT>) prodExpr)* ; 
+                        (PLUS^ <AST = SpringExpressions.OpADD> 
+                        | MINUS^ <AST = SpringExpressions.OpSUBTRACT>) prodExpr)* ; 
 
 prodExpr : powExpr (
-                        (STAR^ <AST = Spring.Expressions.OpMULTIPLY> 
-                        | DIV^ <AST = Spring.Expressions.OpDIVIDE> 
-                        | MOD^ <AST = Spring.Expressions.OpMODULUS>) powExpr)* ;
+                        (STAR^ <AST = SpringExpressions.OpMULTIPLY> 
+                        | DIV^ <AST = SpringExpressions.OpDIVIDE> 
+                        | MOD^ <AST = SpringExpressions.OpMODULUS>) powExpr)* ;
 
-powExpr  : unaryExpression (POWER^ <AST = Spring.Expressions.OpPOWER> unaryExpression)? ;
+powExpr  : postCastUnaryExpression (POWER^ <AST = SpringExpressions.OpPOWER> postCastUnaryExpression)? ;
+
+postCastUnaryExpression : unaryExpression (AS! TYPE! pcn:name! RPAREN!
+	{ #postCastUnaryExpression = #([EXPR, pcn_AST.getText(), "SpringExpressions.CastNode"], #postCastUnaryExpression); })?
+	;
+
 
 unaryExpression 
-	:	(PLUS^ <AST = Spring.Expressions.OpUnaryPlus> 
-	    | MINUS^ <AST = Spring.Expressions.OpUnaryMinus> 
-	    | BANG^ <AST = Spring.Expressions.OpNOT>) unaryExpression	
+	:	(PLUS^ <AST = SpringExpressions.OpUnaryPlus> 
+	    | MINUS^ <AST = SpringExpressions.OpUnaryMinus> 
+	    | BANG^ <AST = SpringExpressions.OpNOT>) unaryExpression
 	|	primaryExpression
 	;
-	
+
+
+
+
 unaryOperator
 	: PLUS | MINUS | BANG
     ;
     
 primaryExpression : startNode (node)?
-			{ #primaryExpression = #([EXPR,"expression","Spring.Expressions.Expression"], #primaryExpression); };
+			{ #primaryExpression = #([EXPR,"expression","SpringExpressions.Expression"], #primaryExpression); };
 
 startNode 
     : 
@@ -163,10 +173,10 @@ functionOrVar
     | var
     ;
 
-function : POUND! ID^ <AST = Spring.Expressions.FunctionNode> methodArgs
+function : POUND! ID^ <AST = SpringExpressions.FunctionNode> methodArgs
     ;
     
-var : POUND! ID^ <AST = Spring.Expressions.VariableNode>;
+var : POUND! ID^ <AST = SpringExpressions.VariableNode>;
 
 localFunctionOrVar 
     : (DOLLAR ID LPAREN) => localFunction
@@ -174,15 +184,15 @@ localFunctionOrVar
     ;
 
 localFunction 
-    : DOLLAR! ID^ <AST = Spring.Expressions.LocalFunctionNode> methodArgs
+    : DOLLAR! ID^ <AST = SpringExpressions.LocalFunctionNode> methodArgs
     ;
 
 localVar 
-    : DOLLAR! ID^ <AST = Spring.Expressions.LocalVariableNode>
+    : DOLLAR! ID^ <AST = SpringExpressions.LocalVariableNode>
     ;
 
 methodOrProperty
-	: (ID LPAREN)=> ID^ <AST = Spring.Expressions.MethodNode> methodArgs
+	: (ID LPAREN)=> ID^ <AST = SpringExpressions.MethodNode> methodArgs
 	| property
 	;
 
@@ -191,64 +201,77 @@ methodArgs
 	;
 
 property
-    :  ID <AST = Spring.Expressions.PropertyOrFieldNode>
+    :  ID <AST = SpringExpressions.PropertyOrFieldNode>
     ;
 
 reference
 	:  (AT! LPAREN! quotableName COLON) =>
 		AT! LPAREN! cn:quotableName! COLON! id:quotableName! RPAREN!
-		{ #reference = #([EXPR, "ref", "Spring.Context.Support.ReferenceNode"], #cn, #id); }
+		{ #reference = #([EXPR, "ref", "SpringContext.Support.ReferenceNode"], #cn, #id); }
 
 	|  AT! LPAREN! localid:quotableName! RPAREN!
-       { #reference = #([EXPR, "ref", "Spring.Context.Support.ReferenceNode"], null, #localid); }
+       { #reference = #([EXPR, "ref", "SpringContext.Support.ReferenceNode"], null, #localid); }
 	;
 
 indexer
-	:  LBRACKET^ <AST = Spring.Expressions.IndexerNode> argument (COMMA! argument)* RBRACKET!
+	:  LBRACKET^ <AST = SpringExpressions.IndexerNode> argument (COMMA! argument)* RBRACKET!
 	;
 
 projection
 	:	
-		PROJECT^ <AST = Spring.Expressions.ProjectionNode> expression RCURLY!
+		PROJECT^ <AST = SpringExpressions.ProjectionNode> expression RCURLY!
 	;
 
 selection
 	:	
-		SELECT^ <AST = Spring.Expressions.SelectionNode> expression (COMMA! expression)* RCURLY!
+		SELECT^ <AST = SpringExpressions.SelectionNode> expression (COMMA! expression)* RCURLY!
 	;
 
 firstSelection
 	:	
-		SELECT_FIRST^ <AST = Spring.Expressions.SelectionFirstNode> expression RCURLY!
+		SELECT_FIRST^ <AST = SpringExpressions.SelectionFirstNode> expression RCURLY!
 	;
 
 lastSelection
 	:	
-		SELECT_LAST^ <AST = Spring.Expressions.SelectionLastNode> expression RCURLY!
+		SELECT_LAST^ <AST = SpringExpressions.SelectionLastNode> expression RCURLY!
 	;
 
+
 type
-    :   TYPE! tn:name! RPAREN!
-		{ #type = #([EXPR, tn_AST.getText(), "Spring.Expressions.TypeNode"], #type); } 
+    :   type_T
+    |   type_of
     ;
-     
+
+
+type_T
+	:   TYPE! tn:name! RPAREN!
+             { #type_T = #([EXPR, tn_AST.getText(), "SpringExpressions.TypeNode"], #type_T); } 
+    ;
+
+type_of
+    :   TYPEOF! LPAREN! to:name! RPAREN!
+             { #type_of = #([EXPR, to_AST.getText(), "SpringExpressions.TypeNode"], #type_of); } 
+    ;
+
 name
-	:	ID^ <AST = Spring.Expressions.QualifiedIdentifier> (~(RPAREN|COLON|QUOTE))*
+	:	ID^ <AST = SpringExpressions.QualifiedIdentifier> (~(RPAREN|COLON|QUOTE))*
 	;
-	
+
+
 quotableName
-    :	STRING_LITERAL^ <AST = Spring.Expressions.QualifiedIdentifier>
+    :	STRING_LITERAL^ <AST = SpringExpressions.QualifiedIdentifier>
     |	name
     ;
     
 attribute
 	:	AT! LBRACKET! tn:qualifiedId! (ctorArgs)? RBRACKET!
-		   { #attribute = #([EXPR, tn_AST.getText(), "Spring.Expressions.AttributeNode"], #attribute); }
+		   { #attribute = #([EXPR, tn_AST.getText(), "SpringExpressions.AttributeNode"], #attribute); }
 	;
 
 lambda
     :   LAMBDA! (argList)? PIPE! expression RCURLY!
-		   { #lambda = #([EXPR, "lambda", "Spring.Expressions.LambdaExpressionNode"], #lambda); }
+		   { #lambda = #([EXPR, "lambda", "SpringExpressions.LambdaExpressionNode"], #lambda); }
 	;
 
 argList : (ID (COMMA! ID)*)
@@ -257,13 +280,13 @@ argList : (ID (COMMA! ID)*)
 
 constructor
 	:	("new" qualifiedId LPAREN) => "new"! type:qualifiedId! ctorArgs
-		   { #constructor = #([EXPR, type_AST.getText(), "Spring.Expressions.ConstructorNode"], #constructor); }
+		   { #constructor = #([EXPR, type_AST.getText(), "SpringExpressions.ConstructorNode"], #constructor); }
 	|   arrayConstructor
 	;
 
 arrayConstructor
 	:	 "new"! type:qualifiedId! arrayRank (listInitializer)?
-	       { #arrayConstructor = #([EXPR, type_AST.getText(), "Spring.Expressions.ArrayConstructorNode"], #arrayConstructor); }
+	       { #arrayConstructor = #([EXPR, type_AST.getText(), "SpringExpressions.ArrayConstructorNode"], #arrayConstructor); }
 	;
     
 arrayRank
@@ -271,16 +294,16 @@ arrayRank
     ;
 
 listInitializer
-    :   LCURLY^ <AST = Spring.Expressions.ListInitializerNode> expression (COMMA! expression)* RCURLY!
+    :   LCURLY^ <AST = SpringExpressions.ListInitializerNode> expression (COMMA! expression)* RCURLY!
     ;
 
 mapInitializer
-    :   POUND! LCURLY^ <AST = Spring.Expressions.MapInitializerNode> mapEntry (COMMA! mapEntry)* RCURLY!
+    :   POUND! LCURLY^ <AST = SpringExpressions.MapInitializerNode> mapEntry (COMMA! mapEntry)* RCURLY!
     ;
       
 mapEntry
     :   expression COLON! expression
-          { #mapEntry = #([EXPR, "entry", "Spring.Expressions.MapEntryNode"], #mapEntry); }
+          { #mapEntry = #([EXPR, "entry", "SpringExpressions.MapEntryNode"], #mapEntry); }
     ;
      
 ctorArgs : LPAREN! (namedArgument (COMMA! namedArgument)*)? RPAREN!;
@@ -288,26 +311,26 @@ ctorArgs : LPAREN! (namedArgument (COMMA! namedArgument)*)? RPAREN!;
 argument : expression;
 
 namedArgument 
-    :   (ID ASSIGN) => ID^ <AST = Spring.Expressions.NamedArgumentNode> ASSIGN! expression 
+    :   (ID ASSIGN) => ID^ <AST = SpringExpressions.NamedArgumentNode> ASSIGN! expression 
     |   argument 
     ;
 
 qualifiedId 
-	: ID^ <AST = Spring.Expressions.QualifiedIdentifier> (DOT ID)*
+	: ID^ <AST = SpringExpressions.QualifiedIdentifier> (DOT ID)*
     ;
     
 literal
-	:	NULL_LITERAL <AST = Spring.Expressions.NullLiteralNode>
-	|   INTEGER_LITERAL <AST = Spring.Expressions.IntLiteralNode>
-	|   HEXADECIMAL_INTEGER_LITERAL <AST = Spring.Expressions.HexLiteralNode>
-	|   REAL_LITERAL <AST = Spring.Expressions.RealLiteralNode>
-	|	STRING_LITERAL <AST = Spring.Expressions.StringLiteralNode>
+	:	NULL_LITERAL <AST = SpringExpressions.NullLiteralNode>
+	|   INTEGER_LITERAL <AST = SpringExpressions.IntLiteralNode>
+	|   HEXADECIMAL_INTEGER_LITERAL <AST = SpringExpressions.HexLiteralNode>
+	|   REAL_LITERAL <AST = SpringExpressions.RealLiteralNode>
+	|	STRING_LITERAL <AST = SpringExpressions.StringLiteralNode>
 	|   boolLiteral
 	;
 
 boolLiteral
-    :   TRUE <AST = Spring.Expressions.BooleanLiteralNode>
-    |   FALSE <AST = Spring.Expressions.BooleanLiteralNode>
+    :   TRUE <AST = SpringExpressions.BooleanLiteralNode>
+    |   FALSE <AST = SpringExpressions.BooleanLiteralNode>
     ;
     
 relationalOperator
@@ -462,7 +485,8 @@ DOT_ESCAPED: "\\."
   
 QUOTE: '\''
   ;
-  
+
+
 STRING_LITERAL
 	:	QUOTE! (APOS|~'\'')* QUOTE!
 	;

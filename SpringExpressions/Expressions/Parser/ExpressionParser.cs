@@ -41,61 +41,63 @@ namespace SpringExpressions.Parser
 		public const int LIKE = 14;
 		public const int MATCHES = 15;
 		public const int NULL_LITERAL = 16;
-		public const int LPAREN = 17;
-		public const int SEMI = 18;
-		public const int RPAREN = 19;
-		public const int ASSIGN = 20;
-		public const int DEFAULT = 21;
-		public const int QMARK = 22;
-		public const int COLON = 23;
-		public const int PLUS = 24;
-		public const int MINUS = 25;
-		public const int STAR = 26;
-		public const int DIV = 27;
-		public const int MOD = 28;
-		public const int POWER = 29;
-		public const int BANG = 30;
-		public const int DOT = 31;
-		public const int POUND = 32;
-		public const int ID = 33;
-		public const int DOLLAR = 34;
-		public const int COMMA = 35;
-		public const int AT = 36;
-		public const int LBRACKET = 37;
-		public const int RBRACKET = 38;
-		public const int PROJECT = 39;
-		public const int RCURLY = 40;
-		public const int SELECT = 41;
-		public const int SELECT_FIRST = 42;
-		public const int SELECT_LAST = 43;
-		public const int TYPE = 44;
-		public const int QUOTE = 45;
-		public const int STRING_LITERAL = 46;
-		public const int LAMBDA = 47;
-		public const int PIPE = 48;
-		public const int LITERAL_new = 49;
-		public const int LCURLY = 50;
-		public const int INTEGER_LITERAL = 51;
-		public const int HEXADECIMAL_INTEGER_LITERAL = 52;
-		public const int REAL_LITERAL = 53;
-		public const int EQUAL = 54;
-		public const int NOT_EQUAL = 55;
-		public const int LESS_THAN = 56;
-		public const int LESS_THAN_OR_EQUAL = 57;
-		public const int GREATER_THAN = 58;
-		public const int GREATER_THAN_OR_EQUAL = 59;
-		public const int WS = 60;
-		public const int BACKTICK = 61;
-		public const int BACKSLASH = 62;
-		public const int DOT_ESCAPED = 63;
-		public const int APOS = 64;
-		public const int NUMERIC_LITERAL = 65;
-		public const int DECIMAL_DIGIT = 66;
-		public const int INTEGER_TYPE_SUFFIX = 67;
-		public const int HEX_DIGIT = 68;
-		public const int EXPONENT_PART = 69;
-		public const int SIGN = 70;
-		public const int REAL_TYPE_SUFFIX = 71;
+		public const int TYPEOF = 17;
+		public const int AS = 18;
+		public const int LPAREN = 19;
+		public const int SEMI = 20;
+		public const int RPAREN = 21;
+		public const int ASSIGN = 22;
+		public const int DEFAULT = 23;
+		public const int QMARK = 24;
+		public const int COLON = 25;
+		public const int PLUS = 26;
+		public const int MINUS = 27;
+		public const int STAR = 28;
+		public const int DIV = 29;
+		public const int MOD = 30;
+		public const int POWER = 31;
+		public const int TYPE = 32;
+		public const int BANG = 33;
+		public const int DOT = 34;
+		public const int POUND = 35;
+		public const int ID = 36;
+		public const int DOLLAR = 37;
+		public const int COMMA = 38;
+		public const int AT = 39;
+		public const int LBRACKET = 40;
+		public const int RBRACKET = 41;
+		public const int PROJECT = 42;
+		public const int RCURLY = 43;
+		public const int SELECT = 44;
+		public const int SELECT_FIRST = 45;
+		public const int SELECT_LAST = 46;
+		public const int QUOTE = 47;
+		public const int STRING_LITERAL = 48;
+		public const int LAMBDA = 49;
+		public const int PIPE = 50;
+		public const int LITERAL_new = 51;
+		public const int LCURLY = 52;
+		public const int INTEGER_LITERAL = 53;
+		public const int HEXADECIMAL_INTEGER_LITERAL = 54;
+		public const int REAL_LITERAL = 55;
+		public const int EQUAL = 56;
+		public const int NOT_EQUAL = 57;
+		public const int LESS_THAN = 58;
+		public const int LESS_THAN_OR_EQUAL = 59;
+		public const int GREATER_THAN = 60;
+		public const int GREATER_THAN_OR_EQUAL = 61;
+		public const int WS = 62;
+		public const int BACKTICK = 63;
+		public const int BACKSLASH = 64;
+		public const int DOT_ESCAPED = 65;
+		public const int APOS = 66;
+		public const int NUMERIC_LITERAL = 67;
+		public const int DECIMAL_DIGIT = 68;
+		public const int INTEGER_TYPE_SUFFIX = 69;
+		public const int HEX_DIGIT = 70;
+		public const int EXPONENT_PART = 71;
+		public const int SIGN = 72;
+		public const int REAL_TYPE_SUFFIX = 73;
 		
 		
     // CLOVER:OFF
@@ -906,7 +908,7 @@ _loop29_breakloop:				;
 		SpringExpressions.SpringAST powExpr_AST = null;
 		
 		try {      // for error handling
-			unaryExpression();
+			postCastUnaryExpression();
 			if (0 == inputState.guessing)
 			{
 				astFactory.addASTChild(ref currentAST, (AST)returnAST);
@@ -918,7 +920,7 @@ _loop29_breakloop:				;
 					tmp30_AST = (SpringExpressions.OpPOWER) astFactory.create(LT(1), "SpringExpressions.OpPOWER");
 					astFactory.makeASTRoot(ref currentAST, (AST)tmp30_AST);
 					match(POWER);
-					unaryExpression();
+					postCastUnaryExpression();
 					if (0 == inputState.guessing)
 					{
 						astFactory.addASTChild(ref currentAST, (AST)returnAST);
@@ -949,6 +951,68 @@ _loop29_breakloop:				;
 		returnAST = powExpr_AST;
 	}
 	
+	public void postCastUnaryExpression() //throws RecognitionException, TokenStreamException
+{
+		
+		returnAST = null;
+		ASTPair currentAST = new ASTPair();
+		SpringExpressions.SpringAST postCastUnaryExpression_AST = null;
+		SpringExpressions.SpringAST pcn_AST = null;
+		
+		try {      // for error handling
+			unaryExpression();
+			if (0 == inputState.guessing)
+			{
+				astFactory.addASTChild(ref currentAST, (AST)returnAST);
+			}
+			{
+				if ((LA(1)==AS))
+				{
+					match(AS);
+					match(TYPE);
+					name();
+					if (0 == inputState.guessing)
+					{
+						pcn_AST = (SpringExpressions.SpringAST)returnAST;
+					}
+					match(RPAREN);
+					if (0==inputState.guessing)
+					{
+						postCastUnaryExpression_AST = (SpringExpressions.SpringAST)currentAST.root;
+						postCastUnaryExpression_AST = (SpringExpressions.SpringAST) astFactory.make((AST)(SpringExpressions.SpringAST) astFactory.create(EXPR,pcn_AST.getText(),"SpringExpressions.CastNode"), (AST)postCastUnaryExpression_AST);
+						currentAST.root = postCastUnaryExpression_AST;
+						if ( (null != postCastUnaryExpression_AST) && (null != postCastUnaryExpression_AST.getFirstChild()) )
+							currentAST.child = postCastUnaryExpression_AST.getFirstChild();
+						else
+							currentAST.child = postCastUnaryExpression_AST;
+						currentAST.advanceChildToEnd();
+					}
+				}
+				else if ((tokenSet_12_.member(LA(1)))) {
+				}
+				else
+				{
+					throw new NoViableAltException(LT(1), getFilename());
+				}
+				
+			}
+			postCastUnaryExpression_AST = (SpringExpressions.SpringAST)currentAST.root;
+		}
+		catch (RecognitionException ex)
+		{
+			if (0 == inputState.guessing)
+			{
+				reportError(ex);
+				recover(ex,tokenSet_12_);
+			}
+			else
+			{
+				throw ex;
+			}
+		}
+		returnAST = postCastUnaryExpression_AST;
+	}
+	
 	public void unaryExpression() //throws RecognitionException, TokenStreamException
 {
 		
@@ -964,25 +1028,25 @@ _loop29_breakloop:				;
 					{
 					case PLUS:
 					{
-						SpringExpressions.OpUnaryPlus tmp31_AST = null;
-						tmp31_AST = (SpringExpressions.OpUnaryPlus) astFactory.create(LT(1), "SpringExpressions.OpUnaryPlus");
-						astFactory.makeASTRoot(ref currentAST, (AST)tmp31_AST);
+						SpringExpressions.OpUnaryPlus tmp34_AST = null;
+						tmp34_AST = (SpringExpressions.OpUnaryPlus) astFactory.create(LT(1), "SpringExpressions.OpUnaryPlus");
+						astFactory.makeASTRoot(ref currentAST, (AST)tmp34_AST);
 						match(PLUS);
 						break;
 					}
 					case MINUS:
 					{
-						SpringExpressions.OpUnaryMinus tmp32_AST = null;
-						tmp32_AST = (SpringExpressions.OpUnaryMinus) astFactory.create(LT(1), "SpringExpressions.OpUnaryMinus");
-						astFactory.makeASTRoot(ref currentAST, (AST)tmp32_AST);
+						SpringExpressions.OpUnaryMinus tmp35_AST = null;
+						tmp35_AST = (SpringExpressions.OpUnaryMinus) astFactory.create(LT(1), "SpringExpressions.OpUnaryMinus");
+						astFactory.makeASTRoot(ref currentAST, (AST)tmp35_AST);
 						match(MINUS);
 						break;
 					}
 					case BANG:
 					{
-						SpringExpressions.OpNOT tmp33_AST = null;
-						tmp33_AST = (SpringExpressions.OpNOT) astFactory.create(LT(1), "SpringExpressions.OpNOT");
-						astFactory.makeASTRoot(ref currentAST, (AST)tmp33_AST);
+						SpringExpressions.OpNOT tmp36_AST = null;
+						tmp36_AST = (SpringExpressions.OpNOT) astFactory.create(LT(1), "SpringExpressions.OpNOT");
+						astFactory.makeASTRoot(ref currentAST, (AST)tmp36_AST);
 						match(BANG);
 						break;
 					}
@@ -999,7 +1063,7 @@ _loop29_breakloop:				;
 				}
 				unaryExpression_AST = (SpringExpressions.SpringAST)currentAST.root;
 			}
-			else if ((tokenSet_12_.member(LA(1)))) {
+			else if ((tokenSet_13_.member(LA(1)))) {
 				primaryExpression();
 				if (0 == inputState.guessing)
 				{
@@ -1018,7 +1082,7 @@ _loop29_breakloop:				;
 			if (0 == inputState.guessing)
 			{
 				reportError(ex);
-				recover(ex,tokenSet_13_);
+				recover(ex,tokenSet_14_);
 			}
 			else
 			{
@@ -1026,6 +1090,55 @@ _loop29_breakloop:				;
 			}
 		}
 		returnAST = unaryExpression_AST;
+	}
+	
+	public void name() //throws RecognitionException, TokenStreamException
+{
+		
+		returnAST = null;
+		ASTPair currentAST = new ASTPair();
+		SpringExpressions.SpringAST name_AST = null;
+		
+		try {      // for error handling
+			SpringExpressions.QualifiedIdentifier tmp37_AST = null;
+			tmp37_AST = (SpringExpressions.QualifiedIdentifier) astFactory.create(LT(1), "SpringExpressions.QualifiedIdentifier");
+			astFactory.makeASTRoot(ref currentAST, (AST)tmp37_AST);
+			match(ID);
+			{    // ( ... )*
+				for (;;)
+				{
+					if ((tokenSet_15_.member(LA(1))))
+					{
+						{
+							SpringExpressions.SpringAST tmp38_AST = null;
+							tmp38_AST = (SpringExpressions.SpringAST) astFactory.create(LT(1));
+							astFactory.addASTChild(ref currentAST, (AST)tmp38_AST);
+							match(tokenSet_15_);
+						}
+					}
+					else
+					{
+						goto _loop82_breakloop;
+					}
+					
+				}
+_loop82_breakloop:				;
+			}    // ( ... )*
+			name_AST = (SpringExpressions.SpringAST)currentAST.root;
+		}
+		catch (RecognitionException ex)
+		{
+			if (0 == inputState.guessing)
+			{
+				reportError(ex);
+				recover(ex,tokenSet_16_);
+			}
+			else
+			{
+				throw ex;
+			}
+		}
+		returnAST = name_AST;
 	}
 	
 	public void primaryExpression() //throws RecognitionException, TokenStreamException
@@ -1042,7 +1155,7 @@ _loop29_breakloop:				;
 				astFactory.addASTChild(ref currentAST, (AST)returnAST);
 			}
 			{
-				if ((tokenSet_14_.member(LA(1))))
+				if ((tokenSet_17_.member(LA(1))))
 				{
 					node();
 					if (0 == inputState.guessing)
@@ -1050,7 +1163,7 @@ _loop29_breakloop:				;
 						astFactory.addASTChild(ref currentAST, (AST)returnAST);
 					}
 				}
-				else if ((tokenSet_13_.member(LA(1)))) {
+				else if ((tokenSet_14_.member(LA(1)))) {
 				}
 				else
 				{
@@ -1076,7 +1189,7 @@ _loop29_breakloop:				;
 			if (0 == inputState.guessing)
 			{
 				reportError(ex);
-				recover(ex,tokenSet_13_);
+				recover(ex,tokenSet_14_);
 			}
 			else
 			{
@@ -1098,27 +1211,27 @@ _loop29_breakloop:				;
 			{
 			case PLUS:
 			{
-				SpringExpressions.SpringAST tmp34_AST = null;
-				tmp34_AST = (SpringExpressions.SpringAST) astFactory.create(LT(1));
-				astFactory.addASTChild(ref currentAST, (AST)tmp34_AST);
+				SpringExpressions.SpringAST tmp39_AST = null;
+				tmp39_AST = (SpringExpressions.SpringAST) astFactory.create(LT(1));
+				astFactory.addASTChild(ref currentAST, (AST)tmp39_AST);
 				match(PLUS);
 				unaryOperator_AST = (SpringExpressions.SpringAST)currentAST.root;
 				break;
 			}
 			case MINUS:
 			{
-				SpringExpressions.SpringAST tmp35_AST = null;
-				tmp35_AST = (SpringExpressions.SpringAST) astFactory.create(LT(1));
-				astFactory.addASTChild(ref currentAST, (AST)tmp35_AST);
+				SpringExpressions.SpringAST tmp40_AST = null;
+				tmp40_AST = (SpringExpressions.SpringAST) astFactory.create(LT(1));
+				astFactory.addASTChild(ref currentAST, (AST)tmp40_AST);
 				match(MINUS);
 				unaryOperator_AST = (SpringExpressions.SpringAST)currentAST.root;
 				break;
 			}
 			case BANG:
 			{
-				SpringExpressions.SpringAST tmp36_AST = null;
-				tmp36_AST = (SpringExpressions.SpringAST) astFactory.create(LT(1));
-				astFactory.addASTChild(ref currentAST, (AST)tmp36_AST);
+				SpringExpressions.SpringAST tmp41_AST = null;
+				tmp41_AST = (SpringExpressions.SpringAST) astFactory.create(LT(1));
+				astFactory.addASTChild(ref currentAST, (AST)tmp41_AST);
 				match(BANG);
 				unaryOperator_AST = (SpringExpressions.SpringAST)currentAST.root;
 				break;
@@ -1197,6 +1310,7 @@ _loop29_breakloop:				;
 					}
 					break;
 				}
+				case TYPEOF:
 				case TYPE:
 				{
 					type();
@@ -1270,11 +1384,11 @@ _loop29_breakloop:				;
 					break;
 				}
 				default:
-					bool synPredMatched40 = false;
+					bool synPredMatched42 = false;
 					if (((LA(1)==LPAREN) && (tokenSet_9_.member(LA(2)))))
 					{
-						int _m40 = mark();
-						synPredMatched40 = true;
+						int _m42 = mark();
+						synPredMatched42 = true;
 						inputState.guessing++;
 						try {
 							{
@@ -1285,12 +1399,12 @@ _loop29_breakloop:				;
 						}
 						catch (RecognitionException)
 						{
-							synPredMatched40 = false;
+							synPredMatched42 = false;
 						}
-						rewind(_m40);
+						rewind(_m42);
 						inputState.guessing--;
 					}
-					if ( synPredMatched40 )
+					if ( synPredMatched42 )
 					{
 						exprList();
 						if (0 == inputState.guessing)
@@ -1365,7 +1479,7 @@ _loop29_breakloop:				;
 		
 		try {      // for error handling
 			{ // ( ... )+
-				int _cnt43=0;
+				int _cnt45=0;
 				for (;;)
 				{
 					switch ( LA(1) )
@@ -1440,12 +1554,12 @@ _loop29_breakloop:				;
 					}
 					default:
 					{
-						if (_cnt43 >= 1) { goto _loop43_breakloop; } else { throw new NoViableAltException(LT(1), getFilename());; }
+						if (_cnt45 >= 1) { goto _loop45_breakloop; } else { throw new NoViableAltException(LT(1), getFilename());; }
 					}
 					break; }
-					_cnt43++;
+					_cnt45++;
 				}
-_loop43_breakloop:				;
+_loop45_breakloop:				;
 			}    // ( ... )+
 			node_AST = (SpringExpressions.SpringAST)currentAST.root;
 		}
@@ -1454,7 +1568,7 @@ _loop43_breakloop:				;
 			if (0 == inputState.guessing)
 			{
 				reportError(ex);
-				recover(ex,tokenSet_13_);
+				recover(ex,tokenSet_14_);
 			}
 			else
 			{
@@ -1472,11 +1586,11 @@ _loop43_breakloop:				;
 		SpringExpressions.SpringAST methodOrProperty_AST = null;
 		
 		try {      // for error handling
-			bool synPredMatched56 = false;
+			bool synPredMatched58 = false;
 			if (((LA(1)==ID) && (LA(2)==LPAREN)))
 			{
-				int _m56 = mark();
-				synPredMatched56 = true;
+				int _m58 = mark();
+				synPredMatched58 = true;
 				inputState.guessing++;
 				try {
 					{
@@ -1486,16 +1600,16 @@ _loop43_breakloop:				;
 				}
 				catch (RecognitionException)
 				{
-					synPredMatched56 = false;
+					synPredMatched58 = false;
 				}
-				rewind(_m56);
+				rewind(_m58);
 				inputState.guessing--;
 			}
-			if ( synPredMatched56 )
+			if ( synPredMatched58 )
 			{
-				SpringExpressions.MethodNode tmp38_AST = null;
-				tmp38_AST = (SpringExpressions.MethodNode) astFactory.create(LT(1), "SpringExpressions.MethodNode");
-				astFactory.makeASTRoot(ref currentAST, (AST)tmp38_AST);
+				SpringExpressions.MethodNode tmp43_AST = null;
+				tmp43_AST = (SpringExpressions.MethodNode) astFactory.create(LT(1), "SpringExpressions.MethodNode");
+				astFactory.makeASTRoot(ref currentAST, (AST)tmp43_AST);
 				match(ID);
 				methodArgs();
 				if (0 == inputState.guessing)
@@ -1541,11 +1655,11 @@ _loop43_breakloop:				;
 		SpringExpressions.SpringAST functionOrVar_AST = null;
 		
 		try {      // for error handling
-			bool synPredMatched46 = false;
+			bool synPredMatched48 = false;
 			if (((LA(1)==POUND) && (LA(2)==ID)))
 			{
-				int _m46 = mark();
-				synPredMatched46 = true;
+				int _m48 = mark();
+				synPredMatched48 = true;
 				inputState.guessing++;
 				try {
 					{
@@ -1556,12 +1670,12 @@ _loop43_breakloop:				;
 				}
 				catch (RecognitionException)
 				{
-					synPredMatched46 = false;
+					synPredMatched48 = false;
 				}
-				rewind(_m46);
+				rewind(_m48);
 				inputState.guessing--;
 			}
-			if ( synPredMatched46 )
+			if ( synPredMatched48 )
 			{
 				function();
 				if (0 == inputState.guessing)
@@ -1607,11 +1721,11 @@ _loop43_breakloop:				;
 		SpringExpressions.SpringAST localFunctionOrVar_AST = null;
 		
 		try {      // for error handling
-			bool synPredMatched51 = false;
+			bool synPredMatched53 = false;
 			if (((LA(1)==DOLLAR) && (LA(2)==ID)))
 			{
-				int _m51 = mark();
-				synPredMatched51 = true;
+				int _m53 = mark();
+				synPredMatched53 = true;
 				inputState.guessing++;
 				try {
 					{
@@ -1622,12 +1736,12 @@ _loop43_breakloop:				;
 				}
 				catch (RecognitionException)
 				{
-					synPredMatched51 = false;
+					synPredMatched53 = false;
 				}
-				rewind(_m51);
+				rewind(_m53);
 				inputState.guessing--;
 			}
-			if ( synPredMatched51 )
+			if ( synPredMatched53 )
 			{
 				localFunction();
 				if (0 == inputState.guessing)
@@ -1676,11 +1790,11 @@ _loop43_breakloop:				;
 		SpringExpressions.SpringAST localid_AST = null;
 		
 		try {      // for error handling
-			bool synPredMatched64 = false;
+			bool synPredMatched66 = false;
 			if (((LA(1)==AT) && (LA(2)==LPAREN)))
 			{
-				int _m64 = mark();
-				synPredMatched64 = true;
+				int _m66 = mark();
+				synPredMatched66 = true;
 				inputState.guessing++;
 				try {
 					{
@@ -1692,12 +1806,12 @@ _loop43_breakloop:				;
 				}
 				catch (RecognitionException)
 				{
-					synPredMatched64 = false;
+					synPredMatched66 = false;
 				}
-				rewind(_m64);
+				rewind(_m66);
 				inputState.guessing--;
 			}
-			if ( synPredMatched64 )
+			if ( synPredMatched66 )
 			{
 				match(AT);
 				match(LPAREN);
@@ -1777,9 +1891,9 @@ _loop43_breakloop:				;
 		SpringExpressions.SpringAST indexer_AST = null;
 		
 		try {      // for error handling
-			SpringExpressions.IndexerNode tmp46_AST = null;
-			tmp46_AST = (SpringExpressions.IndexerNode) astFactory.create(LT(1), "SpringExpressions.IndexerNode");
-			astFactory.makeASTRoot(ref currentAST, (AST)tmp46_AST);
+			SpringExpressions.IndexerNode tmp51_AST = null;
+			tmp51_AST = (SpringExpressions.IndexerNode) astFactory.create(LT(1), "SpringExpressions.IndexerNode");
+			astFactory.makeASTRoot(ref currentAST, (AST)tmp51_AST);
 			match(LBRACKET);
 			argument();
 			if (0 == inputState.guessing)
@@ -1800,11 +1914,11 @@ _loop43_breakloop:				;
 					}
 					else
 					{
-						goto _loop67_breakloop;
+						goto _loop69_breakloop;
 					}
 					
 				}
-_loop67_breakloop:				;
+_loop69_breakloop:				;
 			}    // ( ... )*
 			match(RBRACKET);
 			indexer_AST = (SpringExpressions.SpringAST)currentAST.root;
@@ -1836,45 +1950,45 @@ _loop67_breakloop:				;
 			{
 			case NULL_LITERAL:
 			{
-				SpringExpressions.NullLiteralNode tmp49_AST = null;
-				tmp49_AST = (SpringExpressions.NullLiteralNode) astFactory.create(LT(1), "SpringExpressions.NullLiteralNode");
-				astFactory.addASTChild(ref currentAST, (AST)tmp49_AST);
+				SpringExpressions.NullLiteralNode tmp54_AST = null;
+				tmp54_AST = (SpringExpressions.NullLiteralNode) astFactory.create(LT(1), "SpringExpressions.NullLiteralNode");
+				astFactory.addASTChild(ref currentAST, (AST)tmp54_AST);
 				match(NULL_LITERAL);
 				literal_AST = (SpringExpressions.SpringAST)currentAST.root;
 				break;
 			}
 			case INTEGER_LITERAL:
 			{
-				SpringExpressions.IntLiteralNode tmp50_AST = null;
-				tmp50_AST = (SpringExpressions.IntLiteralNode) astFactory.create(LT(1), "SpringExpressions.IntLiteralNode");
-				astFactory.addASTChild(ref currentAST, (AST)tmp50_AST);
+				SpringExpressions.IntLiteralNode tmp55_AST = null;
+				tmp55_AST = (SpringExpressions.IntLiteralNode) astFactory.create(LT(1), "SpringExpressions.IntLiteralNode");
+				astFactory.addASTChild(ref currentAST, (AST)tmp55_AST);
 				match(INTEGER_LITERAL);
 				literal_AST = (SpringExpressions.SpringAST)currentAST.root;
 				break;
 			}
 			case HEXADECIMAL_INTEGER_LITERAL:
 			{
-				SpringExpressions.HexLiteralNode tmp51_AST = null;
-				tmp51_AST = (SpringExpressions.HexLiteralNode) astFactory.create(LT(1), "SpringExpressions.HexLiteralNode");
-				astFactory.addASTChild(ref currentAST, (AST)tmp51_AST);
+				SpringExpressions.HexLiteralNode tmp56_AST = null;
+				tmp56_AST = (SpringExpressions.HexLiteralNode) astFactory.create(LT(1), "SpringExpressions.HexLiteralNode");
+				astFactory.addASTChild(ref currentAST, (AST)tmp56_AST);
 				match(HEXADECIMAL_INTEGER_LITERAL);
 				literal_AST = (SpringExpressions.SpringAST)currentAST.root;
 				break;
 			}
 			case REAL_LITERAL:
 			{
-				SpringExpressions.RealLiteralNode tmp52_AST = null;
-				tmp52_AST = (SpringExpressions.RealLiteralNode) astFactory.create(LT(1), "SpringExpressions.RealLiteralNode");
-				astFactory.addASTChild(ref currentAST, (AST)tmp52_AST);
+				SpringExpressions.RealLiteralNode tmp57_AST = null;
+				tmp57_AST = (SpringExpressions.RealLiteralNode) astFactory.create(LT(1), "SpringExpressions.RealLiteralNode");
+				astFactory.addASTChild(ref currentAST, (AST)tmp57_AST);
 				match(REAL_LITERAL);
 				literal_AST = (SpringExpressions.SpringAST)currentAST.root;
 				break;
 			}
 			case STRING_LITERAL:
 			{
-				SpringExpressions.StringLiteralNode tmp53_AST = null;
-				tmp53_AST = (SpringExpressions.StringLiteralNode) astFactory.create(LT(1), "SpringExpressions.StringLiteralNode");
-				astFactory.addASTChild(ref currentAST, (AST)tmp53_AST);
+				SpringExpressions.StringLiteralNode tmp58_AST = null;
+				tmp58_AST = (SpringExpressions.StringLiteralNode) astFactory.create(LT(1), "SpringExpressions.StringLiteralNode");
+				astFactory.addASTChild(ref currentAST, (AST)tmp58_AST);
 				match(STRING_LITERAL);
 				literal_AST = (SpringExpressions.SpringAST)currentAST.root;
 				break;
@@ -1917,28 +2031,30 @@ _loop67_breakloop:				;
 		returnAST = null;
 		ASTPair currentAST = new ASTPair();
 		SpringExpressions.SpringAST type_AST = null;
-		SpringExpressions.SpringAST tn_AST = null;
 		
 		try {      // for error handling
-			match(TYPE);
-			name();
-			if (0 == inputState.guessing)
+			if ((LA(1)==TYPE))
 			{
-				tn_AST = (SpringExpressions.SpringAST)returnAST;
-			}
-			match(RPAREN);
-			if (0==inputState.guessing)
-			{
+				type_T();
+				if (0 == inputState.guessing)
+				{
+					astFactory.addASTChild(ref currentAST, (AST)returnAST);
+				}
 				type_AST = (SpringExpressions.SpringAST)currentAST.root;
-				type_AST = (SpringExpressions.SpringAST) astFactory.make((AST)(SpringExpressions.SpringAST) astFactory.create(EXPR,tn_AST.getText(),"SpringExpressions.TypeNode"), (AST)type_AST);
-				currentAST.root = type_AST;
-				if ( (null != type_AST) && (null != type_AST.getFirstChild()) )
-					currentAST.child = type_AST.getFirstChild();
-				else
-					currentAST.child = type_AST;
-				currentAST.advanceChildToEnd();
 			}
-			type_AST = (SpringExpressions.SpringAST)currentAST.root;
+			else if ((LA(1)==TYPEOF)) {
+				type_of();
+				if (0 == inputState.guessing)
+				{
+					astFactory.addASTChild(ref currentAST, (AST)returnAST);
+				}
+				type_AST = (SpringExpressions.SpringAST)currentAST.root;
+			}
+			else
+			{
+				throw new NoViableAltException(LT(1), getFilename());
+			}
+			
 		}
 		catch (RecognitionException ex)
 		{
@@ -1964,11 +2080,11 @@ _loop67_breakloop:				;
 		SpringExpressions.SpringAST type_AST = null;
 		
 		try {      // for error handling
-			bool synPredMatched90 = false;
+			bool synPredMatched94 = false;
 			if (((LA(1)==LITERAL_new) && (LA(2)==ID)))
 			{
-				int _m90 = mark();
-				synPredMatched90 = true;
+				int _m94 = mark();
+				synPredMatched94 = true;
 				inputState.guessing++;
 				try {
 					{
@@ -1979,12 +2095,12 @@ _loop67_breakloop:				;
 				}
 				catch (RecognitionException)
 				{
-					synPredMatched90 = false;
+					synPredMatched94 = false;
 				}
-				rewind(_m90);
+				rewind(_m94);
 				inputState.guessing--;
 			}
-			if ( synPredMatched90 )
+			if ( synPredMatched94 )
 			{
 				match(LITERAL_new);
 				qualifiedId();
@@ -2047,9 +2163,9 @@ _loop67_breakloop:				;
 		SpringExpressions.SpringAST projection_AST = null;
 		
 		try {      // for error handling
-			SpringExpressions.ProjectionNode tmp57_AST = null;
-			tmp57_AST = (SpringExpressions.ProjectionNode) astFactory.create(LT(1), "SpringExpressions.ProjectionNode");
-			astFactory.makeASTRoot(ref currentAST, (AST)tmp57_AST);
+			SpringExpressions.ProjectionNode tmp60_AST = null;
+			tmp60_AST = (SpringExpressions.ProjectionNode) astFactory.create(LT(1), "SpringExpressions.ProjectionNode");
+			astFactory.makeASTRoot(ref currentAST, (AST)tmp60_AST);
 			match(PROJECT);
 			expression();
 			if (0 == inputState.guessing)
@@ -2082,9 +2198,9 @@ _loop67_breakloop:				;
 		SpringExpressions.SpringAST selection_AST = null;
 		
 		try {      // for error handling
-			SpringExpressions.SelectionNode tmp59_AST = null;
-			tmp59_AST = (SpringExpressions.SelectionNode) astFactory.create(LT(1), "SpringExpressions.SelectionNode");
-			astFactory.makeASTRoot(ref currentAST, (AST)tmp59_AST);
+			SpringExpressions.SelectionNode tmp62_AST = null;
+			tmp62_AST = (SpringExpressions.SelectionNode) astFactory.create(LT(1), "SpringExpressions.SelectionNode");
+			astFactory.makeASTRoot(ref currentAST, (AST)tmp62_AST);
 			match(SELECT);
 			expression();
 			if (0 == inputState.guessing)
@@ -2105,11 +2221,11 @@ _loop67_breakloop:				;
 					}
 					else
 					{
-						goto _loop71_breakloop;
+						goto _loop73_breakloop;
 					}
 					
 				}
-_loop71_breakloop:				;
+_loop73_breakloop:				;
 			}    // ( ... )*
 			match(RCURLY);
 			selection_AST = (SpringExpressions.SpringAST)currentAST.root;
@@ -2137,9 +2253,9 @@ _loop71_breakloop:				;
 		SpringExpressions.SpringAST firstSelection_AST = null;
 		
 		try {      // for error handling
-			SpringExpressions.SelectionFirstNode tmp62_AST = null;
-			tmp62_AST = (SpringExpressions.SelectionFirstNode) astFactory.create(LT(1), "SpringExpressions.SelectionFirstNode");
-			astFactory.makeASTRoot(ref currentAST, (AST)tmp62_AST);
+			SpringExpressions.SelectionFirstNode tmp65_AST = null;
+			tmp65_AST = (SpringExpressions.SelectionFirstNode) astFactory.create(LT(1), "SpringExpressions.SelectionFirstNode");
+			astFactory.makeASTRoot(ref currentAST, (AST)tmp65_AST);
 			match(SELECT_FIRST);
 			expression();
 			if (0 == inputState.guessing)
@@ -2172,9 +2288,9 @@ _loop71_breakloop:				;
 		SpringExpressions.SpringAST lastSelection_AST = null;
 		
 		try {      // for error handling
-			SpringExpressions.SelectionLastNode tmp64_AST = null;
-			tmp64_AST = (SpringExpressions.SelectionLastNode) astFactory.create(LT(1), "SpringExpressions.SelectionLastNode");
-			astFactory.makeASTRoot(ref currentAST, (AST)tmp64_AST);
+			SpringExpressions.SelectionLastNode tmp67_AST = null;
+			tmp67_AST = (SpringExpressions.SelectionLastNode) astFactory.create(LT(1), "SpringExpressions.SelectionLastNode");
+			astFactory.makeASTRoot(ref currentAST, (AST)tmp67_AST);
 			match(SELECT_LAST);
 			expression();
 			if (0 == inputState.guessing)
@@ -2207,9 +2323,9 @@ _loop71_breakloop:				;
 		SpringExpressions.SpringAST listInitializer_AST = null;
 		
 		try {      // for error handling
-			SpringExpressions.ListInitializerNode tmp66_AST = null;
-			tmp66_AST = (SpringExpressions.ListInitializerNode) astFactory.create(LT(1), "SpringExpressions.ListInitializerNode");
-			astFactory.makeASTRoot(ref currentAST, (AST)tmp66_AST);
+			SpringExpressions.ListInitializerNode tmp69_AST = null;
+			tmp69_AST = (SpringExpressions.ListInitializerNode) astFactory.create(LT(1), "SpringExpressions.ListInitializerNode");
+			astFactory.makeASTRoot(ref currentAST, (AST)tmp69_AST);
 			match(LCURLY);
 			expression();
 			if (0 == inputState.guessing)
@@ -2230,11 +2346,11 @@ _loop71_breakloop:				;
 					}
 					else
 					{
-						goto _loop99_breakloop;
+						goto _loop103_breakloop;
 					}
 					
 				}
-_loop99_breakloop:				;
+_loop103_breakloop:				;
 			}    // ( ... )*
 			match(RCURLY);
 			listInitializer_AST = (SpringExpressions.SpringAST)currentAST.root;
@@ -2263,9 +2379,9 @@ _loop99_breakloop:				;
 		
 		try {      // for error handling
 			match(POUND);
-			SpringExpressions.MapInitializerNode tmp70_AST = null;
-			tmp70_AST = (SpringExpressions.MapInitializerNode) astFactory.create(LT(1), "SpringExpressions.MapInitializerNode");
-			astFactory.makeASTRoot(ref currentAST, (AST)tmp70_AST);
+			SpringExpressions.MapInitializerNode tmp73_AST = null;
+			tmp73_AST = (SpringExpressions.MapInitializerNode) astFactory.create(LT(1), "SpringExpressions.MapInitializerNode");
+			astFactory.makeASTRoot(ref currentAST, (AST)tmp73_AST);
 			match(LCURLY);
 			mapEntry();
 			if (0 == inputState.guessing)
@@ -2286,11 +2402,11 @@ _loop99_breakloop:				;
 					}
 					else
 					{
-						goto _loop102_breakloop;
+						goto _loop106_breakloop;
 					}
 					
 				}
-_loop102_breakloop:				;
+_loop106_breakloop:				;
 			}    // ( ... )*
 			match(RCURLY);
 			mapInitializer_AST = (SpringExpressions.SpringAST)currentAST.root;
@@ -2442,9 +2558,9 @@ _loop102_breakloop:				;
 		
 		try {      // for error handling
 			match(POUND);
-			SpringExpressions.FunctionNode tmp80_AST = null;
-			tmp80_AST = (SpringExpressions.FunctionNode) astFactory.create(LT(1), "SpringExpressions.FunctionNode");
-			astFactory.makeASTRoot(ref currentAST, (AST)tmp80_AST);
+			SpringExpressions.FunctionNode tmp83_AST = null;
+			tmp83_AST = (SpringExpressions.FunctionNode) astFactory.create(LT(1), "SpringExpressions.FunctionNode");
+			astFactory.makeASTRoot(ref currentAST, (AST)tmp83_AST);
 			match(ID);
 			methodArgs();
 			if (0 == inputState.guessing)
@@ -2477,9 +2593,9 @@ _loop102_breakloop:				;
 		
 		try {      // for error handling
 			match(POUND);
-			SpringExpressions.VariableNode tmp82_AST = null;
-			tmp82_AST = (SpringExpressions.VariableNode) astFactory.create(LT(1), "SpringExpressions.VariableNode");
-			astFactory.makeASTRoot(ref currentAST, (AST)tmp82_AST);
+			SpringExpressions.VariableNode tmp85_AST = null;
+			tmp85_AST = (SpringExpressions.VariableNode) astFactory.create(LT(1), "SpringExpressions.VariableNode");
+			astFactory.makeASTRoot(ref currentAST, (AST)tmp85_AST);
 			match(ID);
 			var_AST = (SpringExpressions.SpringAST)currentAST.root;
 		}
@@ -2529,11 +2645,11 @@ _loop102_breakloop:				;
 							}
 							else
 							{
-								goto _loop60_breakloop;
+								goto _loop62_breakloop;
 							}
 							
 						}
-_loop60_breakloop:						;
+_loop62_breakloop:						;
 					}    // ( ... )*
 				}
 				else if ((LA(1)==RPAREN)) {
@@ -2571,9 +2687,9 @@ _loop60_breakloop:						;
 		
 		try {      // for error handling
 			match(DOLLAR);
-			SpringExpressions.LocalFunctionNode tmp87_AST = null;
-			tmp87_AST = (SpringExpressions.LocalFunctionNode) astFactory.create(LT(1), "SpringExpressions.LocalFunctionNode");
-			astFactory.makeASTRoot(ref currentAST, (AST)tmp87_AST);
+			SpringExpressions.LocalFunctionNode tmp90_AST = null;
+			tmp90_AST = (SpringExpressions.LocalFunctionNode) astFactory.create(LT(1), "SpringExpressions.LocalFunctionNode");
+			astFactory.makeASTRoot(ref currentAST, (AST)tmp90_AST);
 			match(ID);
 			methodArgs();
 			if (0 == inputState.guessing)
@@ -2606,9 +2722,9 @@ _loop60_breakloop:						;
 		
 		try {      // for error handling
 			match(DOLLAR);
-			SpringExpressions.LocalVariableNode tmp89_AST = null;
-			tmp89_AST = (SpringExpressions.LocalVariableNode) astFactory.create(LT(1), "SpringExpressions.LocalVariableNode");
-			astFactory.makeASTRoot(ref currentAST, (AST)tmp89_AST);
+			SpringExpressions.LocalVariableNode tmp92_AST = null;
+			tmp92_AST = (SpringExpressions.LocalVariableNode) astFactory.create(LT(1), "SpringExpressions.LocalVariableNode");
+			astFactory.makeASTRoot(ref currentAST, (AST)tmp92_AST);
 			match(ID);
 			localVar_AST = (SpringExpressions.SpringAST)currentAST.root;
 		}
@@ -2635,9 +2751,9 @@ _loop60_breakloop:						;
 		SpringExpressions.SpringAST property_AST = null;
 		
 		try {      // for error handling
-			SpringExpressions.PropertyOrFieldNode tmp90_AST = null;
-			tmp90_AST = (SpringExpressions.PropertyOrFieldNode) astFactory.create(LT(1), "SpringExpressions.PropertyOrFieldNode");
-			astFactory.addASTChild(ref currentAST, (AST)tmp90_AST);
+			SpringExpressions.PropertyOrFieldNode tmp93_AST = null;
+			tmp93_AST = (SpringExpressions.PropertyOrFieldNode) astFactory.create(LT(1), "SpringExpressions.PropertyOrFieldNode");
+			astFactory.addASTChild(ref currentAST, (AST)tmp93_AST);
 			match(ID);
 			property_AST = (SpringExpressions.SpringAST)currentAST.root;
 		}
@@ -2676,7 +2792,7 @@ _loop60_breakloop:						;
 			if (0 == inputState.guessing)
 			{
 				reportError(ex);
-				recover(ex,tokenSet_15_);
+				recover(ex,tokenSet_18_);
 			}
 			else
 			{
@@ -2696,9 +2812,9 @@ _loop60_breakloop:						;
 		try {      // for error handling
 			if ((LA(1)==STRING_LITERAL))
 			{
-				SpringExpressions.QualifiedIdentifier tmp91_AST = null;
-				tmp91_AST = (SpringExpressions.QualifiedIdentifier) astFactory.create(LT(1), "SpringExpressions.QualifiedIdentifier");
-				astFactory.makeASTRoot(ref currentAST, (AST)tmp91_AST);
+				SpringExpressions.QualifiedIdentifier tmp94_AST = null;
+				tmp94_AST = (SpringExpressions.QualifiedIdentifier) astFactory.create(LT(1), "SpringExpressions.QualifiedIdentifier");
+				astFactory.makeASTRoot(ref currentAST, (AST)tmp94_AST);
 				match(STRING_LITERAL);
 				quotableName_AST = (SpringExpressions.SpringAST)currentAST.root;
 			}
@@ -2731,53 +2847,93 @@ _loop60_breakloop:						;
 		returnAST = quotableName_AST;
 	}
 	
-	public void name() //throws RecognitionException, TokenStreamException
+	public void type_T() //throws RecognitionException, TokenStreamException
 {
 		
 		returnAST = null;
 		ASTPair currentAST = new ASTPair();
-		SpringExpressions.SpringAST name_AST = null;
+		SpringExpressions.SpringAST type_T_AST = null;
+		SpringExpressions.SpringAST tn_AST = null;
 		
 		try {      // for error handling
-			SpringExpressions.QualifiedIdentifier tmp92_AST = null;
-			tmp92_AST = (SpringExpressions.QualifiedIdentifier) astFactory.create(LT(1), "SpringExpressions.QualifiedIdentifier");
-			astFactory.makeASTRoot(ref currentAST, (AST)tmp92_AST);
-			match(ID);
-			{    // ( ... )*
-				for (;;)
-				{
-					if ((tokenSet_17_.member(LA(1))))
-					{
-						{
-							SpringExpressions.SpringAST tmp93_AST = null;
-							tmp93_AST = (SpringExpressions.SpringAST) astFactory.create(LT(1));
-							astFactory.addASTChild(ref currentAST, (AST)tmp93_AST);
-							match(tokenSet_17_);
-						}
-					}
-					else
-					{
-						goto _loop78_breakloop;
-					}
-					
-				}
-_loop78_breakloop:				;
-			}    // ( ... )*
-			name_AST = (SpringExpressions.SpringAST)currentAST.root;
+			match(TYPE);
+			name();
+			if (0 == inputState.guessing)
+			{
+				tn_AST = (SpringExpressions.SpringAST)returnAST;
+			}
+			match(RPAREN);
+			if (0==inputState.guessing)
+			{
+				type_T_AST = (SpringExpressions.SpringAST)currentAST.root;
+				type_T_AST = (SpringExpressions.SpringAST) astFactory.make((AST)(SpringExpressions.SpringAST) astFactory.create(EXPR,tn_AST.getText(),"SpringExpressions.TypeNode"), (AST)type_T_AST);
+				currentAST.root = type_T_AST;
+				if ( (null != type_T_AST) && (null != type_T_AST.getFirstChild()) )
+					currentAST.child = type_T_AST.getFirstChild();
+				else
+					currentAST.child = type_T_AST;
+				currentAST.advanceChildToEnd();
+			}
+			type_T_AST = (SpringExpressions.SpringAST)currentAST.root;
 		}
 		catch (RecognitionException ex)
 		{
 			if (0 == inputState.guessing)
 			{
 				reportError(ex);
-				recover(ex,tokenSet_16_);
+				recover(ex,tokenSet_2_);
 			}
 			else
 			{
 				throw ex;
 			}
 		}
-		returnAST = name_AST;
+		returnAST = type_T_AST;
+	}
+	
+	public void type_of() //throws RecognitionException, TokenStreamException
+{
+		
+		returnAST = null;
+		ASTPair currentAST = new ASTPair();
+		SpringExpressions.SpringAST type_of_AST = null;
+		SpringExpressions.SpringAST to_AST = null;
+		
+		try {      // for error handling
+			match(TYPEOF);
+			match(LPAREN);
+			name();
+			if (0 == inputState.guessing)
+			{
+				to_AST = (SpringExpressions.SpringAST)returnAST;
+			}
+			match(RPAREN);
+			if (0==inputState.guessing)
+			{
+				type_of_AST = (SpringExpressions.SpringAST)currentAST.root;
+				type_of_AST = (SpringExpressions.SpringAST) astFactory.make((AST)(SpringExpressions.SpringAST) astFactory.create(EXPR,to_AST.getText(),"SpringExpressions.TypeNode"), (AST)type_of_AST);
+				currentAST.root = type_of_AST;
+				if ( (null != type_of_AST) && (null != type_of_AST.getFirstChild()) )
+					currentAST.child = type_of_AST.getFirstChild();
+				else
+					currentAST.child = type_of_AST;
+				currentAST.advanceChildToEnd();
+			}
+			type_of_AST = (SpringExpressions.SpringAST)currentAST.root;
+		}
+		catch (RecognitionException ex)
+		{
+			if (0 == inputState.guessing)
+			{
+				reportError(ex);
+				recover(ex,tokenSet_2_);
+			}
+			else
+			{
+				throw ex;
+			}
+		}
+		returnAST = type_of_AST;
 	}
 	
 	public void qualifiedId() //throws RecognitionException, TokenStreamException
@@ -2788,31 +2944,31 @@ _loop78_breakloop:				;
 		SpringExpressions.SpringAST qualifiedId_AST = null;
 		
 		try {      // for error handling
-			SpringExpressions.QualifiedIdentifier tmp94_AST = null;
-			tmp94_AST = (SpringExpressions.QualifiedIdentifier) astFactory.create(LT(1), "SpringExpressions.QualifiedIdentifier");
-			astFactory.makeASTRoot(ref currentAST, (AST)tmp94_AST);
+			SpringExpressions.QualifiedIdentifier tmp100_AST = null;
+			tmp100_AST = (SpringExpressions.QualifiedIdentifier) astFactory.create(LT(1), "SpringExpressions.QualifiedIdentifier");
+			astFactory.makeASTRoot(ref currentAST, (AST)tmp100_AST);
 			match(ID);
 			{    // ( ... )*
 				for (;;)
 				{
 					if ((LA(1)==DOT))
 					{
-						SpringExpressions.SpringAST tmp95_AST = null;
-						tmp95_AST = (SpringExpressions.SpringAST) astFactory.create(LT(1));
-						astFactory.addASTChild(ref currentAST, (AST)tmp95_AST);
+						SpringExpressions.SpringAST tmp101_AST = null;
+						tmp101_AST = (SpringExpressions.SpringAST) astFactory.create(LT(1));
+						astFactory.addASTChild(ref currentAST, (AST)tmp101_AST);
 						match(DOT);
-						SpringExpressions.SpringAST tmp96_AST = null;
-						tmp96_AST = (SpringExpressions.SpringAST) astFactory.create(LT(1));
-						astFactory.addASTChild(ref currentAST, (AST)tmp96_AST);
+						SpringExpressions.SpringAST tmp102_AST = null;
+						tmp102_AST = (SpringExpressions.SpringAST) astFactory.create(LT(1));
+						astFactory.addASTChild(ref currentAST, (AST)tmp102_AST);
 						match(ID);
 					}
 					else
 					{
-						goto _loop114_breakloop;
+						goto _loop118_breakloop;
 					}
 					
 				}
-_loop114_breakloop:				;
+_loop118_breakloop:				;
 			}    // ( ... )*
 			qualifiedId_AST = (SpringExpressions.SpringAST)currentAST.root;
 		}
@@ -2821,7 +2977,7 @@ _loop114_breakloop:				;
 			if (0 == inputState.guessing)
 			{
 				reportError(ex);
-				recover(ex,tokenSet_18_);
+				recover(ex,tokenSet_19_);
 			}
 			else
 			{
@@ -2862,11 +3018,11 @@ _loop114_breakloop:				;
 							}
 							else
 							{
-								goto _loop107_breakloop;
+								goto _loop111_breakloop;
 							}
 							
 						}
-_loop107_breakloop:						;
+_loop111_breakloop:						;
 					}    // ( ... )*
 				}
 				else if ((LA(1)==RPAREN)) {
@@ -2904,9 +3060,9 @@ _loop107_breakloop:						;
 		
 		try {      // for error handling
 			{
-				SpringExpressions.SpringAST tmp100_AST = null;
-				tmp100_AST = (SpringExpressions.SpringAST) astFactory.create(LT(1));
-				astFactory.addASTChild(ref currentAST, (AST)tmp100_AST);
+				SpringExpressions.SpringAST tmp106_AST = null;
+				tmp106_AST = (SpringExpressions.SpringAST) astFactory.create(LT(1));
+				astFactory.addASTChild(ref currentAST, (AST)tmp106_AST);
 				match(ID);
 				{    // ( ... )*
 					for (;;)
@@ -2914,18 +3070,18 @@ _loop107_breakloop:						;
 						if ((LA(1)==COMMA))
 						{
 							match(COMMA);
-							SpringExpressions.SpringAST tmp102_AST = null;
-							tmp102_AST = (SpringExpressions.SpringAST) astFactory.create(LT(1));
-							astFactory.addASTChild(ref currentAST, (AST)tmp102_AST);
+							SpringExpressions.SpringAST tmp108_AST = null;
+							tmp108_AST = (SpringExpressions.SpringAST) astFactory.create(LT(1));
+							astFactory.addASTChild(ref currentAST, (AST)tmp108_AST);
 							match(ID);
 						}
 						else
 						{
-							goto _loop87_breakloop;
+							goto _loop91_breakloop;
 						}
 						
 					}
-_loop87_breakloop:					;
+_loop91_breakloop:					;
 				}    // ( ... )*
 			}
 			if (0==inputState.guessing)
@@ -2946,7 +3102,7 @@ _loop87_breakloop:					;
 			if (0 == inputState.guessing)
 			{
 				reportError(ex);
-				recover(ex,tokenSet_19_);
+				recover(ex,tokenSet_20_);
 			}
 			else
 			{
@@ -3029,9 +3185,9 @@ _loop87_breakloop:					;
 		SpringExpressions.SpringAST arrayRank_AST = null;
 		
 		try {      // for error handling
-			SpringExpressions.SpringAST tmp104_AST = null;
-			tmp104_AST = (SpringExpressions.SpringAST) astFactory.create(LT(1));
-			astFactory.makeASTRoot(ref currentAST, (AST)tmp104_AST);
+			SpringExpressions.SpringAST tmp110_AST = null;
+			tmp110_AST = (SpringExpressions.SpringAST) astFactory.create(LT(1));
+			astFactory.makeASTRoot(ref currentAST, (AST)tmp110_AST);
 			match(LBRACKET);
 			{
 				if ((tokenSet_9_.member(LA(1))))
@@ -3055,11 +3211,11 @@ _loop87_breakloop:					;
 							}
 							else
 							{
-								goto _loop96_breakloop;
+								goto _loop100_breakloop;
 							}
 							
 						}
-_loop96_breakloop:						;
+_loop100_breakloop:						;
 					}    // ( ... )*
 				}
 				else if ((LA(1)==RBRACKET)) {
@@ -3078,7 +3234,7 @@ _loop96_breakloop:						;
 			if (0 == inputState.guessing)
 			{
 				reportError(ex);
-				recover(ex,tokenSet_20_);
+				recover(ex,tokenSet_21_);
 			}
 			else
 			{
@@ -3125,7 +3281,7 @@ _loop96_breakloop:						;
 			if (0 == inputState.guessing)
 			{
 				reportError(ex);
-				recover(ex,tokenSet_21_);
+				recover(ex,tokenSet_22_);
 			}
 			else
 			{
@@ -3143,11 +3299,11 @@ _loop96_breakloop:						;
 		SpringExpressions.SpringAST namedArgument_AST = null;
 		
 		try {      // for error handling
-			bool synPredMatched111 = false;
+			bool synPredMatched115 = false;
 			if (((LA(1)==ID) && (LA(2)==ASSIGN)))
 			{
-				int _m111 = mark();
-				synPredMatched111 = true;
+				int _m115 = mark();
+				synPredMatched115 = true;
 				inputState.guessing++;
 				try {
 					{
@@ -3157,16 +3313,16 @@ _loop96_breakloop:						;
 				}
 				catch (RecognitionException)
 				{
-					synPredMatched111 = false;
+					synPredMatched115 = false;
 				}
-				rewind(_m111);
+				rewind(_m115);
 				inputState.guessing--;
 			}
-			if ( synPredMatched111 )
+			if ( synPredMatched115 )
 			{
-				SpringExpressions.NamedArgumentNode tmp108_AST = null;
-				tmp108_AST = (SpringExpressions.NamedArgumentNode) astFactory.create(LT(1), "SpringExpressions.NamedArgumentNode");
-				astFactory.makeASTRoot(ref currentAST, (AST)tmp108_AST);
+				SpringExpressions.NamedArgumentNode tmp114_AST = null;
+				tmp114_AST = (SpringExpressions.NamedArgumentNode) astFactory.create(LT(1), "SpringExpressions.NamedArgumentNode");
+				astFactory.makeASTRoot(ref currentAST, (AST)tmp114_AST);
 				match(ID);
 				match(ASSIGN);
 				expression();
@@ -3176,7 +3332,7 @@ _loop96_breakloop:						;
 				}
 				namedArgument_AST = (SpringExpressions.SpringAST)currentAST.root;
 			}
-			else if ((tokenSet_9_.member(LA(1))) && (tokenSet_22_.member(LA(2)))) {
+			else if ((tokenSet_9_.member(LA(1))) && (tokenSet_23_.member(LA(2)))) {
 				argument();
 				if (0 == inputState.guessing)
 				{
@@ -3195,7 +3351,7 @@ _loop96_breakloop:						;
 			if (0 == inputState.guessing)
 			{
 				reportError(ex);
-				recover(ex,tokenSet_23_);
+				recover(ex,tokenSet_24_);
 			}
 			else
 			{
@@ -3215,16 +3371,16 @@ _loop96_breakloop:						;
 		try {      // for error handling
 			if ((LA(1)==TRUE))
 			{
-				SpringExpressions.BooleanLiteralNode tmp110_AST = null;
-				tmp110_AST = (SpringExpressions.BooleanLiteralNode) astFactory.create(LT(1), "SpringExpressions.BooleanLiteralNode");
-				astFactory.addASTChild(ref currentAST, (AST)tmp110_AST);
+				SpringExpressions.BooleanLiteralNode tmp116_AST = null;
+				tmp116_AST = (SpringExpressions.BooleanLiteralNode) astFactory.create(LT(1), "SpringExpressions.BooleanLiteralNode");
+				astFactory.addASTChild(ref currentAST, (AST)tmp116_AST);
 				match(TRUE);
 				boolLiteral_AST = (SpringExpressions.SpringAST)currentAST.root;
 			}
 			else if ((LA(1)==FALSE)) {
-				SpringExpressions.BooleanLiteralNode tmp111_AST = null;
-				tmp111_AST = (SpringExpressions.BooleanLiteralNode) astFactory.create(LT(1), "SpringExpressions.BooleanLiteralNode");
-				astFactory.addASTChild(ref currentAST, (AST)tmp111_AST);
+				SpringExpressions.BooleanLiteralNode tmp117_AST = null;
+				tmp117_AST = (SpringExpressions.BooleanLiteralNode) astFactory.create(LT(1), "SpringExpressions.BooleanLiteralNode");
+				astFactory.addASTChild(ref currentAST, (AST)tmp117_AST);
 				match(FALSE);
 				boolLiteral_AST = (SpringExpressions.SpringAST)currentAST.root;
 			}
@@ -3264,7 +3420,7 @@ _loop96_breakloop:						;
 	}
 	static public void initializeASTFactory( ASTFactory factory )
 	{
-		factory.setMaxNodeType(71);
+		factory.setMaxNodeType(73);
 	}
 	
 	public static readonly string[] tokenNames_ = new string[] {
@@ -3285,6 +3441,8 @@ _loop96_breakloop:						;
 		@"""like""",
 		@"""matches""",
 		@"""null""",
+		@"""typeof""",
+		@"""as""",
 		@"""LPAREN""",
 		@"""SEMI""",
 		@"""RPAREN""",
@@ -3298,6 +3456,7 @@ _loop96_breakloop:						;
 		@"""DIV""",
 		@"""MOD""",
 		@"""POWER""",
+		@"""TYPE""",
 		@"""BANG""",
 		@"""DOT""",
 		@"""POUND""",
@@ -3312,7 +3471,6 @@ _loop96_breakloop:						;
 		@"""SELECT""",
 		@"""SELECT_FIRST""",
 		@"""SELECT_LAST""",
-		@"""TYPE""",
 		@"""QUOTE""",
 		@"""STRING_LITERAL""",
 		@"""LAMBDA""",
@@ -3350,142 +3508,148 @@ _loop96_breakloop:						;
 	public static readonly BitSet tokenSet_0_ = new BitSet(mk_tokenSet_0_());
 	private static long[] mk_tokenSet_1_()
 	{
-		long[] data = { 1408758448130L, 0L};
+		long[] data = { 11270030884866L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_1_ = new BitSet(mk_tokenSet_1_());
 	private static long[] mk_tokenSet_2_()
 	{
-		long[] data = { 1134924607015288578L, 0L};
+		long[] data = { 4539768427438210818L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_2_ = new BitSet(mk_tokenSet_2_());
 	private static long[] mk_tokenSet_3_()
 	{
-		long[] data = { 1408765788162L, 0L};
+		long[] data = { 11270060244994L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_3_ = new BitSet(mk_tokenSet_3_());
 	private static long[] mk_tokenSet_4_()
 	{
-		long[] data = { 1408765788674L, 0L};
+		long[] data = { 11270060245506L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_4_ = new BitSet(mk_tokenSet_4_());
 	private static long[] mk_tokenSet_5_()
 	{
-		long[] data = { 1408765789698L, 0L};
+		long[] data = { 11270060246530L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_5_ = new BitSet(mk_tokenSet_5_());
 	private static long[] mk_tokenSet_6_()
 	{
-		long[] data = { 1134907106097428480L, 0L};
+		long[] data = { 4539628424389523456L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_6_ = new BitSet(mk_tokenSet_6_());
 	private static long[] mk_tokenSet_7_()
 	{
-		long[] data = { 1408765789954L, 0L};
+		long[] data = { 11270060246786L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_7_ = new BitSet(mk_tokenSet_7_());
 	private static long[] mk_tokenSet_8_()
 	{
-		long[] data = { 1134908514863218434L, 0L};
+		long[] data = { 4539639694449770242L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_8_ = new BitSet(mk_tokenSet_8_());
 	private static long[] mk_tokenSet_9_()
 	{
-		long[] data = { 17696327240712384L, 0L};
+		long[] data = { 70779665375756480L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_9_ = new BitSet(mk_tokenSet_9_());
 	private static long[] mk_tokenSet_10_()
 	{
-		long[] data = { 1134908514913550082L, 0L};
+		long[] data = { 4539639694651096834L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_10_ = new BitSet(mk_tokenSet_10_());
 	private static long[] mk_tokenSet_11_()
 	{
-		long[] data = { 1134908515383312130L, 0L};
+		long[] data = { 4539639696530145026L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_11_ = new BitSet(mk_tokenSet_11_());
 	private static long[] mk_tokenSet_12_()
 	{
-		long[] data = { 17696326116638912L, 0L};
+		long[] data = { 4539639698677628674L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_12_ = new BitSet(mk_tokenSet_12_());
 	private static long[] mk_tokenSet_13_()
 	{
-		long[] data = { 1134908515920183042L, 0L};
+		long[] data = { 70779656584495296L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_13_ = new BitSet(mk_tokenSet_13_());
 	private static long[] mk_tokenSet_14_()
 	{
-		long[] data = { 16091095105536L, 0L};
+		long[] data = { 4539639698677890818L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_14_ = new BitSet(mk_tokenSet_14_());
 	private static long[] mk_tokenSet_15_()
 	{
-		long[] data = { 309238169600L, 0L};
+		long[] data = { -140737524006928L, 1023L, 0L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_15_ = new BitSet(mk_tokenSet_15_());
 	private static long[] mk_tokenSet_16_()
 	{
-		long[] data = { 8912896L, 0L};
+		long[] data = { 35651584L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_16_ = new BitSet(mk_tokenSet_16_());
 	private static long[] mk_tokenSet_17_()
 	{
-		long[] data = { -35184381001744L, 255L, 0L, 0L};
+		long[] data = { 128728760320000L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_17_ = new BitSet(mk_tokenSet_17_());
 	private static long[] mk_tokenSet_18_()
 	{
-		long[] data = { 412316991488L, 0L};
+		long[] data = { 2473903259648L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_18_ = new BitSet(mk_tokenSet_18_());
 	private static long[] mk_tokenSet_19_()
 	{
-		long[] data = { 281474976710656L, 0L};
+		long[] data = { 3298535407616L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_19_ = new BitSet(mk_tokenSet_19_());
 	private static long[] mk_tokenSet_20_()
 	{
-		long[] data = { 1136050506922131202L, 0L};
+		long[] data = { 1125899906842624L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_20_ = new BitSet(mk_tokenSet_20_());
 	private static long[] mk_tokenSet_21_()
 	{
-		long[] data = { 1133871366144L, 0L};
+		long[] data = { 4544272027065581314L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_21_ = new BitSet(mk_tokenSet_21_());
 	private static long[] mk_tokenSet_22_()
 	{
-		long[] data = { 1152884945836572608L, 0L};
+		long[] data = { 9070970929152L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_22_ = new BitSet(mk_tokenSet_22_());
 	private static long[] mk_tokenSet_23_()
 	{
-		long[] data = { 34360262656L, 0L};
+		long[] data = { 4611534285788151744L, 0L};
 		return data;
 	}
 	public static readonly BitSet tokenSet_23_ = new BitSet(mk_tokenSet_23_());
+	private static long[] mk_tokenSet_24_()
+	{
+		long[] data = { 274880004096L, 0L};
+		return data;
+	}
+	public static readonly BitSet tokenSet_24_ = new BitSet(mk_tokenSet_24_());
 	
 }
 }
