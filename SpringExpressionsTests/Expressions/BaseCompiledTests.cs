@@ -44,6 +44,13 @@ namespace SpringExpressionsTests.Expressions
                 expression, CompileOptions.MustUseInterpreter);
         }
 
+        protected static IGetterExpression<TResult> InterpretGetter<TResult>(string expression)
+        {
+            return Expression.ParseGetter<TResult>(
+                expression, CompileOptions.MustUseInterpreter);
+        }
+
+
 
         protected static TestCompiledAssertionChecker<TResult> TestCompiledVsInterpreted<TResult>(string expression)
         {

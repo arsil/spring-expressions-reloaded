@@ -19,7 +19,7 @@ using System.Text.RegularExpressions;
 namespace SpringExpressionsTests.Expressions
 {
     [TestFixture]
-    public sealed class CompiledExpressionTests
+    public sealed class CompiledExpressionTests : BaseCompiledTests
     {
         [SetUp]
         public void SetUp()
@@ -315,7 +315,35 @@ namespace SpringExpressionsTests.Expressions
 
             Assert.IsTrue(CompileGetter<bool>("1000 == 1e3 and 1e+4 != 1000").GetValue());
             Assert.IsTrue(CompileGetter<bool>("100 < 1000.00m and 10000.00 > 1000").GetValue());
-            Assert.IsTrue(CompileGetter<bool>("100 < 1000.00 and 10000.00m > 1e2").GetValue());
+            Assert.IsTrue(CompileGetter<bool>("100 < 1000.00 and 10000.00m > 1e2m").GetValue());
+
+            var dec2 = CompileGetter<object>("1e2m").GetValue();
+            Assert.IsTrue(dec2 is decimal);
+            Assert.AreEqual(100m, dec2);
+
+            TestCompiledVsInterpreted<decimal>("1e2m").ResultEqualsTo(100m);
+
+            // todo: error: type casting tryouts!
+            //TestCompiledVsInterpreted<decimal>("to<decimal>(1e2)").ResultEqualsTo(100m);
+            //TestCompiledVsInterpreted<decimal>("to[decimal].from(1e2)").ResultEqualsTo(100m);
+            //TestCompiledVsInterpreted<decimal>("from(1e2).to(decimal").ResultEqualsTo(100m);
+
+            //TestCompiledVsInterpreted<decimal>("Cast(1e2).ToDecimal()").ResultEqualsTo(100m);
+            //TestCompiledVsInterpreted<decimal>("1e2.To(decimal)").ResultEqualsTo(100m);
+
+            // local function node
+            //            TestCompiledVsInterpreted<decimal>("$Cast(1e2).ToDecimal()").ResultEqualsTo(100m);
+            // function node
+            //TestCompiledVsInterpreted<decimal>("#Cast(1e2).ToDecimal()").ResultEqualsTo(100m);
+
+
+            //TestCompiledVsInterpreted<decimal>("_Cast(1e2).ToDecimal()").ResultEqualsTo(100m);
+            //TestCompiledVsInterpreted<decimal>("to{decimal}(1e2)").ResultEqualsTo(100m);
+            //TestCompiledVsInterpreted<decimal>("cast(1e2, T(decimal))").ResultEqualsTo(100m);
+            TestCompiledVsInterpreted<decimal>("(decimal)1e2").ResultEqualsTo(100m);
+            //TestCompiledVsInterpreted<decimal>("{decimal}1e2").ResultEqualsTo(100m);
+            //TestCompiledVsInterpreted<decimal>("{decimal, 1e2}").ResultEqualsTo(100m);
+
         }
 
         /// <summary>
@@ -486,6 +514,7 @@ namespace SpringExpressionsTests.Expressions
         public void TestIndexedPropertyAccess()
         {
             TypeRegistry.RegisterType("Society", typeof(Society));
+            TypeRegistry.RegisterType("Inventor", typeof(Inventor));
 
             var ieee = GetIEEE(
                 tesla: out var tesla, 
@@ -501,23 +530,23 @@ namespace SpringExpressionsTests.Expressions
             // todo: error: casts! strong type!
             // maps
             Assert.AreEqual(pupin, CompileGetter<Society, object>("Officers['president']").GetValue(ieee));
-            Assert.AreEqual(pupin, CompileGetter<Society, Inventor>("Officers['president']").GetValue(ieee));
+            Assert.AreEqual(pupin, CompileGetter<Society, Inventor>("Officers['president'] as T(Inventor)").GetValue(ieee));
             
 
             Assert.AreEqual("Idvor", 
-                CompileGetter<Society, string>("Officers['president'].PlaceOfBirth.City").GetValue(ieee));
+                CompileGetter<Society, string>("(Officers['president'] as T(Inventor)).PlaceOfBirth.City").GetValue(ieee));
 
-            Assert.AreEqual(tesla, CompileGetter<Society, Inventor>("Officers['advisors'][0]").GetValue(ieee));
+            Assert.AreEqual(tesla, CompileGetter<Society, Inventor>("(Officers['advisors'] as T(SpringExpressions.Inventor[]))[0]").GetValue(ieee));
 
             Assert.AreEqual("Polyphase alternating-current system",
-                CompileGetter<Society, string>("Officers['advisors'][0].Inventions[2]").GetValue(ieee));
+                CompileGetter<Society, string>("(Officers['advisors'] as T(SpringExpressions.Inventor[]))[0].Inventions[2]").GetValue(ieee));
 
             // maps with non-literal parameters
             Dictionary<string, object> vars = new Dictionary<string, object>();
             vars["prez"] = "president";
-            Assert.AreEqual(pupin, CompileGetter<Society, Inventor>("Officers[#prez]").GetValue(ieee, vars));
+            Assert.AreEqual(pupin, CompileGetter<Society, Inventor>("Officers[#prez as T(string)] as T(Inventor)").GetValue(ieee, vars));
 
-            Assert.AreEqual(pupin, CompileGetter<Society, Inventor>("Officers[Society.President]").GetValue(ieee));
+            Assert.AreEqual(pupin, CompileGetter<Society, Inventor>("Officers[Society.President] as T(Inventor)").GetValue(ieee));
             Assert.AreEqual("Idvor",
                 CompileGetter<Society, string>("Officers[Society.President].PlaceOfBirth.City").GetValue(ieee));
             Assert.AreEqual(tesla, CompileGetter<Society, Inventor>("Officers[Society.Advisors][0]").GetValue(ieee));
@@ -1373,54 +1402,6 @@ namespace SpringExpressionsTests.Expressions
 
 
         #region Helpers
-
-
-        private static IGetterExpression<TRoot, TResult> CompileGetter<TRoot, TResult>(string expression)
-        {
-            return Expression.ParseGetter<TRoot, TResult>(
-                expression, CompileOptions.CompileOnParse | CompileOptions.MustCompile);
-        }
-
-        private static IGetterExpression<TResult> CompileGetter<TResult>(string expression)
-        {
-            return Expression.ParseGetter<TResult>(
-                expression, CompileOptions.CompileOnParse | CompileOptions.MustCompile);
-        }
-
-        private static TResult CompileAndExecuteGetter<TResult>(string expression)
-            => CompileGetter<TResult>(expression).GetValue();
-
-        private static ISetterExpression<TRoot, TArg> CompileSetter<TRoot, TArg>(string expression)
-        {
-            return Expression.ParseSetter<TRoot, TArg>(
-                expression, CompileOptions.CompileOnParse | CompileOptions.MustCompile);
-        }
-
-        private static ISetterExpression<TArg> CompileSetter<TArg>(string expression)
-        {
-            return Expression.ParseSetter<TArg>(
-                expression, CompileOptions.CompileOnParse | CompileOptions.MustCompile);
-        }
-
-        private static void TestCompiledVsInterpreted<TResult>(string expression)
-        {
-            var compiledObjectValue = CompileGetter<object>(expression);
-            var interpretedObjectValue = Expression.ParseGetter<object>(expression, CompileOptions.MustUseInterpreter);
-
-            var expectedType = interpretedObjectValue.GetValue().GetType();
-            var actualType = compiledObjectValue.GetValue().GetType();
-            Assert.AreEqual(expectedType, actualType, $"Type mismatch: Expected {expectedType}, but was {actualType}. " +
-                $"Expression: {expression}");
-
-            var compiled = CompileGetter<TResult>(expression);
-            var interpreted = Expression.ParseGetter<TResult>(expression, CompileOptions.MustUseInterpreter);
-
-            var expectedValue = interpreted.GetValue();
-            var actualValue = compiled.GetValue();
-
-            Assert.AreEqual(expectedValue, actualValue, $"Value mismatch: Expected {expectedValue}, but was {actualValue}. " +
-                $"Expression: {expression}");
-        }
 
         private static Inventor GetTesla()
         {

@@ -62,12 +62,16 @@ namespace SpringExpressions
                     "Projection can only be used on an instance of the type that implements IEnumerable.");
             }
 
-            if (contextExpression.Type.IsGenericType)
+            var collectionIsGenericType = contextExpression.Type.IsGenericType;
+            var collectionIsArray = contextExpression.Type.IsArray;
+
+            if (collectionIsGenericType || collectionIsArray)
             {
-                var itemType = contextExpression.Type.GetGenericArguments()[0];
+                var itemType = collectionIsGenericType
+                    ? contextExpression.Type.GetGenericArguments()[0]
+                    : contextExpression.Type.GetElementType();
+
                 BaseNode expressionNode = (BaseNode) getFirstChild();
-
-
 
                 var ctxParam = LExpression.Parameter(itemType, "item");
                 var getRootContextExpression = LExpression.Convert(ctxParam, itemType);
