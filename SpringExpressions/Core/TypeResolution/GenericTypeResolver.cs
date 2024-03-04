@@ -21,6 +21,8 @@
 #region Imports
 
 using System;
+using System.Linq;
+using SpringExpressions.Core.TypeResolution;
 using SpringUtil;
 
 #endregion
@@ -52,12 +54,10 @@ namespace SpringCore.TypeResolution
             if (StringUtils.IsNullOrEmpty(typeName))
                 throw BuildTypeLoadException(typeName);
 
-
-            GenericArgumentsHolder genericInfo = new GenericArgumentsHolder(typeName);
             Type type = null;
             try
             {
-                if (genericInfo.ContainsGenericArguments)
+                if (GenericArgumentsHolder.TryCreateGenericArgumentsHolder(typeName, out var genericInfo))
                 {
                     type = TypeResolutionUtils.ResolveType(genericInfo.GenericTypeName);
                     if (!genericInfo.IsGenericDefinition)
@@ -70,12 +70,21 @@ namespace SpringCore.TypeResolution
                         }
                         type = type.MakeGenericType(genericArgs);
                     }
+
                     if (genericInfo.IsArrayDeclaration)
                     {
-                        typeName = string.Format("{0}{1},{2}", type.FullName, genericInfo.GetArrayDeclaration(), type.Assembly.FullName);
+                        typeName = $"{type.FullName}{genericInfo.GetArrayDeclarationReversed()},{type.Assembly.FullName}";
                         type = null;
                     }
-                } 
+                }
+                else if (ArrayArgumentHolder.TryCreateArrayArgumentHolder(typeName, out var arrayArgumentHolder))
+                {
+                    type = TypeResolutionUtils.ResolveType(arrayArgumentHolder.ArrayItemTypeName);
+
+                    typeName = $"{type.FullName}{arrayArgumentHolder.ArrayDeclarationReversed},{type.Assembly.FullName}";
+                    type = null;
+
+                }
             }
             catch (Exception ex)
             {

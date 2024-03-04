@@ -20,7 +20,9 @@
 
 #region Imports
 
+using System.Linq;
 using System.Text.RegularExpressions;
+using JetBrains.Annotations;
 using SpringUtil;
 
 #endregion
@@ -115,10 +117,8 @@ namespace SpringCore.TypeResolution
         /// The string value to parse looking for a generic definition
         /// and retrieving its generic arguments.
         /// </param>
-        public GenericArgumentsHolder(string value)
-        {
-            ParseGenericTypeDeclaration(value);
-        }
+        private GenericArgumentsHolder()
+        { }
 
         #endregion
 
@@ -187,6 +187,24 @@ namespace SpringCore.TypeResolution
             return arrayDeclaration;    
         }
 
+        public string GetArrayDeclarationReversed()
+        {
+            //[,][] => [][,]
+            var reversed = arrayDeclaration.Reverse().ToArray();
+            for (var i = 0; i < reversed.Length; ++i)
+                switch (reversed[i])
+                {
+                    case '[':
+                        reversed[i] = ']';
+                        break;
+                    case ']':
+                        reversed[i] = '[';
+                        break;
+                }
+
+            return new string(reversed);
+        }
+
         /// <summary>
         /// Is this an array type definition?
         /// </summary>
@@ -220,33 +238,48 @@ namespace SpringCore.TypeResolution
             return unresolvedGenericArguments;
         }
 
-        private void ParseGenericTypeDeclaration(string originalString)
+        public static bool TryCreateGenericArgumentsHolder(
+            string originalString, 
+            out GenericArgumentsHolder result)
         {
             if (originalString.IndexOf('[') == -1 && originalString.IndexOf('<') == -1)
             {
                 // nothing to do
-                unresolvedGenericTypeName = originalString;
-                unresolvedGenericMethodName = originalString;
-                return;
+                result = null;
+                return false;
             }
 
             originalString = originalString.Trim();
 
             bool isClrStyleNotation = originalString.IndexOf('`') > -1;
 
-            Match m = (isClrStyleNotation)
-                          ? ClrPattern.Match(originalString)
-                          : CSharpPattern.Match(originalString);
+            var m = (isClrStyleNotation)
+                ? ClrPattern.Match(originalString)
+                : CSharpPattern.Match(originalString);
 
-            if (m == null || !m.Success)
+            if (!m.Success)
             {
-                unresolvedGenericTypeName = originalString;
-                unresolvedGenericMethodName = originalString;
-                return;
+                // nothing to do
+                result = null;
+                return false;
             }
 
             Group g = m.Groups["args"];
-            unresolvedGenericArguments = ParseGenericArgumentList(g.Value);
+
+            var unresolvedGenericArguments = ParseGenericArgumentList(g.Value);
+
+            // todo: error: is it ok? --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
+            if (unresolvedGenericArguments == null || unresolvedGenericArguments.Length <= 0)
+            {
+                result = null;
+                return false;
+            }
+
+            result = new GenericArgumentsHolder
+                {
+                    unresolvedGenericArguments = unresolvedGenericArguments
+                };
+
 
             string name = m.Groups["name"].Value;
             string remainder = m.Groups["remainder"].Value.Trim();
@@ -254,19 +287,38 @@ namespace SpringCore.TypeResolution
             // check, if we're dealing with an array type declaration
             if (remainder.Length > 0 && remainder.IndexOf('[') > -1)
             {
-                string[] remainderParts = StringUtils.Split(remainder, ",", false, false, "[]");
+                string[] remainderParts = StringUtils.Split(
+                    s: remainder, 
+                    delimiters: ",", 
+                    trimTokens: false, 
+                    ignoreEmptyTokens: false, 
+                    quoteChars: "[]");
+
                 string arrayPart = remainderParts[0].Trim();
                 if (arrayPart[0] == '[' && arrayPart[arrayPart.Length-1] == ']')
                 {
-                    arrayDeclaration = arrayPart;
-                    remainder = ", " + string.Join(",", remainderParts, 1, remainderParts.Length - 1);
+                    result.arrayDeclaration = arrayPart;
+
+                    var arrayPartsJoinedWithoutElement0 = string.Join(
+                        separator: ",", 
+                        value: remainderParts, 
+                        startIndex: 1, 
+                        count: remainderParts.Length - 1);
+
+                    if (!string.IsNullOrEmpty(arrayPartsJoinedWithoutElement0))
+                        remainder = ", " + arrayPartsJoinedWithoutElement0;
+                    else
+                        remainder = "";
                 }               
             }
-            
-            unresolvedGenericMethodName = name + remainder;
-            unresolvedGenericTypeName = name + "`" + unresolvedGenericArguments.Length + remainder;
 
+            result.unresolvedGenericMethodName
+                = name + remainder;
 
+            result.unresolvedGenericTypeName
+                = name + "`" + result.unresolvedGenericArguments.Length + remainder;
+
+            return true;
 
             //            char lBoundary = isClrStyleNotation ? '[' : GenericArgumentsPrefix;
             //            char rBoundary = isClrStyleNotation ? ']' : GenericArgumentsSuffix;
@@ -295,11 +347,18 @@ namespace SpringCore.TypeResolution
             //            }
         }
 
+        [CanBeNull]
         private static string[] ParseGenericArgumentList(string originalArgs)
         {
-            string[] args = StringUtils.Split(originalArgs, ",", true, false, "[]<>"     );
+            string[] args = StringUtils.Split(
+                s: originalArgs, 
+                delimiters: ",", 
+                trimTokens: true, 
+                ignoreEmptyTokens: false, 
+                quoteChars: "[]<>");
+
             // remove quotes if necessary
-            for(int i=0;i<args.Length;i++)
+            for(int i=0; i<args.Length; i++)
             {
                 string arg = args[i];
                 if (arg.Length > 1 && arg[0] == '[')
