@@ -78,15 +78,15 @@ namespace SpringExpressions
                             n = n.Substring(0, n.Length - 1);
                             if (lastChar == 'm')
                             {
-                                nodeValue = Decimal.Parse(n, NumberFormatInfo.InvariantInfo);
+                                nodeValue = decimal.Parse(n, NumberStyles.Any, NumberFormatInfo.InvariantInfo);
                             }
                             else if (lastChar == 'f')
                             {
-                                nodeValue = Single.Parse(n, NumberFormatInfo.InvariantInfo);
+                                nodeValue = float.Parse(n, NumberFormatInfo.InvariantInfo);
                             }
                             else
                             {
-                                nodeValue = Double.Parse(n, NumberFormatInfo.InvariantInfo);
+                                nodeValue = double.Parse(n, NumberFormatInfo.InvariantInfo);
                             }
                         }
                     }
@@ -119,7 +119,7 @@ namespace SpringExpressions
                     n = n.Substring(0, n.Length - 1);
                     if (lastChar == 'm')
                     {
-                        decimal value = decimal.Parse(n, NumberFormatInfo.InvariantInfo);
+                        decimal value = decimal.Parse(n, NumberStyles.Any, NumberFormatInfo.InvariantInfo);
                         constantExpression
                             = LExpression.Constant(value, typeof(decimal));
                     }

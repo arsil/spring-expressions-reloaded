@@ -59,7 +59,8 @@ namespace SpringExpressions
             if (!typeof(IEnumerable).IsAssignableFrom(contextExpression.Type))
             {
                 throw new ArgumentException(
-                    "Projection can only be used on an instance of the type that implements IEnumerable.");
+                    "Projection can only be used on an instance of the type that implements IEnumerable "
+                    + $"(which is not the case with {contextExpression.Type}).");
             }
 
             if (!contextExpression.Type.IsGenericType)

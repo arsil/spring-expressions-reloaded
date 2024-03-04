@@ -71,11 +71,20 @@ namespace SpringExpressions
 			if (leftTypeCode < 3 || leftTypeCode > 15 || leftTypeCode == 4)
 				return null;
 
+            if (leftTypeCode == 3)
+            {
+                // boolean
+                return LExpression.Not(operandExpression);
+            }
+
             if (operandExpression.Type.IsEnum)
+            {
                 return LExpression.Convert(
                     LExpression.Not(
                         LExpression.Convert(operandExpression, Enum.GetUnderlyingType(operandExpression.Type))),
                     operandExpression.Type);
+            }
+
 
             if (UnaryNumericOperatorHelper.TryCreate(operandExpression,
                     UnaryNumericOperatorHelper.UnaryOperator.UnaryNot, out var result))

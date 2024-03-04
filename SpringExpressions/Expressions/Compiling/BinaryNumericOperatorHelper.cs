@@ -195,11 +195,13 @@ namespace SpringExpressions.Expressions.Compiling
                         {
                             left = LExpression.Convert(left, rightExpressionType);
                         }*/
+                        resultExpression = binaryFunctionCreator(left, right);
+                        return true;
                     }
                 }
 
-                resultExpression = binaryFunctionCreator(left, right);
-                return true;
+                resultExpression = null;
+                return false;
             }
 
             /*
