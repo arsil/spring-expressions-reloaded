@@ -68,6 +68,8 @@ namespace SpringUtil
                         + secondArgType.FullName
                         + "] because they cannot be coerced to the same type.");
                 }
+
+                firstArgType = first.GetType();
             }
 
             // here types must be equal

@@ -27,6 +27,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.Serialization;
+using JetBrains.Annotations;
 using SpringExpressions.Expressions.GenericProcessors;
 using SpringExpressions.Expressions.LinqExpressionHelpers;
 using SpringExpressions.Processors;
@@ -34,6 +35,7 @@ using SpringUtil;
 using SpringReflection.Dynamic;
 using DistinctProcessor = SpringExpressions.Processors.DistinctProcessor;
 using LExpression = System.Linq.Expressions.Expression;
+using SpringExpressions.Expressions.Compiling.Expressions;
 
 namespace SpringExpressions
 {
@@ -94,6 +96,7 @@ namespace SpringExpressions
         {
         }
 
+        [NotNull]
 	    protected override LExpression GetExpressionTreeIfPossible(
             LExpression contextExpression,
             CompilationContext compilationContext)
@@ -260,11 +263,15 @@ namespace SpringExpressions
             }
 
             if (methodInfo == null)
-                return null;
+            {
+                throw new CompileErrorException(
+                    $"Method '{methodName}' with the specified number and types of arguments does not exist.");
+            }
 
             ConvertParameters(methodInfo, arguments);
 			return LExpression.Call(instance, methodInfo, arguments);
 	    }
+
 
         private static void ConvertParameters(MethodInfo mi, List<LExpression> arguments)
         {
@@ -333,7 +340,6 @@ namespace SpringExpressions
             }
 
             return null;
-
         }
 
         /// <summary>

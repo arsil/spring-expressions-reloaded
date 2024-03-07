@@ -4,11 +4,13 @@ using JetBrains.Annotations;
 
 namespace SpringExpressions.Expressions.Compiling.Expressions
 {
-    internal class BinaryNumericPromotionException : Exception
+        // todo: error: public?
+    internal class BinaryNumericPromotionException : CompileErrorException
     {
         public BinaryNumericPromotionException([NotNull] Type left, [NotNull] Type right)
-            : base($"Binary numeric promotion rules violation: '{left}'" +
-                $" and/or '{right}' are not one of the supported numeric types.")
+            : base(
+                "Binary numeric promotion rules violation: " +
+               $"Cannot apply operator to operands of type '{left}' and '{right}'.")
         {
             Left = left;
             Right = right;

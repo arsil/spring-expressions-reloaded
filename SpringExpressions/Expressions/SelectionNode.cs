@@ -59,14 +59,22 @@ namespace SpringExpressions
             if (!typeof(IEnumerable).IsAssignableFrom(contextExpression.Type))
             {
                 throw new ArgumentException(
-                    "Projection can only be used on an instance of the type that implements IEnumerable "
+                    "Selection can only be used on an instance of the type that implements IEnumerable "
                     + $"(which is not the case with {contextExpression.Type}).");
             }
 
-            if (!contextExpression.Type.IsGenericType)
-                return null;
+            var collectionIsGenericType = contextExpression.Type.IsGenericType;
+            var collectionIsArray = contextExpression.Type.IsArray;
 
-            var itemType = contextExpression.Type.GetGenericArguments()[0];
+            if (!collectionIsGenericType && !collectionIsArray)
+            {
+                         // todo: error: exception!!!!
+                return null;
+            }
+
+            var itemType = collectionIsGenericType
+                ? contextExpression.Type.GetGenericArguments()[0]
+                : contextExpression.Type.GetElementType();
 
             BaseNode expressionNode = (BaseNode)getFirstChild();
 

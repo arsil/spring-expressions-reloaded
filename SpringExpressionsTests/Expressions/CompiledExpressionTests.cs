@@ -120,21 +120,23 @@ namespace SpringExpressionsTests.Expressions
             Assert.AreEqual("date", expr.GetValue());
         }
 
+        // https://github.com/spring-projects/spring-net/blob/main/changelog.txt
         [Test(Description = "http://jira.springframework.org/browse/SPRNET-944")]
         public void TestDateVariableExpression()
         {
             Dictionary<string, object> vars = new Dictionary<string, object>();
             vars["date"] = "2008-05-15";
-            var expr = CompileGetter<string>("#date");
+            var expr = CompileGetter<string>("#date as T(string)");
             Assert.That(expr.GetValue(vars), Is.EqualTo("2008-05-15"));
         }
 
+        // https://github.com/spring-projects/spring-net/blob/main/changelog.txt
         [Test(Description = "http://jira.springframework.org/browse/SPRNET-1155")]
         public void TestDateVariableExpressionCamelCased()
         {
             Dictionary<string, object> vars = new Dictionary<string, object>();
             vars["Date"] = "2008-05-15";
-            var expr = CompileGetter<string>("#Date");
+            var expr = CompileGetter<string>("#Date as T(string)");
             Assert.That(expr.GetValue(vars), Is.EqualTo("2008-05-15"));
         }
 
@@ -340,7 +342,7 @@ namespace SpringExpressionsTests.Expressions
             //TestCompiledVsInterpreted<decimal>("_Cast(1e2).ToDecimal()").ResultEqualsTo(100m);
             //TestCompiledVsInterpreted<decimal>("to{decimal}(1e2)").ResultEqualsTo(100m);
             //TestCompiledVsInterpreted<decimal>("cast(1e2, T(decimal))").ResultEqualsTo(100m);
-            TestCompiledVsInterpreted<decimal>("(decimal)1e2").ResultEqualsTo(100m);
+            TestCompiledVsInterpreted<decimal>("1e2 as T(decimal)").ResultEqualsTo(100m);
             //TestCompiledVsInterpreted<decimal>("{decimal}1e2").ResultEqualsTo(100m);
             //TestCompiledVsInterpreted<decimal>("{decimal, 1e2}").ResultEqualsTo(100m);
 
@@ -659,6 +661,8 @@ namespace SpringExpressionsTests.Expressions
         [Test]
         public void TestProjection()
         {
+            TypeRegistry.RegisterType(typeof(Inventor));
+
             var ieee = GetIEEE(out _, out _);
             var placesOfBirth = CompileGetter<Society, IList>("Members.!{PlaceOfBirth.City}").GetValue(ieee);
 
@@ -666,8 +670,7 @@ namespace SpringExpressionsTests.Expressions
             Assert.AreEqual("Smiljan", placesOfBirth[0]);
             Assert.AreEqual("Idvor", placesOfBirth[1]);
 
-            // todo: error: CAST
-            var names = CompileGetter<Society, IList>("Officers['advisors'].!{Name}").GetValue(ieee);
+            var names = CompileGetter<Society, IList>("(Officers['advisors'] as T(Inventor[])).!{Name}").GetValue(ieee);
             Assert.AreEqual(2, names.Count);
             Assert.AreEqual("Nikola Tesla", names[0]);
             Assert.AreEqual("Mihajlo Pupin", names[1]);
@@ -679,6 +682,7 @@ namespace SpringExpressionsTests.Expressions
         [Test]
         public void TestSelection()
         {
+            TypeRegistry.RegisterType(typeof(Inventor));
             var ieee = GetIEEE(out _, out _);
 
             var memberSelection =
@@ -688,18 +692,18 @@ namespace SpringExpressionsTests.Expressions
             Assert.AreEqual("Nikola Tesla", ((Inventor)memberSelection[0]).Name);
 
             var serbianOfficers =
-                CompileGetter<Society, IList>("Officers['advisors'].?{Nationality == 'Serbian'}").GetValue(ieee);
+                CompileGetter<Society, IList>("(Officers['advisors'] as T(Inventor[])).?{Nationality == 'Serbian'}").GetValue(ieee);
             Assert.AreEqual(2, serbianOfficers.Count);
             Assert.AreEqual("Nikola Tesla", ((Inventor)serbianOfficers[0]).Name);
             Assert.AreEqual("Mihajlo Pupin", ((Inventor)serbianOfficers[1]).Name);
 
                   // todo: error? implement or not!!!!!
             var first =
-                CompileGetter<Society, Inventor>("Officers['advisors'].^{Nationality == 'Serbian'}").GetValue(ieee);
+                CompileGetter<Society, Inventor>("(Officers['advisors'] as T(Inventor[])).^{Nationality == 'Serbian'}").GetValue(ieee);
             Assert.AreEqual("Nikola Tesla", first.Name);
 
             var last =
-                CompileGetter<Society, Inventor>("Officers['advisors'].${Nationality == 'Serbian'}").GetValue(ieee);
+                CompileGetter<Society, Inventor>("(Officers['advisors'] as T(Inventor[])).${Nationality == 'Serbian'}").GetValue(ieee);
             Assert.AreEqual("Mihajlo Pupin", last.Name);
         }
 
@@ -1442,7 +1446,7 @@ namespace SpringExpressionsTests.Expressions
             ieee.Members.Add(tesla);
             ieee.Members.Add(pupin);
             ieee.Officers["president"] = pupin;
-            ieee.Officers["advisors"] = new[] { tesla, tesla };
+            ieee.Officers["advisors"] = new[] { tesla, pupin };
 
             return ieee;
         }
