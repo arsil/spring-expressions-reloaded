@@ -7,3 +7,4 @@ TestownicaZCore/obj
 *.suo
 _ReSharper.Caches
 .vs
+/SpringExpressions.sln.DotSettings.user
