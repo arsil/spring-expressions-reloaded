@@ -1380,6 +1380,224 @@ namespace SpringExpressionsTests.Expressions
             Assert.IsTrue(CompileAndExecuteGetter<bool>("DateTime.Today != date('1974-08-24')"));
         }
 
+        /// <summary>
+        /// Tests less than operator.
+        /// </summary>
+        [Test]
+        public void TestLessThanOperator()
+        {
+            // Bool
+            TestCompiledVsInterpreted<bool>("false < true");
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("false < true"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("true < true"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("true < false"));
+
+            // Int
+            TestCompiledVsInterpreted<bool>("2 < 2.0");
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("2 < 2.0"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("-5.0 < 2"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("2 < -5.0"));
+
+            // String
+            TestCompiledVsInterpreted<bool>("'test' < 'test'");
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("'test' < 'test'"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("'Test' < 'test'"));
+
+            // DateTime
+            TestCompiledVsInterpreted<bool>("date('1974-08-24') < date('1974-08-24')");
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("date('1974-08-24') < date('1974-08-24')"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("date('1974-08-24') < DateTime.Today"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("DateTime.Today < date('1974-08-24')"));
+
+            // Null
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("null < null"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("123 < null"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("null < 'xyz'"));
+        }
+
+        /// <summary>
+        /// Tests less than or equal operator.
+        /// </summary>
+        [Test]
+        public void TestLessThanOrEqualOperator()
+        {
+            // Null
+            TestCompiledVsInterpreted<bool>("null <= null");
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("null <= null"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("123 <= null"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("null <= 'xyz'"));
+
+            // Bool
+            TestCompiledVsInterpreted<bool>("false <= true");
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("false <= true"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("true <= true"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("true <= false"));
+
+            // Int
+            TestCompiledVsInterpreted<bool>("2 <= 2.0");
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("2 <= 2.0"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("-5.0 <= 2"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("2.0 <= -5"));
+
+            // String
+            TestCompiledVsInterpreted<bool>("'test' <= 'test'");
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("'test' <= 'test'"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("'Test' <= 'test'"));
+
+            // DateTime
+            TestCompiledVsInterpreted<bool>("date('1974-08-24') <= date('1974-08-24')");
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("date('1974-08-24') <= date('1974-08-24')"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("date('1974-08-24') <= DateTime.Today"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("DateTime.Today <= date('1974-08-24')"));
+        }
+
+        /// <summary>
+        /// Tests greater than operator.
+        /// </summary>
+        [Test]
+        public void TestGreaterThanOperator()
+        {
+            // Null
+            TestCompiledVsInterpreted<bool>("null > null");
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("null > null"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("123 > null"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("null > 'xyz'"));
+
+            // Bool
+            TestCompiledVsInterpreted<bool>("false > true");
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("false > true"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("true > true"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("true > false"));
+
+            // Int
+            TestCompiledVsInterpreted<bool>("2 > 2.0");
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("2 > 2.0"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("-5.0 > 2"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("2 > -5.0"));
+
+            // String
+            TestCompiledVsInterpreted<bool>("'test' > 'test'");
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("'test' > 'test'"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("'Test' > 'test'"));
+
+            // DateTime
+            TestCompiledVsInterpreted<bool>("DateTime.Today > date('1974-08-24')");
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("date('1974-08-24') > date('1974-08-24')"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("date('1974-08-24') > DateTime.Today"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("DateTime.Today > date('1974-08-24')"));
+        }
+
+        /// <summary>
+        /// Tests greater than or equal operator.
+        /// </summary>
+        [Test]
+        public void TestGreaterThanOrEqualOperator()
+        {
+            // Null
+            TestCompiledVsInterpreted<bool>("null >= null");
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("null >= null"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("123 >= null"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("null >= 'xyz'"));
+
+            // Bool
+            TestCompiledVsInterpreted<bool>("false >= true");
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("false >= true"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("true >= true"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("true >= false"));
+
+            // Int
+            TestCompiledVsInterpreted<bool>("2 >= 2.0");
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("2.0 >= 2"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("-5 >= 2.0"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("2.0 >= -5"));
+
+            // String
+            TestCompiledVsInterpreted<bool>("'test' >= 'test'");
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("'test' >= 'test'"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("'Test' >= 'test'"));
+
+            // DateTime
+            TestCompiledVsInterpreted<bool>("DateTime.Today >= date('1974-08-24')");
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("date('1974-08-24') >= date('1974-08-24')"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("date('1974-08-24') >= DateTime.Today"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("DateTime.Today >= date('1974-08-24')"));
+        }
+
+        /// <summary>
+        /// Tests IN operator.
+        /// </summary>
+        [Test]
+        public void TestInOperator()
+        {
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("3 in {1, 2, 3, 4, 5}"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("!(3 in {1, 2, 3, 4, 5})"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("'xyz' in new string[] {'abc', 'xyz'}"));
+
+                   // todo: error: operator in does not make any sense for dictionary ..... ------------------------------------------
+            Assert.IsFalse(
+                CompileAndExecuteGetter<bool>("'xyz' in #{'abc' : 'Value 1', 'xyz2' : 'Value 2'}"));
+            Assert.IsTrue(
+                CompileAndExecuteGetter<bool>("'xyz' in #{'abc' : 'Value 1', 'xyz' : DateTime.Today}"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("null in null"));
+        }
+
+        /// <summary>
+        /// Tests IS operator.
+        /// </summary>
+        [Test]
+        public void TestIsOperator()
+        {
+            TypeRegistry.RegisterType(typeof(IList));
+            TypeRegistry.RegisterType(typeof(IList<>));
+            TypeRegistry.RegisterType(typeof(IDictionary));
+
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("null is null"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("5 is null"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("null is int"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("5 is int"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("!(5 is int)"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("{1, 2, 3, 4, 5} is IList"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("new string[] {'abc', 'xyz'} is T(string[])"));
+            Assert.IsTrue(
+                CompileAndExecuteGetter<bool>("#{'abc' : 'Value 1', 'xyz' : DateTime.Today} is IDictionary"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("{1, 2, 3, 4, 5} is T(IList<int>)"));
+
+            TypeRegistry.RegisterType(typeof(IDictionary<,>));
+            Assert.IsTrue(
+                CompileAndExecuteGetter<bool>("#{'abc' : 1, 'xyz' : 2} is typeof(IDictionary<string, int>)"));
+
+
+            // todo: error: dictionary's underling type for weakly typed keys or values -------------------------------------------------------------
+            /*
+            TypeRegistry.RegisterType(typeof(IDictionary<,>));
+            Assert.AreEqual(
+                CompileAndExecuteGetter<object>("#{'abc' : 'Value 1', 'xyz' : DateTime.Today}").GetType(), "test");
+
+            Assert.IsTrue(
+                CompileAndExecuteGetter<bool>("#{'abc' : 'Value 1', 'xyz' : DateTime.Today} is typeof(IDictionary<string, object>)"));
+            */
+        }
+
+        /// <summary>
+        /// Tests BETWEEN operator.
+        /// </summary>
+        [Test]
+        public void TestBetweenOperator()
+        {
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("0 between {1, 5}"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("1 between {1, 5}"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("3.4m between {1.2m, 5.3m}"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("5 between {1, 5}"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("6 between {1, 5}"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("!(6 between {1, 5})"));
+            Assert.IsTrue(
+                CompileAndExecuteGetter<bool>("DateTime.Today between {DateTime.Today, DateTime.Now}"));
+            Assert.IsFalse(
+                CompileAndExecuteGetter<bool>("DateTime.Today between {DateTime.Now, DateTime.Now}"));
+            Assert.IsTrue(CompileAndExecuteGetter<bool>("'efg' between {'abc', 'xyz'}"));
+            Assert.IsFalse(CompileAndExecuteGetter<bool>("null between {1, 5}"));
+        }
+
 
 
 
