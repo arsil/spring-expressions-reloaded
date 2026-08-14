@@ -5,7 +5,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>SpringExpressionsTests</RootNamespace>
     <AssemblyName>SpringExpressionsTests</AssemblyName>
-    <TargetFrameworks>net40;net472;netcoreapp2.1</TargetFrameworks>
+    <TargetFrameworks>net40;net472;netcoreapp2.1;net8.0</TargetFrameworks>
     <FileAlignment>512</FileAlignment>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
@@ -19,7 +19,10 @@
   </PropertyGroup>
 
 
-  <ItemGroup Condition=" '$(TargetFramework)' != 'netcoreapp2.1' ">
+  <!-- .NET Framework only. Keyed on TargetFrameworkIdentifier rather than "!= netcoreapp2.1" so that
+       adding a modern TFM does not drag these desktop-only assemblies onto it. They back the
+       #if !NETCOREAPP blocks in ExpressionEvaluatorTests.cs (Remoting, Soap, EnterpriseServices). -->
+  <ItemGroup Condition=" '$(TargetFrameworkIdentifier)' == '.NETFramework' ">
     <Reference Include="System" />
     <Reference Include="System.Data" />
     <Reference Include="System.EnterpriseServices" />
@@ -28,6 +31,15 @@
     <Reference Include="System.Web.Services" />
     <Reference Include="System.Xml" />
   </ItemGroup>
+
+  <!-- BinaryFormatter is used unguarded by three tests (ExpressionEvaluatorTests.TestSerialization*,
+       CompiledExpressionTests). On .NET 8 the type still exists but throws unless this switch is on,
+       and the API is obsolete as SYSLIB0011. On .NET 9+ it is removed outright, so a future net9.0/
+       net10.0 target must guard those tests instead of setting this. -->
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'net8.0' ">
+    <EnableUnsafeBinaryFormatterSerialization>true</EnableUnsafeBinaryFormatterSerialization>
+    <NoWarn>$(NoWarn);SYSLIB0011</NoWarn>
+  </PropertyGroup>
 
   <!-- One test framework for every TFM. NUnit 3.13.2 ships lib/net35;net40;net45;netstandard2.0,
        so net40 is supported by the framework - it is only VSTest that cannot host net40. -->
@@ -53,8 +65,9 @@
           .NET 10 present, so discovery dies before a single test runs.
         - netcoreapp2.1 needs 4.2.1, the last version shipping a netcoreapp2.1 asset. 5.x ships only
           net462 + netcoreapp3.1; on netcoreapp2.1 the net462 asset gets loaded and fails on the
-          missing System.Runtime.Remoting.Channels.IChannel. -->
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net472' ">
+          missing System.Runtime.Remoting.Channels.IChannel.
+        - net8.0 uses 5.0.0's netcoreapp3.1 asset. -->
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net472' Or '$(TargetFramework)' == 'net8.0' ">
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.0.0" />
     <PackageReference Include="NUnit3TestAdapter" Version="5.0.0" />
   </ItemGroup>
