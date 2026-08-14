@@ -5,7 +5,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>SpringExpressionsTests</RootNamespace>
     <AssemblyName>SpringExpressionsTests</AssemblyName>
-    <TargetFrameworks>net40;net45;netcoreapp2.1</TargetFrameworks>
+    <TargetFrameworks>net40;net472;netcoreapp2.1</TargetFrameworks>
     <FileAlignment>512</FileAlignment>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
@@ -34,7 +34,7 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net45' ">
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net472' ">
     <Reference Include="System.Core" />
   </ItemGroup> 
 
