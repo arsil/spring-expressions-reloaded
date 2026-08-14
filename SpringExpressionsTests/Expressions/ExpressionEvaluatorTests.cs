@@ -22,10 +22,6 @@
 
 using System;
 
-#if NETCOREAPP || NET_4_0
-using System.Linq;
-#endif
-
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -143,11 +139,7 @@ namespace SpringExpressions
             TypeRegistry.RegisterType("Society", typeof(Society));
         }
 
-#if !NETCOREAPP
-        [TestFixtureTearDown]
-#else
         [OneTimeTearDown]
-#endif
         public void TearDown()
         {
             //DynamicCodeManager.SaveAssembly();
@@ -2444,7 +2436,6 @@ namespace SpringExpressions
             Assert.AreEqual("ExactMatch", ExpressionEvaluator.GetValue(foo, "MethodWithSimilarArguments(1, #bars)", args));
         }
 
-#if NET_4_0 || NETCOREAPP
 		/// <summary>
 		/// Test to show that a large number of parameters can be passed to methods
 		/// </summary>
@@ -2464,7 +2455,6 @@ namespace SpringExpressions
 
             Assert.AreEqual(expectedResult, result);
         }
-#endif
 
 		[Test]
         public void TestIndexerResolutionResolvesToExactMatchOfArgumentTypes()
