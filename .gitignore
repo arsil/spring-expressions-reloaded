@@ -14,3 +14,5 @@ TestResults
 # (no grammar declares importVocab), not compiled. Useful only for eyeballing
 # token numbering while debugging Expression.g.
 /SpringExpressions/Expressions/Parser/ExpressionParserTokenTypes.txt
+
+/.idea/
