@@ -89,7 +89,10 @@
     <ProjectReference Include="..\SpringExpressions\SpringExpressions.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
+  <!-- `dynamic` (CompiledExpressionTests, over ExpandoObject) needs this assembly referenced explicitly
+       on .NET Framework. On .NET Core / .NET 5+ the compiler support comes from the shared framework, and
+       an explicit Reference there fails to resolve with MSB3245 while changing nothing. -->
+  <ItemGroup Condition=" '$(TargetFrameworkIdentifier)' == '.NETFramework' ">
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
 
