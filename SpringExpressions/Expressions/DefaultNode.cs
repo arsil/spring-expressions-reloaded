@@ -1,7 +1,7 @@
-#region License
+ï»¿#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright Â© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,9 +55,6 @@ namespace SpringExpressions
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
-            if (leftExpression == null || rightExpression == null)
-                return null;
-
             if (leftExpression is ConstantExpression constExpr && constExpr.Value == null)
                 return rightExpression;
 
@@ -74,7 +71,7 @@ namespace SpringExpressions
 
             if (leftExpression.Type.IsValueType)
                 return leftExpression;
-               // todo: error: typy musz¹ pasowaæ!
+               // todo: error: typy muszÄ… pasowaÄ‡!
 
                // todo: value types!
             return LExpression.Condition(

@@ -1,7 +1,7 @@
-#region License
+Ôªø#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright ¬© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ namespace SpringExpressions
 			}
 
 
-                // todo: error: czy nulle i nullable tutaj jakoú obs≥ugujemy? co gdy mamy string i ktoú wali null? albo object i null?
+                // todo: error: czy nulle i nullable tutaj jako≈õ obs≈Çugujemy? co gdy mamy string i kto≈õ wali null? albo object i null?
 
 			AST rankRoot = getFirstChild();
 			int dimensions = rankRoot.getNumberOfChildren();
@@ -100,15 +100,15 @@ namespace SpringExpressions
 				    var toArrayListMi = arrayExpressonType.GetMethod("ToArray");
 				    return LExpression.Call(arrayExpression, toArrayListMi);
 			    }
-				// TODO: to moøe byÊ teø ArrayList z Objectami... pÛki co tego nie obs≥ugujemy... chyba?
-			    // jeúli lista, to super prosto... bo ToArrayJest juø zrobione
+				// TODO: to mo≈ºe byƒá te≈º ArrayList z Objectami... p√≥ki co tego nie obs≈Çugujemy... chyba?
+			    // je≈õli lista, to super prosto... bo ToArrayJest ju≈º zrobione
 			    //var result = LExpression.NewArrayInit(arrayExpression.Type, arra)
 //					ArrayList values = (ArrayList)GetValue(((BaseNode)valuesRoot), context, evalContext);
 			    //				return values.ToArray(arrayType);
-			    return null;
+			    throw CannotCompile("no compiled form for this array construction");
 		    }
 
-		    return null;
+		    throw CannotCompile("no compiled form for this array construction");
 	    }
 
 		/// <summary>

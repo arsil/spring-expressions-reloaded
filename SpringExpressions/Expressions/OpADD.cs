@@ -1,7 +1,7 @@
-#region License
+ï»¿#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright Â© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,9 +63,6 @@ namespace SpringExpressions
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
-            if (leftExpression == null || rightExpression == null)
-                return null;
-
             if (BinaryNumericOperatorHelper.TryCreate(
                 leftExpression, rightExpression,
                 LExpression.Add, out var resultExpression))
@@ -104,8 +101,8 @@ namespace SpringExpressions
                     rightExpression);
             }
 
-            // todo: error: coœ robiæ dla objecta ??????? czy mo¿e œcie¿ka interpretacji?
-            // todo: moim zdaniem jak gdzieœ mamy objecta, to jest klêska i mamy w tupie tak¹ robotê!
+            // todo: error: coÅ› robiÄ‡ dla objecta ??????? czy moÅ¼e Å›cieÅ¼ka interpretacji?
+            // todo: moim zdaniem jak gdzieÅ› mamy objecta, to jest klÄ™ska i mamy w tupie takÄ… robotÄ™!
 
             /*
                 if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(object))
@@ -121,7 +118,7 @@ namespace SpringExpressions
                         LExpression.Throw(LExpression.Constant(new InvalidOperationException("Sraczka"))));
 
                     // todo: dupa blada, bo gdy dostaniemy np. object w right, to nic nie zrobimy
-                    // todo: aktualnie... tzn. musielibyœmy interpretowaæ wartoœci i próbowaæ je parsowaæ!!!
+                    // todo: aktualnie... tzn. musielibyÅ›my interpretowaÄ‡ wartoÅ›ci i prÃ³bowaÄ‡ je parsowaÄ‡!!!
                 }*/
 
 
@@ -143,11 +140,11 @@ namespace SpringExpressions
             }
             
                 // todo: error: wbudowane metody? - patrz date()
-                // todo: error: mo¿e jednak zrobiæ np. _set()
-                // todo: error: i np. _convert(coœtam).To(int))
-                // todo: error: i np. _cast(coœtam).To(int))
-                // todo: error: i np. _cast(coœtam).To(int))
-                // todo: error: mo¿e tylko sety? jednak?
+                // todo: error: moÅ¼e jednak zrobiÄ‡ np. _set()
+                // todo: error: i np. _convert(coÅ›tam).To(int))
+                // todo: error: i np. _cast(coÅ›tam).To(int))
+                // todo: error: i np. _cast(coÅ›tam).To(int))
+                // todo: error: moÅ¼e tylko sety? jednak?
 
             var leftIsGenericEnumerable = MethodBaseHelpers.IsGenericEnumerable(leftExpression.Type);
             var rightIsGenericEnumerable = MethodBaseHelpers.IsGenericEnumerable(rightExpression.Type);
@@ -170,7 +167,7 @@ namespace SpringExpressions
                 if (leftIsGenericDictionary && rightIsGenericDictionary)
                 {
                            // todo: error: implementation!
-                    return null;
+                    throw CannotCompile("no compiled addition for these operand types");
                 }
 
                 throw new ArgumentException(
@@ -189,7 +186,7 @@ namespace SpringExpressions
                 return LExpression.Call(_typelessUnionMi, leftExpression, rightExpression);
             }
 
-            return null;
+            throw CannotCompile("no compiled addition for these operand types");
         }
 
             // todo: error: return value! why ISet not IList<> ?

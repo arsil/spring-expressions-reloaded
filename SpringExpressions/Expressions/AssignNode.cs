@@ -1,7 +1,7 @@
-#region License
+Ôªø#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright ¬© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,12 +55,10 @@ namespace SpringExpressions
             AST right = left.getNextSibling();
 
             var rightExpression = GetExpressionTreeIfPossible((BaseNode)right, contextExpression, compilationContext);
-            if (rightExpression == null)
-                return null;
 
                
                  // todo: error: lambda - wykrywanie lambda
-                 // todo: erro: syfon jest jakiú...  bo context to chyba jest coú, do czego przypisujemy... nie? i to juø jest zewaluowane? -----------------------------------------------------------------
+                 // todo: erro: syfon jest jaki≈õ...  bo context to chyba jest co≈õ, do czego przypisujemy... nie? i to ju≈º jest zewaluowane? -----------------------------------------------------------------
             return GetExpressionTreeForSetterIfPossible(
                 (BaseNode)left, contextExpression, compilationContext, rightExpression);
         }

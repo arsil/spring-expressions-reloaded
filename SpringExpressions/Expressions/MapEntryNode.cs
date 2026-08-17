@@ -1,7 +1,7 @@
-#region License
+﻿#region License
 
 /*
- * Copyright � 2002-2011 the original author or authors.
+ * Copyright © 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,16 +53,13 @@ namespace SpringExpressions
         {
             var node = getFirstChild();
             if (node == null)
-                return null;
+                throw CannotCompile("no compiled form for this map entry");
 
             var key = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
 
-            if (key == null)
-                return null;
-
             node = node.getNextSibling();
             if (node == null)
-                return null;
+                throw CannotCompile("no compiled form for this map entry");
 
             var value = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
 

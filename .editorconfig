@@ -1,0 +1,12 @@
+root = true
+
+# Source files were originally saved in the Windows-1250 ANSI code page. Without a BOM the compiler
+# falls back to the machine's ANSI code page, so the same file decoded differently depending on who
+# built it. They are now UTF-8 with a BOM, which is unambiguous for the compiler and every editor.
+# Keep it that way: editing such a file as UTF-8 while it is stored as 1250 replaces every accented
+# character with U+FFFD, silently and irrecoverably.
+[*.{cs,vb,g,csproj,sln,props,targets}]
+charset = utf-8-bom
+
+[*.{md,txt,ps1}]
+charset = utf-8

@@ -1,7 +1,7 @@
-#region License
+ï»¿#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright Â© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ using System.Linq.Expressions;
 using System.Runtime.Serialization;
 using JetBrains.Annotations;
 using SpringExpressions.Expressions;
+using SpringExpressions.Expressions.Compiling.Expressions;
 using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
@@ -203,10 +204,10 @@ namespace SpringExpressions
         {
                      // todo: error: strongly typed context?????
 
-			     // todo: oczywiœcie ten lock jest z dupy...
+			     // todo: oczywiÅ›cie ten lock jest z dupy...
 //	        lock (this)
 	        {
-                // todo: error: _compiled jest prawdzie tylko, jeœli context siê nie zmieni³!
+                // todo: error: _compiled jest prawdzie tylko, jeÅ›li context siÄ™ nie zmieniÅ‚!
 
 		        if (_compiledExpression == null)
 		        {
@@ -215,8 +216,8 @@ namespace SpringExpressions
 					else
 						_lastEvaluationContext = new EvaluationContext(context, variables);
 
-					// todo: zapamiêtujemy zbudowane expression!
-					// todo: zapamiêtujemy funkcjê, która dostaje na ryja obecta! z contextem!
+					// todo: zapamiÄ™tujemy zbudowane expression!
+					// todo: zapamiÄ™tujemy funkcjÄ™, ktÃ³ra dostaje na ryja obecta! z contextem!
 					// todo: i go rzutuje!
 					LExpression getRootContextExpression;
 			        var ctxParam = LExpression.Parameter(typeof(object), "context");
@@ -246,15 +247,15 @@ namespace SpringExpressions
 				        = LExpression.Lambda<Func<object, EvaluationContext, object>>(exp, ctxParam, getEvalContextExpression);
 
 					// no i co dalej... jak 
-					// todo: co z lastEvaluationContext? mo¿e nie jest potrzebny? oto jest pytanie!
-					// todo: mo¿emy go tutaj przekazaæ... albo po prostu utworzyæ w œrodku... 
-					// todo: pytanie, czy mo¿emy do na rz¹danie utworzyæ? kurde... raczej nie...
+					// todo: co z lastEvaluationContext? moÅ¼e nie jest potrzebny? oto jest pytanie!
+					// todo: moÅ¼emy go tutaj przekazaÄ‡... albo po prostu utworzyÄ‡ w Å›rodku... 
+					// todo: pytanie, czy moÅ¼emy do na rzÄ…danie utworzyÄ‡? kurde... raczej nie...
 					_compiledExpression = lambda.Compile();
 		        }
 
 				return _compiledExpression(context, _lastEvaluationContext);
 
-     // todo: jeœli siê coœ wyjeba³o albo null, to oczywiœcie wychodzimy i jedziemy star¹, woln¹ œcie¿k¹....
+     // todo: jeÅ›li siÄ™ coÅ› wyjebaÅ‚o albo null, to oczywiÅ›cie wychodzimy i jedziemy starÄ…, wolnÄ… Å›cieÅ¼kÄ…....
 
 		        return Get(context, _lastEvaluationContext);
 			}
@@ -283,24 +284,24 @@ namespace SpringExpressions
         private object _compiledExpressionAsObject;
 
  // todo: error: Getter Settter typowany nie publiczny !
-        // todo: oczywiœcie bez sensu jest robiæ tyle GetXXXValue... totalnie bez sensu....
+        // todo: oczywiÅ›cie bez sensu jest robiÄ‡ tyle GetXXXValue... totalnie bez sensu....
         public TResult GetValue<TResult>(IDictionary<string, object> variables = null)
         {
             return GetValue<TResult, object>(null, variables);
         }
 
-           // todo: error: jeœli tojest w GetValue<> to przecie¿ ktoœ moze to wywo³aæ z nowymi typami
-           // todo: erorr: i ca³oœæ skompilowanego kodu pójdzie siê jebaæ!!! tej!
-           // todo: error: wiêc jak to robniæ? 
+           // todo: error: jeÅ›li tojest w GetValue<> to przecieÅ¼ ktoÅ› moze to wywoÅ‚aÄ‡ z nowymi typami
+           // todo: erorr: i caÅ‚oÅ›Ä‡ skompilowanego kodu pÃ³jdzie siÄ™ jebaÄ‡!!! tej!
+           // todo: error: wiÄ™c jak to robniÄ‡? 
 
-           // todo: error: jeœli wiêc nie ca³e expression bêdzie typowane, to lekka dupa, nie?
+           // todo: error: jeÅ›li wiÄ™c nie caÅ‚e expression bÄ™dzie typowane, to lekka dupa, nie?
 
         public TResult GetValue<TResult, TContext>(TContext context, IDictionary<string, object> variables)
 	    {
               //todo: typ dla kompiled object....
-  // todo: musimy zapaiêtaæ typy...
+  // todo: musimy zapaiÄ™taÄ‡ typy...
 
-    // todo: error: tutaj oczywiœcie jest problem, bo base-node nie jest w ogóle przygotowany na typowanie... st¹d problem!
+    // todo: error: tutaj oczywiÅ›cie jest problem, bo base-node nie jest w ogÃ³le przygotowany na typowanie... stÄ…d problem!
 		    if (_compiledExpressionAsObject == null)
 		    {
                 _compiledExpressionAsObject = Compiler.CompileGetter<TResult, TContext>(this);
@@ -398,43 +399,74 @@ namespace SpringExpressions
             node.Set(context, evalContext, newValue);
         }
 
+		[NotNull]
 		protected internal static LExpression GetExpressionTreeIfPossible(
             [NotNull] BaseNode node,
             [NotNull] LExpression contextExpression,
             [NotNull] CompilationContext compilationContext)
 		{
-			return node.GetExpressionTreeIfPossible(contextExpression, compilationContext);
+            var expression = node.GetExpressionTreeIfPossible(contextExpression, compilationContext);
+
+            // Single enforcement point for the non-null contract. A node returning null instead of
+            // throwing would otherwise be dereferenced by its caller and surface as a bare
+            // NullReferenceException naming neither the node nor the reason.
+            if (expression == null)
+                throw new CompileErrorException(node, "node produced no expression tree");
+
+            return expression;
 		}
 
            // todo: rename?
+        /// <summary>Builds the expression tree that reads this node's value.</summary>
+        /// <remarks>Never returns null: a node that cannot be compiled throws CompileErrorException.</remarks>
+        /// <exception cref="CompileErrorException">This node has no compiled implementation.</exception>
+		[NotNull]
 		protected virtual LExpression GetExpressionTreeIfPossible(
             [NotNull] LExpression contextExpression,
             [NotNull] CompilationContext compilationContext)
 	    {
-                      // todo: error; change exception to some compilation exception
-            throw new InvalidOperationException("GetExpressionTreeIfPossible not implemented for node: " + GetType().Name);
-
+            throw CannotCompile("no compiled implementation for this node type");
         }
 
+        /// <summary>Builds the expression tree that assigns to this node.</summary>
+        /// <remarks>Never returns null; see GetExpressionTreeIfPossible.</remarks>
+        /// <exception cref="CompileErrorException">This node cannot be assigned to in compiled form.</exception>
+        [NotNull]
         protected virtual LExpression GetExpressionTreeForSetterIfPossible(
             [NotNull] LExpression contextExpression,
             [NotNull] CompilationContext compilationContext,
             [NotNull] LExpression newValueExpression)
         {
-                   // todo: error; change exception to some compilation exception
-            throw new InvalidOperationException("GetExpressionTreeForSetterIfPossible not implemented for node: " + GetType().Name);
+            throw CannotCompile("no compiled assignment implementation for this node type");
         }
 
+        [NotNull]
         protected internal static LExpression GetExpressionTreeForSetterIfPossible(
             [NotNull] BaseNode node,
             [NotNull] LExpression contextExpression,
             [NotNull] CompilationContext compilationContext,
             [NotNull] LExpression newValueExpression)
         {
-            return node.GetExpressionTreeForSetterIfPossible(contextExpression, compilationContext, newValueExpression);
+            var expression = node.GetExpressionTreeForSetterIfPossible(
+                contextExpression, compilationContext, newValueExpression);
+
+            if (expression == null)
+                throw new CompileErrorException(node, "node produced no assignment expression tree");
+
+            return expression;
         }
 
-        // todo: funkcja, która na twarz dostaje kontext i go zwraca... taki dowcip...
+        /// <summary>
+        /// Builds the exception reporting that this node cannot be compiled, naming the node and the reason.
+        /// </summary>
+        /// <param name="reason">What prevented compilation, completing "cannot compile X: ...".</param>
+        [NotNull]
+        protected CompileErrorException CannotCompile([NotNull] string reason)
+        {
+            return new CompileErrorException(this, reason);
+        }
+
+        // todo: funkcja, ktÃ³ra na twarz dostaje kontext i go zwraca... taki dowcip...
         // todo: i jest dalej rootem do budowania!
     }
 }

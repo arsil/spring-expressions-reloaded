@@ -1,7 +1,7 @@
-#region License
+ï»¿#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright Â© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,7 +101,7 @@ namespace SpringExpressions
             LExpression contextExpression,
             CompilationContext compilationContext)
 	    {
-// todo: byæ mo¿e trzeba to lockowaæ!
+// todo: byÄ‡ moÅ¼e trzeba to lockowaÄ‡!
 			string methodName = getText();
 
 		    var instance = contextExpression;
@@ -123,8 +123,6 @@ namespace SpringExpressions
 				//else
 
 				var arg = GetExpressionTreeIfPossible((BaseNode) node, contextExpression, compilationContext);
-				if (arg == null)
-					return null;
 
 				arguments.Add(arg);
 				argumentsTypes.Add(arg.Type);
@@ -145,9 +143,9 @@ namespace SpringExpressions
                 var argumentTypesArray = argumentsTypes.ToArray();
 
 
-            // todo: obs³ugiwaæ inne typy?
+            // todo: obsÅ‚ugiwaÄ‡ inne typy?
 			// todo: statyczne metody! -------------- statyczne metody! -----------------------------------------------------------------------------------------------
-			   // todo: teoretycznie statyczne metody dzia³aj¹:)
+			   // todo: teoretycznie statyczne metody dziaÅ‚ajÄ…:)
 
 		    MethodInfo methodInfo = null;
 
@@ -178,12 +176,12 @@ namespace SpringExpressions
 
               // todo: error:
 			   // todo: statyczne metody! tej!
-			   // todO: teoretycznie dzia³aj¹... 
+			   // todO: teoretycznie dziaÅ‚ajÄ…... 
             // todo: error:
-			// todo: to co nie dzia³a, to null-owe parametry (np. ToString('dummy', null))...
+			// todo: to co nie dziaÅ‚a, to null-owe parametry (np. ToString('dummy', null))...
 			// todo: bo null jest u nas zawsze typu Object, a metoda oczekuje np. IFormatProvider!
-			// todo: musielibyœmy typy weryfikowaæ i null-e zawsze castowaæ na poprawny typ!
-			// todo: czyli wyszukiwaæ metod po liczbie paramametrów i odpowiednio odsiewaæ po
+			// todo: musielibyÅ›my typy weryfikowaÄ‡ i null-e zawsze castowaÄ‡ na poprawny typ!
+			// todo: czyli wyszukiwaÄ‡ metod po liczbie paramametrÃ³w i odpowiednio odsiewaÄ‡ po
 			// todo: znanych typach argumentow (nie-nullowych)!
 
 		    if (methodInfo == null)
@@ -235,7 +233,7 @@ namespace SpringExpressions
 
                         /*
                             throw new NotImplementedException(
-                                $"Wybór metody {methodName} z listy kurwa maæ! Overloads:{overloadsMi.Count}");
+                                $"WybÃ³r metody {methodName} z listy kurwa maÄ‡! Overloads:{overloadsMi.Count}");
                         */
 
  //                        mi = ReflectionUtils.GetMethodByArgumentValues(overloads, argValues);
@@ -310,7 +308,7 @@ namespace SpringExpressions
 
             Type processorType = null;
 
-                    // todo: error: ka¿dy procesor musi mieæ wszystkie metody!!! to jest s³abe!!!
+                    // todo: error: kaÅ¼dy procesor musi mieÄ‡ wszystkie metody!!! to jest sÅ‚abe!!!
             //if (instance.Type.IsGenericType)
 
             if (MethodBaseHelpers.IsGenericEnumerable(instance.Type, out Type itemType))

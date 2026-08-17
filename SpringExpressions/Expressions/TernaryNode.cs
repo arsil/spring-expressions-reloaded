@@ -1,7 +1,7 @@
-#region License
+﻿#region License
 
 /*
- * Copyright � 2002-2011 the original author or authors.
+ * Copyright © 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -94,18 +94,12 @@ namespace SpringExpressions
         {
             AST node = getFirstChild();
             var conditionExpression = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
-            if (conditionExpression == null)
-                return null;
 
 			node = node.getNextSibling();
             var trueExpression = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
-            if (trueExpression == null)
-                return null;
 
             node = node.getNextSibling();
             var falseExpression = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
-            if (falseExpression == null)
-                return null;
 
             return LExpression.Condition(conditionExpression, trueExpression, falseExpression);
         }

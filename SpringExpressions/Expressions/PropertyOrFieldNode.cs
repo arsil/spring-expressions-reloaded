@@ -1,7 +1,7 @@
-#region License
+ï»¿#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright Â© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -261,11 +261,11 @@ namespace SpringExpressions
             LExpression contextExpression,
             CompilationContext compilationContext)
         {
-            // TODO: error: odczyt const-ów! jak to zrobiæ! bo nie chc¹ siê emitowaæ! kurwa! co za gówno!
+            // TODO: error: odczyt const-Ã³w! jak to zrobiÄ‡! bo nie chcÄ… siÄ™ emitowaÄ‡! kurwa! co za gÃ³wno!
 
 
             // TODO: error:  czy lock jest potrzebny? tutaj? chyba nie?
-            // TODO: error:  czy czasami nie bêdzie tak, ¿e kompilacja ZAWSZE bêdzie w locku???
+            // TODO: error:  czy czasami nie bÄ™dzie tak, Å¼e kompilacja ZAWSZE bÄ™dzie w locku???
             lock (this)
             {
                 IValueAccessor acc = null;
@@ -369,7 +369,7 @@ namespace SpringExpressions
                     }
                 }
 
-                return null;
+                throw CannotCompile("no property or field of this name on the context type");
             }
         }
 
@@ -448,7 +448,7 @@ namespace SpringExpressions
                         newValueExpression);
                 }
 
-                return null;
+                throw CannotCompile("no property or field of this name on the context type");
             }
         }
 

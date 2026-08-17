@@ -1,7 +1,7 @@
-#region License
+ï»¿#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright Â© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,8 +76,8 @@ namespace SpringExpressions
                 var ctxParam = LExpression.Parameter(itemType, "item");
                 var getRootContextExpression = LExpression.Convert(ctxParam, itemType);
 
-                //  todo: error: contextExpression musi byæ typu item!!!!
-                //  todo: error: wtedy to mo¿e ma jakiœ sens!!!
+                //  todo: error: contextExpression musi byÄ‡ typu item!!!!
+                //  todo: error: wtedy to moÅ¼e ma jakiÅ› sens!!!
 
                 // todo: this? root!
                 var projectionExpression = GetExpressionTreeIfPossible(
@@ -123,7 +123,7 @@ namespace SpringExpressions
                     null
                 );
 
-                       // todo: error: jak to ogarn¹æ! tej! kurwa! mo¿e jakiegoœ helpera trzeba dopisaæ!!!----
+                       // todo: error: jak to ogarnÄ…Ä‡! tej! kurwa! moÅ¼e jakiegoÅ› helpera trzeba dopisaÄ‡!!!----
                        // tood: error: ewentualnie co?
                 var arguments = new List<LExpression>();
 
@@ -136,7 +136,7 @@ namespace SpringExpressions
                 //expression.GetValue<>()
             }
 
-            return null;
+            throw CannotCompile("no compiled projection for this source type");
         }
 
            // todo: error: public

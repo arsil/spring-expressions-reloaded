@@ -1,7 +1,7 @@
-#region License
+﻿#region License
 
 /*
- * Copyright � 2002-2011 the original author or authors.
+ * Copyright © 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,8 +90,6 @@ namespace SpringExpressions
                 //else
 
                 var arg = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
-                if (arg == null)
-                    return null;
 
                 arguments.Add(arg);
                 argumentsTypes.Add(arg.Type);
@@ -101,7 +99,7 @@ namespace SpringExpressions
 
             Type objectType = GetObjectType(getText().Trim());
             if (objectType == null)
-                return null;
+                throw CannotCompile("no compiled constructor matching these arguments");
 
             var constructorInfo = objectType.GetConstructor(
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
@@ -110,7 +108,7 @@ namespace SpringExpressions
                 null);
 
             if (constructorInfo == null)
-                return null;
+                throw CannotCompile("no compiled constructor matching these arguments");
 
             return LExpression.New(constructorInfo, arguments);
         }

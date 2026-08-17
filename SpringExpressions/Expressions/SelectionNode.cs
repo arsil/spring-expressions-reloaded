@@ -1,7 +1,7 @@
-#region License
+﻿#region License
 
 /*
- * Copyright � 2002-2011 the original author or authors.
+ * Copyright © 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ namespace SpringExpressions
             if (!collectionIsGenericType && !collectionIsArray)
             {
                          // todo: error: exception!!!!
-                return null;
+                throw CannotCompile("no compiled selection for this source type");
             }
 
             var itemType = collectionIsGenericType
@@ -80,7 +80,7 @@ namespace SpringExpressions
 
             BaseNode minIndexExpression = (BaseNode)expressionNode.getNextSibling();
             if (minIndexExpression != null)
-                return null;
+                throw CannotCompile("no compiled selection for this source type");
 
             // selector
             var ctxParam = LExpression.Parameter(itemType, "item");
@@ -92,7 +92,7 @@ namespace SpringExpressions
                 compilationContext.CreateWithNewThisContext(getRootContextExpression));
 
             if (selectionExpression.Type != typeof(bool))
-                return null;
+                throw CannotCompile("no compiled selection for this source type");
 
             var finalSelectionMi = _selectionMi.MakeGenericMethod(itemType);
             var funcType = LExpression.GetFuncType(itemType, typeof(bool));

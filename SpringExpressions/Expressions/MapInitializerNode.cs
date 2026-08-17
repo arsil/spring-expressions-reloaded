@@ -1,7 +1,7 @@
-#region License
+ï»¿#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright Â© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ namespace SpringExpressions
 
                  var dupa = item.Type.GetGenericTypeDefinition();
                  if (dupa != typeof(KeyValuePair<,>))
-                     return null;
+                     throw CannotCompile("no compiled form for this map initializer");
 
                  if (commonType == null)
                      commonType = item.Type;
@@ -75,7 +75,7 @@ namespace SpringExpressions
              }
 
              if (commonType == null)
-                 return null;
+                 throw CannotCompile("no compiled form for this map initializer");
 
              if (commonType != typeof(KeyValuePair<object, object>))
              {
@@ -107,7 +107,7 @@ namespace SpringExpressions
                      LExpression.NewArrayInit(typeof(DictionaryEntry), dictionaryEntries));
              }
 
-            return null;
+            throw CannotCompile("no compiled form for this map initializer");
          }
 
          /// <summary>
@@ -118,7 +118,7 @@ namespace SpringExpressions
          /// <returns>Node's value.</returns>
         protected override object Get(object context, EvaluationContext evalContext)
         {
-            // todo: error: uspójniæ z kodem kompilatora - szczególnie typy!!!!!
+            // todo: error: uspÃ³jniÄ‡ z kodem kompilatora - szczegÃ³lnie typy!!!!!
             IDictionary entries = new Hashtable();
             AST entryNode = this.getFirstChild();
             while (entryNode != null)
@@ -131,7 +131,7 @@ namespace SpringExpressions
             return entries;
         }
 
-           // todo: koniecznie to zrobiæ w jakimœ helperze!!!
+           // todo: koniecznie to zrobiÄ‡ w jakimÅ› helperze!!!
          public static Dictionary<T, K> CreateStronglyTypedDictionary<T, K>(
             IEnumerable<KeyValuePair<T, K>> values)
          {
@@ -156,7 +156,7 @@ namespace SpringExpressions
          }
 
 /*
-         // jak to skonwertowaæ... ¿eby utworzyæ dibionary>?... fuck!! dla drama!!!!
+         // jak to skonwertowaÄ‡... Å¼eby utworzyÄ‡ dibionary>?... fuck!! dla drama!!!!
          private static IDictionary CreateWeaklyTypedDictionary(IEnumerable<KeyValuePair<,> dupa>)
          {
          }*/

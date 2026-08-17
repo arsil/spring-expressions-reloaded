@@ -1,7 +1,7 @@
-#region License
+ï»¿#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright Â© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,8 +64,8 @@ namespace SpringExpressions
                           // todo: error handling! null!
                 var methodInfo = rightExpression.Type.GetMethod("get_Item");
 
-                    // todo: error! to dzia³a tyko dla numerycznych! nie zadzia³a dla innych....
-                    // todo: error! i te¿ musz¹ mieæ ten sam typ!!! jak nie maj¹, do te¿ nie dzia³a... bo nie robi siê List tylko ArrayList
+                    // todo: error! to dziaÅ‚a tyko dla numerycznych! nie zadziaÅ‚a dla innych....
+                    // todo: error! i teÅ¼ muszÄ… mieÄ‡ ten sam typ!!! jak nie majÄ…, do teÅ¼ nie dziaÅ‚a... bo nie robi siÄ™ List tylko ArrayList
                 ComparisonHelper.CreateCompare(
                     leftExpression,
                     LExpression.Call(rightExpression, methodInfo, LExpression.Constant(0, typeof(int))),
@@ -80,7 +80,7 @@ namespace SpringExpressions
 
                 // todo: exception!!!!!!!!!!!
                 if (lessThanOrEqualExpression == null | greaterThanOrEqualExpression == null)
-                    return null;
+                    throw CannotCompile("no compiled 'between' test for these operand types");
 
                 return LExpression.And(
                     greaterThanOrEqualExpression,

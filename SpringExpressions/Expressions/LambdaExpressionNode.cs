@@ -1,7 +1,7 @@
-#region License
+ï»¿#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright Â© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -135,7 +135,7 @@ namespace SpringExpressions
             {
                 // todo: error: to jest prawdziwe tylko dla kolekcji! -----
                 if (!MethodBaseHelpers.IsGenericEnumerable(contextExpression.Type, out var itemType))
-                    return null;
+                    throw CannotCompile("no compiled form for this lambda expression");
 
                 var blockNodes = new List<LExpression>();
                 var parameterExpressions = new List<ParameterExpression>();
@@ -165,7 +165,7 @@ namespace SpringExpressions
 //                    var variableExpression = LExpression.Variable(itemType, argName);
   //                  blockNodes.Add(LExpression.Assign(variableExpression, paramExpression));
 
-                    // todo: to s¹ parametry! tej! w body nowym!!!
+                    // todo: to sÄ… parametry! tej! w body nowym!!!
                     //compilationContext.AddParameter()
                     newCompilationContext.AddLocalVariable(variableName, paramExpression);
                     //newCompilationContext.AddLocalVariable(argName, variableExpression);
@@ -178,9 +178,6 @@ namespace SpringExpressions
 
                          // todo: error: context expression??? const z null expression? object?
                 var bodyExpr = GetExpressionTreeIfPossible(bodyExpressionNode, null, newCompilationContext);
-
-                if (bodyExpr == null)
-                    return null;
 
                 blockNodes.Add(bodyExpr);
 
@@ -206,11 +203,11 @@ Thread.CurrentThread.CurrentUICulture = CultureInfo.InvariantCulture;
                 // Call: .Compile()
                 var compiledFunction = compileMi.Invoke(functionExpr, new object[0]);
 
-                     // todo: error: czy na pewno to coœ powinno zwraca? czy mo¿e NIE! czy mo¿e inna metoda nie GetExpressionTreeIfPossible
+                     // todo: error: czy na pewno to coÅ› powinno zwraca? czy moÅ¼e NIE! czy moÅ¼e inna metoda nie GetExpressionTreeIfPossible
                 return LExpression.Constant(compiledFunction);
             }
 
-            return null;
+            throw CannotCompile("no compiled form for this lambda expression");
         }
 
         private readonly MethodInfo _lambdaMi = typeof(LExpression).GetMethods().FirstOrDefault(

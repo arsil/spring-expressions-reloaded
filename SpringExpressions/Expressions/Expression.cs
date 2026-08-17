@@ -1,7 +1,7 @@
-#region License
+﻿#region License
 
 /*
- * Copyright � 2002-2011 the original author or authors.
+ * Copyright © 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -174,7 +174,7 @@ namespace SpringExpressions
                 return new Expression();
             }
         }
-            // todo: error: a mo�� ParseAndCompile()
+            // todo: error: a możę ParseAndCompile()
             // todo: error: compile options!
         public static IGetterExpression<TRoot, TResult> ParseGetter<TRoot, TResult>(
             string expression, 
@@ -385,8 +385,6 @@ namespace SpringExpressions
             if (!node.IsNullConditional)
             {
                 var appliedNode = GetExpressionTreeIfPossible(node, contextExpression, compilationContext);
-                if (appliedNode == null)
-                    return null;
 
                 return BuildChainExpression(nextNode, appliedNode, compilationContext);
             }
@@ -399,8 +397,6 @@ namespace SpringExpressions
             if (contextType.IsValueType && underlyingType == null)
             {
                 var appliedNode = GetExpressionTreeIfPossible(node, contextExpression, compilationContext);
-                if (appliedNode == null)
-                    return null;
 
                 return BuildChainExpression(nextNode, appliedNode, compilationContext);
             }
@@ -428,12 +424,8 @@ namespace SpringExpressions
             }
 
             var applied = GetExpressionTreeIfPossible(node, nonNullContext, compilationContext);
-            if (applied == null)
-                return null;
 
             var restOfChain = BuildChainExpression(nextNode, applied, compilationContext);
-            if (restOfChain == null)
-                return null;
 
             // A chain ending in a void call produces no value, so there is nothing to return from either
             // branch and Condition would demand two matching non-void branches. Guard the call instead.
@@ -506,8 +498,6 @@ namespace SpringExpressions
                     try
                     {
                         target = GetExpressionTreeIfPossible(((BaseNode)node), target, compilationContext);
-                        if (target == null)
-                            return null;
 
                         node = node.getNextSibling();
                     }

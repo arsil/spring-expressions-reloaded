@@ -1,7 +1,7 @@
-#region License
+ï»¿#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright Â© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ namespace SpringExpressions
 
             while (node != null)
             {
-// todo: te checki ci¹gle siê powtarzaj¹... czy coœ z tym zrobiæ? ------------------------------------------------------------
+// todo: te checki ciÄ…gle siÄ™ powtarzajÄ…... czy coÅ› z tym zrobiÄ‡? ------------------------------------------------------------
                 //if (node.getFirstChild() is LambdaExpressionNode)
                 //{
                 //	argList.Add((BaseNode)node.getFirstChild());
@@ -75,8 +75,6 @@ namespace SpringExpressions
                 //else
 
                 var arg = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
-                if (arg == null)
-                    return null;
 
                 arguments.Add(arg);
 
@@ -88,10 +86,10 @@ namespace SpringExpressions
                 }
                 else if (arg.Type != commonType)
                 {
-                    // todo: error: nullable? - to musi nullable nawalaæ!
+                    // todo: error: nullable? - to musi nullable nawalaÄ‡!
 
-                    // todo: error: gdzieœ jeszcze zbieramy commonType!
-                    // todo: error: to nie dzia³a dobrze? shit!
+                    // todo: error: gdzieÅ› jeszcze zbieramy commonType!
+                    // todo: error: to nie dziaÅ‚a dobrze? shit!
                     var nullForReferenceTypeList
                         = !commonType.IsValueType
                         && arg is ConstantExpression constExpression
@@ -163,7 +161,7 @@ namespace SpringExpressions
         {
             object[] values = ResolveArguments(evalContext);
 
-               // todo: error: uspójniæ z kodem kompilatora - szczególnie typy!!!!!
+               // todo: error: uspÃ³jniÄ‡ z kodem kompilatora - szczegÃ³lnie typy!!!!!
             return new ArrayList(values);
         }
     }

@@ -1,7 +1,7 @@
-#region License
+ï»¿#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright Â© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,10 +68,10 @@ namespace SpringExpressions
             if (TryGetArguments(contextExpression, compilationContext, 
                     out var arguments, out var argumentsTypes))
             {
-                return null;
+                throw CannotCompile("no compiled indexer for this container and index type");
             }
 
-               // TODO: error: mo¿e pobranie arraya? tylko trzeba przetestowaæ, czy nie stracimy typu!.. .bo jak przez object, to syf!
+               // TODO: error: moÅ¼e pobranie arraya? tylko trzeba przetestowaÄ‡, czy nie stracimy typu!.. .bo jak przez object, to syf!
 	        if (contextExpression.Type.IsArray)
 	        {
 		        return LExpression.ArrayIndex(
@@ -91,7 +91,7 @@ namespace SpringExpressions
                     null);
 
             if (methodInfo == null)
-                return null;
+                throw CannotCompile("no compiled indexer for this container and index type");
 
             return LExpression.Call(contextExpression, methodInfo, arguments);
         }
@@ -104,10 +104,10 @@ namespace SpringExpressions
             if (TryGetArguments(contextExpression, compilationContext,
                     out var arguments, out var argumentsTypes))
             {
-                return null;
+                throw CannotCompile("no compiled indexer for this container and index type");
             }
 
-                // TODO: error: ??? nie rozumiem komentarza:) mo¿e pobranie arraya? tylko trzeba przetestowaæ, czy nie stracimy typu!.. .bo jak przez object, to syf!
+                // TODO: error: ??? nie rozumiem komentarza:) moÅ¼e pobranie arraya? tylko trzeba przetestowaÄ‡, czy nie stracimy typu!.. .bo jak przez object, to syf!
             if (contextExpression.Type.IsArray)
             {
                 return LExpression.Assign(
@@ -131,7 +131,7 @@ namespace SpringExpressions
                     null);
 
             if (methodInfo == null)
-                return null;
+                throw CannotCompile("no compiled indexer for this container and index type");
 
             return LExpression.Call(contextExpression, methodInfo, arguments);
 

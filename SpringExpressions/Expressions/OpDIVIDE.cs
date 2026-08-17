@@ -1,7 +1,7 @@
-#region License
+﻿#region License
 
 /*
- * Copyright � 2002-2011 the original author or authors.
+ * Copyright © 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,9 +57,6 @@ namespace SpringExpressions
             var leftExpr = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpr = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
-            if (leftExpr == null || rightExpr == null)
-                return null;
-
             if (BinaryNumericOperatorHelper.TryCreate(
                     leftExpr,
                     rightExpr,
@@ -69,7 +66,7 @@ namespace SpringExpressions
                 return resultExpression;
             }
 
-            return null;
+            throw CannotCompile("no compiled division for these operand types");
         }
 
 

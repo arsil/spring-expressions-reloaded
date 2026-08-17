@@ -1,7 +1,7 @@
-#region License
+﻿#region License
 
 /*
- * Copyright � 2002-2011 the original author or authors.
+ * Copyright © 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,9 +56,6 @@ namespace SpringExpressions
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
-            if (leftExpression == null || rightExpression == null)
-                return null;
-
             if (ComparisonHelper.CreateCompare(
                 leftExpression,
                 rightExpression,
@@ -68,7 +65,7 @@ namespace SpringExpressions
                 return result;
             }
 
-            return null;
+            throw CannotCompile("no compiled comparison for these operand types");
         }
 
         /// <summary>

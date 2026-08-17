@@ -1,7 +1,7 @@
-#region License
+﻿#region License
 
 /*
- * Copyright � 2002-2011 the original author or authors.
+ * Copyright © 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ namespace SpringExpressions
                 // todo: error: double or decimal!!!!!
 			// For Char, DBNull, Object, Empty, DateTime and String
 			if (leftTypeCode < 3 || leftTypeCode > 15 || leftTypeCode == 4)
-				return null;
+				throw CannotCompile("no compiled complement for this operand type");
 
             if (leftTypeCode == 3)
             {

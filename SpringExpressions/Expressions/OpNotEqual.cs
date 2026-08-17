@@ -1,7 +1,7 @@
-#region License
+ï»¿#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright Â© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,9 +57,6 @@ namespace SpringExpressions
 			var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
 			var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
-			if (leftExpression == null || rightExpression == null)
-				return null;
-
             return EqualityHelper.CreateNotEqualExpression(leftExpression, rightExpression);
 
             /*
@@ -69,15 +66,15 @@ namespace SpringExpressions
 			if (leftExpression.Type == typeof(string) || rightExpression.Type == typeof(string))
 				return LExpression.NotEqual(leftExpression, rightExpression);
 
-                // todo: error: equals robi tonê innych rzeczy!
-                // todo: error: zwin¹æ do do compare utils!!!! ???? jak siê to ma do Equal???
+                // todo: error: equals robi tonÄ™ innych rzeczy!
+                // todo: error: zwinÄ…Ä‡ do do compare utils!!!! ???? jak siÄ™ to ma do Equal???
 
 
-            // TODO: porównanie z nulle-em, czyli objectem! jak to zrobiæ!
-            // TODO: bo... bo trzeba pewnie equals odpaliæ! pytanie tylko na czym!
-            // TODO: tutaj null-a nie rozpoznamy! bo nie mamy wartoœci! tej!
+            // TODO: porÃ³wnanie z nulle-em, czyli objectem! jak to zrobiÄ‡!
+            // TODO: bo... bo trzeba pewnie equals odpaliÄ‡! pytanie tylko na czym!
+            // TODO: tutaj null-a nie rozpoznamy! bo nie mamy wartoÅ›ci! tej!
 
-            //TODO: brak obs³ugi np. stringów... czy charów... czy innych takich! to samo przy Less i innych operatorach!
+            //TODO: brak obsÅ‚ugi np. stringÃ³w... czy charÃ³w... czy innych takich! to samo przy Less i innych operatorach!
 
             // numeric comparision - we do not support other types
             if (BinaryNumericOperatorHelper.Create(

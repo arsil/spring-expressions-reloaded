@@ -1,4 +1,4 @@
-#region License
+﻿#region License
 
 /*
  * Copyright 2002-2010 the original author or authors.
@@ -63,9 +63,6 @@ namespace SpringExpressions
         {
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
-
-            if (leftExpression == null || rightExpression == null)
-                return null;
 
             return BitwiseOrLogicalOperatorHelper.CreateXorExpression(
                 leftExpression,
