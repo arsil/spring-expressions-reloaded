@@ -1,7 +1,7 @@
-#region License
+ï»¿#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright Â© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,7 +101,7 @@ namespace SpringExpressions
         {
 			// todo: locki?
 			// todo: dupa blada... blada... blada...
-			// todo: czy czasami to cudo nie bêdzie chyba odpalane dok³adnie raz? albo czy nie powinno byæ odpalane dok³adnie raz?
+			// todo: czy czasami to cudo nie bÄ™dzie chyba odpalane dokÅ‚adnie raz? albo czy nie powinno byÄ‡ odpalane dokÅ‚adnie raz?
 
 			if (constantExpression == null)
             {

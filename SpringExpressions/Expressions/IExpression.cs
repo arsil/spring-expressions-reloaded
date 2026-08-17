@@ -1,7 +1,7 @@
-#region License
+ï»¿#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright Â© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,15 +69,15 @@ namespace SpringExpressions
         void SetValue(object context, IDictionary<string, object> variables, object newValue);
     }
 
-           // todo: error: zmieniæ mo¿e nazwy IGetterExpression
+           // todo: error: zmieniÄ‡ moÅ¼e nazwy IGetterExpression
 
-          // todo: error: problem jest taki, ¿e trzeba by ka¿d¹ klasê zrobiæ generyczn¹! tej!
-          // todo: error: a to jest chujnia z grzybni¹!
+          // todo: error: problem jest taki, Å¼e trzeba by kaÅ¼dÄ… klasÄ™ zrobiÄ‡ generycznÄ…! tej!
+          // todo: error: a to jest chujnia z grzybniÄ…!
     public interface IStronglyTypedExpression
     { }
 
-           // todo: error: czy na pewno? - czy mo¿e osobny interface dla Get Set Execute
-          // todo: serio? jak siê mamy dowiedzieæ, czy jest kompilowalne
+           // todo: error: czy na pewno? - czy moÅ¼e osobny interface dla Get Set Execute
+          // todo: serio? jak siÄ™ mamy dowiedzieÄ‡, czy jest kompilowalne
     public interface IGetterExpression<in TRoot, out TResult> : IStronglyTypedExpression
     {
         TResult GetValue(TRoot context, IDictionary<string, object> variables = null);
@@ -109,7 +109,7 @@ namespace SpringExpressions
     }
 
         // todo: error: SwitchOnCompileFailure SwitchOnExecutionFailure?
-       // todO: error: czy mo¿e rozbiæ jakoœ te opcje???
+       // todO: error: czy moÅ¼e rozbiÄ‡ jakoÅ› te opcje???
     [Flags]
     public enum CompileOptions
     {

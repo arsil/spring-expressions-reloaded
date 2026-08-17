@@ -1,7 +1,7 @@
-#region License
+ï»¿#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright Â© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -99,7 +99,7 @@ namespace SpringExpressions
         public override void GetObjectData( SerializationInfo info, StreamingContext context )
         {
             // since RecognitionException does not implement .ctor(SerializationInfo info, StreamingContext context)
-            // we need to do the serialization on our own... #§$%
+            // we need to do the serialization on our own... #Â§$%
             //base.GetObjectData( info, context );
             info.AddValue("Line", base.line);
             info.AddValue("Column", base.column);

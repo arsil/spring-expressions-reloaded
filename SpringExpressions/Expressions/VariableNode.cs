@@ -1,7 +1,7 @@
-#region License
+ï»¿#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright Â© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,9 +50,9 @@ namespace SpringExpressions
         }
         
 
-        // todo: bieda polega na tym, i¿ tracimy tutaj informacje o zwracanym typie...
+        // todo: bieda polega na tym, iÅ¼ tracimy tutaj informacje o zwracanym typie...
         // todo: na etapie kompilacji nie mamy nawet tego typu! i to jest super smutne!
-        // todo: byæ mo¿e nie ma sensu tego przerabiaæ na kompilowane wyra¿enie...
+        // todo: byÄ‡ moÅ¼e nie ma sensu tego przerabiaÄ‡ na kompilowane wyraÅ¼enie...
 
         // todo: nie mamy tutaj w evalContext ani Root ani ThisContext ani Variables!
 /* - bieda */
@@ -61,13 +61,13 @@ namespace SpringExpressions
             CompilationContext compilationContext)
         {
             // todo: bieda... bo stracimy typ... kurwa... co za bieda... ale dowcip... kurwa.. .bieda. totalna!
-            // todo: i po co myœmy to robili... 
+            // todo: i po co myÅ›my to robili... 
             string varName = getText();
 
             // #this
             if (varName == "this")
             {
-                // todo: error: to musi byæ strongly typed! shit!!!! a nie jest... co jest super s³abe!!!
+                // todo: error: to musi byÄ‡ strongly typed! shit!!!! a nie jest... co jest super sÅ‚abe!!!
                 // zwraca object
                 //return LExpression.Field(compilationContext.EvalContext, "ThisContext");
                 return compilationContext.ThisExpression;
@@ -76,17 +76,17 @@ namespace SpringExpressions
             // #root
             if (varName == "root")
             {
-                /* todo: error: to popsu³o test:
+                /* todo: error: to popsuÅ‚o test:
         Assert.IsInstanceOf(typeof (Int32?), ExpressionEvaluator.GetValue(test, "#root"));
         Assert.IsTrue((bool) ExpressionEvaluator.GetValue(test, "#root != null"));
 
                 // the binaty Equal is nod dfined fo rtye types int32 and object
 
-                // nie dzia³¹ not equal
-                // ale dzia³a equal
+                // nie dziaÅ‚Ä… not equal
+                // ale dziaÅ‚a equal
                  */
 
-                  // todo: error; czy to siê jakoœ zmienia? root? oto jest pyhtanie!---------------------------------- teraz zak³adamy, ¿e siê nie zmienia.... 
+                  // todo: error; czy to siÄ™ jakoÅ› zmienia? root? oto jest pyhtanie!---------------------------------- teraz zakÅ‚adamy, Å¼e siÄ™ nie zmienia.... 
                 return compilationContext.RootContextExpression;
 
                 //return LExpression.Field(evalContext, "RootContext");

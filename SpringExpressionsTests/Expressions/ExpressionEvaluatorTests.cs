@@ -1,7 +1,7 @@
-#region License
+ï»¿#region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright Â© 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -853,7 +853,7 @@ namespace SpringExpressions
         [Test]
         public void TestTypeNodeIllegalType()
         {
-               // todo: error: patrz ni¿ej! jak to zabezpieczyæ!
+               // todo: error: patrz niÅ¼ej! jak to zabezpieczyÄ‡!
                // TypeRegisetry.GetSecurityController().SetStrinctTypeREsolution()
 
             TypeRegistry.RegisterType("System.Environment", typeof(int));
@@ -869,19 +869,19 @@ namespace SpringExpressions
         [Test]
         public void TestDangerousInvocation()
         {
-            // todo: error: to siê nie powinno udaæ - dziura w System.Diagnostics... nale¿y do wszystgko
-            // todo: error: zabezpieczyæ!!! tej! u¿ywany jest TypeResolutionUtils... wiêc tutaj mo¿na
-            // todo: error: jebn¹æ niedozwolony typ i tyle!!!
+            // todo: error: to siÄ™ nie powinno udaÄ‡ - dziura w System.Diagnostics... naleÅ¼y do wszystgko
+            // todo: error: zabezpieczyÄ‡!!! tej! uÅ¼ywany jest TypeResolutionUtils... wiÄ™c tutaj moÅ¼na
+            // todo: error: jebnÄ…Ä‡ niedozwolony typ i tyle!!!
 
-                // todo: error: mo¿na nawet zrobiæ jakiœ using! albo w³¹czyæ na sta³e!
+                // todo: error: moÅ¼na nawet zrobiÄ‡ jakiÅ› using! albo wÅ‚Ä…czyÄ‡ na staÅ‚e!
                 /*
                  * using (new OnlyBasicTypesSpringSecurityGuard())
                  * {
-                 *       ewaluacja  -- tylko to chyba by wymaga³o zajebistej obs³ugi per w¹tek i globalnej te¿ (w jakiœ opcjach!)
+                 *       ewaluacja  -- tylko to chyba by wymagaÅ‚o zajebistej obsÅ‚ugi per wÄ…tek i globalnej teÅ¼ (w jakiÅ› opcjach!)
                  * }
                  */
 
-                // achtung TypeResolutionUtils te¿ jest u¿ywany prze New do pobrania typu! bua ha ha!
+                // achtung TypeResolutionUtils teÅ¼ jest uÅ¼ywany prze New do pobrania typu! bua ha ha!
             Assert.AreEqual(typeof(int?[,]),
                 ExpressionEvaluator.GetValue(null, "new System.Diagnostics.Process()"));
         }
