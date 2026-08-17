@@ -7,27 +7,27 @@ namespace SpringExpressions
 {
     public class CompilationContext
     {
-        public CompilationContext(LExpression rootContextExpression, LExpression evalContext)
+        public CompilationContext(LExpression rootContextExpression, LExpression variablesExpression)
         {
             RootContextExpression = rootContextExpression;
             ThisExpression = rootContextExpression;
-            EvalContext = evalContext;
+            VariablesExpression = variablesExpression;
         }
 
         public CompilationContext CreateWithNewThisContext(LExpression thisExpression)
         {
-            return new CompilationContext(RootContextExpression, thisExpression, EvalContext);
+            return new CompilationContext(RootContextExpression, thisExpression, VariablesExpression);
         }
         // todo: error: context expression != RootExpression    !!!!  !!!!! !!!!
 
         private CompilationContext(
-            LExpression rootContextExpression, 
-            LExpression thisExpression, 
-            LExpression evalContext)
+            LExpression rootContextExpression,
+            LExpression thisExpression,
+            LExpression variablesExpression)
         {
             RootContextExpression = rootContextExpression;
             ThisExpression = thisExpression;
-            EvalContext = evalContext;
+            VariablesExpression = variablesExpression;
         }
 
         public void AddLocalVariable(string variableName, ParameterExpression variableExpression)
@@ -52,7 +52,15 @@ namespace SpringExpressions
 
         public LExpression RootContextExpression { get; private set; }
         public LExpression ThisExpression { get; private set; }
-        public LExpression EvalContext { get; private set; }
+
+        /// <summary>
+        /// The caller-supplied variables dictionary, as a parameter of the compiled delegate.
+        /// Only <see cref="VariableNode"/> reads it: #root and #this resolve to
+        /// <see cref="RootContextExpression"/> / <see cref="ThisExpression"/> and $locals to
+        /// <see cref="ParameterExpression"/>s, all at compile time. Compiled code therefore needs
+        /// no <c>EvaluationContext</c> - that object exists for the interpreter, which mutates it.
+        /// </summary>
+        public LExpression VariablesExpression { get; private set; }
 
         public Dictionary<string, ParameterExpression> _localVariables;
     }

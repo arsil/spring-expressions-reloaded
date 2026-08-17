@@ -20,25 +20,24 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         protected void ExecuteInternal(
             TRoot context, IDictionary<string, object> variables)
         {
-            if (_lastEvaluationContext != null)
-                _lastEvaluationContext.Reuse(context, variables);
-            else
-                _lastEvaluationContext = new EvaluationContext(context, variables);
-
             if (_compileOptions.HasFlag(CompileOptions.MustUseInterpreter))
             {
-                _expressionNode.ExecuteVoidExpressionUsingInterpreter(context, _lastEvaluationContext);
+                // A context of its own per evaluation - the interpreter mutates it.
+                _expressionNode.ExecuteVoidExpressionUsingInterpreter(
+                    context, new EvaluationContext(context, variables));
                 return;
             }
 
             // todo: error handling!!!!
-            if (_compiledExpression == null)
-                _compiledExpression = Compiler.CompileExecuteWithVoidReturnType<TRoot>(_expressionNode);
+            var compiled = _compiledExpression
+                ?? (_compiledExpression = Compiler.CompileExecuteWithVoidReturnType<TRoot>(_expressionNode));
 
-            _compiledExpression(context, _lastEvaluationContext);
+            // Root and variables are parameters of the compiled delegate, so nothing is shared
+            // between concurrent evaluations and nothing is allocated per evaluation.
+            compiled(context, variables);
         }
 
-        private Action<TRoot, EvaluationContext> _compiledExpression;
+        private Action<TRoot, IDictionary<string, object>> _compiledExpression;
     }
 
     class VoidExpression<TRoot> : BaseVoidExpression<TRoot>, IVoidExpression<TRoot>

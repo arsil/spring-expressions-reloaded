@@ -54,7 +54,8 @@ namespace SpringExpressions
         // todo: na etapie kompilacji nie mamy nawet tego typu! i to jest super smutne!
         // todo: być może nie ma sensu tego przerabiać na kompilowane wyrażenie...
 
-        // todo: nie mamy tutaj w evalContext ani Root ani ThisContext ani Variables!
+        // #root and #this come from the compilation context, a named #variable from the variables
+        // dictionary the caller passes on every call - so nothing here reads an EvaluationContext.
 /* - bieda */
         protected override LExpression GetExpressionTreeIfPossible(
             LExpression contextExpression,
@@ -96,9 +97,9 @@ namespace SpringExpressions
             var arguments = new List<LExpression>
                 { LExpression.Constant(varName, typeof(string)) };
 
-            // getting object
+            // getting object; the dictionary is the caller's own, passed in as a delegate parameter
             return LExpression.Call(
-                LExpression.Field(compilationContext.EvalContext, "Variables"), 
+                compilationContext.VariablesExpression,
                 VariablesDictionaryIndexerMi,
                 arguments);
         }
@@ -113,8 +114,8 @@ namespace SpringExpressions
             ValidateForbiddenVariablesForSetter(variableName);
 
             var arguments = new List<LExpression>
-                { 
-                    LExpression.Field(compilationContext.EvalContext, "Variables"),
+                {
+                    compilationContext.VariablesExpression,
                     LExpression.Constant(variableName, typeof(string)),
                     newValueExpression
                 };

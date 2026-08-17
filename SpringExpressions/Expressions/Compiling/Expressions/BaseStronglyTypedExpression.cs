@@ -1,5 +1,4 @@
 ﻿using JetBrains.Annotations;
-using static SpringExpressions.BaseNode;
 
 namespace SpringExpressions.Expressions.Compiling.Expressions
 {
@@ -16,11 +15,12 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         internal BaseNode ExpressionNode
             => _expressionNode;
 
+        // No per-evaluation state is kept here on purpose. Root context and variables are passed to
+        // the compiled delegate as parameters, and the interpreter gets a context of its own per
+        // evaluation, so one expression instance can be evaluated concurrently on many threads.
         // ReSharper disable InconsistentNaming
         protected readonly BaseNode _expressionNode;
         protected readonly CompileOptions _compileOptions;
-
-        protected EvaluationContext _lastEvaluationContext;
         // ReSharper restore InconsistentNaming
     }
 }

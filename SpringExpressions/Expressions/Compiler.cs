@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 using System.Linq.Expressions;
 
@@ -10,11 +11,11 @@ namespace SpringExpressions.Expressions
 
     internal static class Compiler
     {
-        public static Func<TContext, EvaluationContext, TResult> CompileGetter<TResult, TContext>(
+        public static Func<TContext, IDictionary<string, object>, TResult> CompileGetter<TResult, TContext>(
             BaseNode expressionNode)
         {
             var ctxParam = LExpression.Parameter(typeof(TContext), "context");
-            var getEvalContextExpression = LExpression.Parameter(typeof(EvaluationContext), "evalContext");
+            var variablesParam = LExpression.Parameter(typeof(IDictionary<string, object>), "variables");
 
             LExpression getRootContextExpression;
             // todo: error: czy to ma sens?????!!!!------------------------------------------------------------------------------
@@ -26,16 +27,14 @@ namespace SpringExpressions.Expressions
             getRootContextExpression = ctxParam;
 
 
-            // todo: problem: w EvalContext nie mamy już typowanego roota... i to jest słabe... kurde...
-            // todo: czy da się to jakoś załatwić... bo dostęp do roota mógłby być... ale potrzebowalibyśmy
-            // todo: exp... dla roota... a może to powinno jeszcze inaczej działać...  może do GetExpressionTree powinniśmy
-            // todo: przekaża epression? do wyciągnięcia roota? może to jednak powinien być inny evalContext!!!!!!!!!!!!!!!
-            // todO:: pewnie powinien to być inny eval context....  
-
+            // The root arrives as a typed delegate parameter, so the compiled tree never needed the
+            // untyped EvaluationContext.RootContext; the only thing it did need was the variables
+            // dictionary, which is now the second parameter. Nothing per-evaluation is cached on the
+            // expression instance, which is what makes a compiled expression safe to share.
             var exp = GetExpressionTreeIfPossible(
                 expressionNode,
                 getRootContextExpression,
-                new CompilationContext(getRootContextExpression, getEvalContextExpression));
+                new CompilationContext(getRootContextExpression, variablesParam));
 
             if (exp.Type.IsValueType)
             {
@@ -52,24 +51,20 @@ namespace SpringExpressions.Expressions
                 }
             }
 
-            // todo: error; a może przekazywać tutaj nie evaluationContext..  tylko coś więcej???? shit....roota przykładowo...
-            Expression<Func<TContext, EvaluationContext, TResult>> lambda
-                = LExpression.Lambda<Func<TContext, EvaluationContext, TResult>>(exp, ctxParam, getEvalContextExpression);
+            Expression<Func<TContext, IDictionary<string, object>, TResult>> lambda
+                = LExpression.Lambda<Func<TContext, IDictionary<string, object>, TResult>>(
+                    exp, ctxParam, variablesParam);
 
-            // no i co dalej... jak 
-            // todo: co z lastEvaluationContext? może nie jest potrzebny? oto jest pytanie!
-            // todo: możemy go tutaj przekazać... albo po prostu utworzyć w środku... 
-            // todo: pytanie, czy możemy do na rządanie utworzyć? kurde... raczej nie...
             return lambda.Compile();
         }
 
-        public static Action<TContext, EvaluationContext, TArgument> CompileSetter<TContext, TArgument>(
+        public static Action<TContext, IDictionary<string, object>, TArgument> CompileSetter<TContext, TArgument>(
             BaseNode expressionNode)
         {
             var ctxParam = LExpression.Parameter(typeof(TContext), "context");
             var newValueParam = LExpression.Parameter(typeof(TArgument), "newValue");
 
-            var getEvalContextExpression = LExpression.Parameter(typeof(EvaluationContext), "evalContext");
+            var variablesParam = LExpression.Parameter(typeof(IDictionary<string, object>), "variables");
 
             LExpression getRootContextExpression;
             // todo: error: czy to ma sens?????!!!!------------------------------------------------------------------------------
@@ -83,7 +78,7 @@ namespace SpringExpressions.Expressions
             var exp = GetExpressionTreeForSetterIfPossible(
                 expressionNode,
                 getRootContextExpression,
-                new CompilationContext(getRootContextExpression, getEvalContextExpression),
+                new CompilationContext(getRootContextExpression, variablesParam),
                 newValueParam);
 
                // todo: error; must compile!
@@ -96,18 +91,18 @@ namespace SpringExpressions.Expressions
                 throw new InvalidOperationException($"Expression returns {exp.Type} instead of void! \n" + tree);
             }
 */
-            Expression<Action<TContext, EvaluationContext, TArgument>> lambda
-                = LExpression.Lambda<Action<TContext, EvaluationContext, TArgument>>(
-                    exp, ctxParam, getEvalContextExpression, newValueParam);
+            Expression<Action<TContext, IDictionary<string, object>, TArgument>> lambda
+                = LExpression.Lambda<Action<TContext, IDictionary<string, object>, TArgument>>(
+                    exp, ctxParam, variablesParam, newValueParam);
 
             return lambda.Compile();
         }
 
-        public static Action<TContext, EvaluationContext> CompileExecuteWithVoidReturnType<TContext>(
+        public static Action<TContext, IDictionary<string, object>> CompileExecuteWithVoidReturnType<TContext>(
             BaseNode expressionNode)
         {
             var ctxParam = LExpression.Parameter(typeof(TContext), "context");
-            var getEvalContextExpression = LExpression.Parameter(typeof(EvaluationContext), "evalContext");
+            var variablesParam = LExpression.Parameter(typeof(IDictionary<string, object>), "variables");
 
             LExpression getRootContextExpression;
             // todo: error: czy to ma sens?????!!!!------------------------------------------------------------------------------
@@ -121,7 +116,7 @@ namespace SpringExpressions.Expressions
             var exp = GetExpressionTreeIfPossible(
                 expressionNode,
                 getRootContextExpression,
-                new CompilationContext(getRootContextExpression, getEvalContextExpression));
+                new CompilationContext(getRootContextExpression, variablesParam));
 
             // todo: error:  compile error!
             // todo: error:  compile error!
@@ -135,8 +130,9 @@ namespace SpringExpressions.Expressions
                throw new InvalidOperationException(
                    $"Expression '{exp.NodeType}' returning '{exp.Type}' is not a void expression!");
 
-            Expression<Action<TContext, EvaluationContext>> lambda
-                = LExpression.Lambda<Action<TContext, EvaluationContext>>(exp, ctxParam, getEvalContextExpression);
+            Expression<Action<TContext, IDictionary<string, object>>> lambda
+                = LExpression.Lambda<Action<TContext, IDictionary<string, object>>>(
+                    exp, ctxParam, variablesParam);
 
             return lambda.Compile();
         }

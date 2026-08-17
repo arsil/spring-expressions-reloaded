@@ -19,23 +19,25 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
 
         protected TResult GetValueInternal(TRoot context, IDictionary<string, object> variables)
         {
-            if (_lastEvaluationContext != null)
-                _lastEvaluationContext.Reuse(context, variables);
-            else
-                _lastEvaluationContext = new EvaluationContext(context, variables);
-
             if (_compileOptions.HasFlag(CompileOptions.MustUseInterpreter))
-                return (TResult)_expressionNode.GetValueUsingInterpreter(context, _lastEvaluationContext);
+            {
+                // The interpreter mutates its context - SwitchThisContext in the projection and
+                // selection nodes, SwitchLocalVariables in the lambda node - so it gets a fresh
+                // one per evaluation. This is the slow path anyway.
+                return (TResult)_expressionNode.GetValueUsingInterpreter(
+                    context, new EvaluationContext(context, variables));
+            }
 
             // todo: error handling!!!!
-            if (_compiledExpression == null)
-                _compiledExpression = Compiler.CompileGetter<TResult, TRoot>(_expressionNode);
+            var compiled = _compiledExpression
+                ?? (_compiledExpression = Compiler.CompileGetter<TResult, TRoot>(_expressionNode));
 
-            return _compiledExpression(context, _lastEvaluationContext);
-
+            // Root and variables are parameters of the compiled delegate, so nothing is shared
+            // between concurrent evaluations and nothing is allocated per evaluation.
+            return compiled(context, variables);
         }
 
-        private Func<TRoot, EvaluationContext, TResult> _compiledExpression;
+        private Func<TRoot, IDictionary<string, object>, TResult> _compiledExpression;
     }
 
     class GetterExpression<TRoot, TResult>

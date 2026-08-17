@@ -126,15 +126,9 @@ namespace SpringExpressions
                 this.Variables = globalVariables;
             }
 
-                // todo: error: root context type change?
-			public void Reuse(object rootContext, IDictionary<string, object> globalVariables)
-			{
-				this.RootContext = rootContext;
-				this.ThisContext = rootContext;
-				this.Variables = globalVariables;
-				this.LocalVariables = null;
-			}
-
+			// An EvaluationContext is never reused across evaluations: it is mutable, so sharing one
+			// between concurrent evaluations let them overwrite each other's root and variables.
+			// The interpreter gets a fresh one per evaluation; compiled code needs none at all.
 
 			/// <summary>
 			/// Switches current ThisContext.
@@ -155,9 +149,8 @@ namespace SpringExpressions
 
         #endregion
 
-	    private EvaluationContext _lastEvaluationContext;
  //	    private Func<object, object> _compiledExpression;
-		private Func<object, EvaluationContext, object> _compiledExpression;
+		private Func<object, IDictionary<string, object>, object> _compiledExpression;
 
 
 		/// <summary>
@@ -204,18 +197,15 @@ namespace SpringExpressions
         {
                      // todo: error: strongly typed context?????
 
-			     // todo: oczywiście ten lock jest z dupy...
-//	        lock (this)
+			     // The lock that used to guard this block is gone, and so is the reason for it: nothing
+			     // per-evaluation is stored on this instance any more. Context and variables are
+			     // parameters of the compiled delegate, and two threads racing to build that delegate
+			     // is benign - the two are equivalent and the field write is atomic.
 	        {
                 // todo: error: _compiled jest prawdzie tylko, jeśli context się nie zmienił!
 
 		        if (_compiledExpression == null)
 		        {
-					if (_lastEvaluationContext != null)
-						_lastEvaluationContext.Reuse(context, variables);
-					else
-						_lastEvaluationContext = new EvaluationContext(context, variables);
-
 					// todo: zapamiętujemy zbudowane expression!
 					// todo: zapamiętujemy funkcję, która dostaje na ryja obecta! z contextem!
 					// todo: i go rzutuje!
@@ -228,13 +218,13 @@ namespace SpringExpressions
 				        getRootContextExpression = LExpression.Convert(ctxParam,
 					        context.GetType());
 
-					var getEvalContextExpression = LExpression.Parameter(
-						typeof(EvaluationContext), "evalContext");
+					var variablesParam = LExpression.Parameter(
+						typeof(IDictionary<string, object>), "variables");
 
 
 					var exp = GetExpressionTreeIfPossible(
-                        getRootContextExpression, 
-                        new CompilationContext(getRootContextExpression, getEvalContextExpression));
+                        getRootContextExpression,
+                        new CompilationContext(getRootContextExpression, variablesParam));
 
                     if (exp.Type == typeof(void))
                         exp = LExpression.Block(exp, LExpression.Constant(null, typeof(object)));
@@ -243,21 +233,20 @@ namespace SpringExpressions
 
 			        //var convExp = System.Linq.Expressions.Expression.Convert(expr, typeof(object));
 
-					Expression<Func<object, EvaluationContext, object>> lambda
-				        = LExpression.Lambda<Func<object, EvaluationContext, object>>(exp, ctxParam, getEvalContextExpression);
+					Expression<Func<object, IDictionary<string, object>, object>> lambda
+				        = LExpression.Lambda<Func<object, IDictionary<string, object>, object>>(
+					        exp, ctxParam, variablesParam);
 
-					// no i co dalej... jak 
-					// todo: co z lastEvaluationContext? może nie jest potrzebny? oto jest pytanie!
-					// todo: możemy go tutaj przekazać... albo po prostu utworzyć w środku... 
-					// todo: pytanie, czy możemy do na rządanie utworzyć? kurde... raczej nie...
 					_compiledExpression = lambda.Compile();
 		        }
 
-				return _compiledExpression(context, _lastEvaluationContext);
+				// The caller's own variables dictionary, on every call - so a #variable read or write
+				// sees this evaluation's dictionary rather than whichever one arrived first.
+				return _compiledExpression(context, variables);
 
-     // todo: jeśli się coś wyjebało albo null, to oczywiście wychodzimy i jedziemy starą, wolną ścieżką....
-
-		        return Get(context, _lastEvaluationContext);
+     // todo: jeśli kompilacja się nie udała, to powinniśmy pójść starą, wolną ścieżką (interpreterem)
+     // todo: - CompileOptions.TryCompileSwitchToInterpreterOnFailure - decydując o tym raz,
+     // todo: przy budowaniu delegata, a nie przy każdym wywołaniu.
 			}
         }
 
@@ -311,12 +300,8 @@ namespace SpringExpressions
                     throw new InvalidOperationException("Unknown error [_compiledExpressionAsObject == null]!");
             }
 
-			if (_lastEvaluationContext != null)
-				_lastEvaluationContext.Reuse(context, variables);
-			else
-				_lastEvaluationContext = new EvaluationContext(context, variables);
-
-			return ((Func<TContext, EvaluationContext, TResult>) _compiledExpressionAsObject)(context, _lastEvaluationContext);
+			return ((Func<TContext, IDictionary<string, object>, TResult>) _compiledExpressionAsObject)(
+				context, variables);
 	    }
 
         /// <summary>

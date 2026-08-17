@@ -20,25 +20,24 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         protected void SetValueInternal(
             TRoot context, TArgument newValue, IDictionary<string, object> variables)
         {
-            if (_lastEvaluationContext != null)
-                _lastEvaluationContext.Reuse(context, variables);
-            else
-                _lastEvaluationContext = new EvaluationContext(context, variables);
-
             if (_compileOptions.HasFlag(CompileOptions.MustUseInterpreter))
             {
-                _expressionNode.SetValueUsingInterpreter(context, _lastEvaluationContext, newValue);
+                // A context of its own per evaluation - the interpreter mutates it.
+                _expressionNode.SetValueUsingInterpreter(
+                    context, new EvaluationContext(context, variables), newValue);
                 return;
             }
 
             // todo: error handling!!!!
-            if (_compiledExpression == null)
-                _compiledExpression = Compiler.CompileSetter<TRoot, TArgument>(_expressionNode);
+            var compiled = _compiledExpression
+                ?? (_compiledExpression = Compiler.CompileSetter<TRoot, TArgument>(_expressionNode));
 
-            _compiledExpression(context, _lastEvaluationContext, newValue);
+            // Root and variables are parameters of the compiled delegate, so nothing is shared
+            // between concurrent evaluations and nothing is allocated per evaluation.
+            compiled(context, variables, newValue);
         }
 
-        private Action<TRoot, EvaluationContext, TArgument> _compiledExpression;
+        private Action<TRoot, IDictionary<string, object>, TArgument> _compiledExpression;
     }
 
     class SetterExpression<TRoot, TArgument>
