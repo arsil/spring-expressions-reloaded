@@ -156,16 +156,31 @@ startNode
     )
     ;
 
-node : 
-    (   methodOrProperty 
-    |   indexer 
-    |   projection 
-    |   selection 
-    |   firstSelection 
-    |   lastSelection 
+node :
+    (   SAFE_DOT! safeMember
+    |   safeIndexer
+    |   methodOrProperty
+    |   indexer
+    |   projection
+    |   selection
+    |   firstSelection
+    |   lastSelection
     |   exprList
-    |   DOT! 
+    |   DOT!
     )+
+    ;
+
+// "?.Name" / "?.Method(..)" - the member is built exactly as usual, then marked so that the chain
+// walker null-checks the context flowing into it.
+safeMember
+    :   mp:methodOrProperty
+        { mp_AST.IsNullConditional = true; }
+    ;
+
+// "?[i]" - same shape as 'indexer', opened with a different token and marked the same way.
+safeIndexer
+    :   sb:SAFE_LBRACKET^ <AST = SpringExpressions.IndexerNode> argument (COMMA! argument)* RBRACKET!
+        { sb_AST.IsNullConditional = true; }
     ;
 
 functionOrVar 
@@ -475,6 +490,12 @@ SELECT_LAST: "${"
   ;
 
 TYPE: "T("
+  ;
+
+SAFE_DOT: "?."
+  ;
+
+SAFE_LBRACKET: "?["
   ;
 
 LAMBDA: "{|"

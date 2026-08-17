@@ -108,6 +108,16 @@ namespace SpringExpressions
         }
 
         /// <summary>
+        /// True when this node is reached through a null-conditional operator (<c>?.</c> or <c>?[</c>).
+        /// </summary>
+        /// <remarks>
+        /// The flag means "null-check the context flowing into me": if that context is null, this node is
+        /// not evaluated and the remainder of the access chain is abandoned, the whole chain yielding null.
+        /// Set by the parser on the node following <c>?.</c>, or on an indexer opened with <c>?[</c>.
+        /// </remarks>
+        public bool IsNullConditional { get; set; }
+
+        /// <summary>
         /// sets the text of this node
         /// </summary>
         public override void setText(string txt)
@@ -134,6 +144,7 @@ namespace SpringExpressions
             base.right = (BaseAST)info.GetValue("right", typeof(BaseAST));
             this.ttype = info.GetInt32("ttype");
             this.text = info.GetString("text");
+            this.IsNullConditional = TryGetBoolean(info, IsNullConditionalKey);
         }
 
         /// <summary>
@@ -145,6 +156,33 @@ namespace SpringExpressions
             info.AddValue("right", base.right, typeof(SpringAST));
             info.AddValue("ttype", this.Type, typeof(int));
             info.AddValue("text", this.Text, typeof(string));
+
+            // Written only when set, so that a node without a null-conditional operator produces exactly
+            // the same four values it always has. Streams written by builds that predate this member stay
+            // readable, and streams written now stay readable by those builds.
+            if (this.IsNullConditional)
+                info.AddValue(IsNullConditionalKey, true);
+        }
+
+        private const string IsNullConditionalKey = "isNullConditional";
+
+        /// <summary>
+        /// Reads an optional boolean, returning <paramref name="defaultValue"/> when the member is absent.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="SerializationInfo"/> offers no "try get": <c>GetBoolean</c> throws
+        /// <see cref="SerializationException"/> when the member was never written, which is the case for
+        /// every stream produced before the member existed. Enumerating the entries cannot throw.
+        /// </remarks>
+        private static bool TryGetBoolean(SerializationInfo info, string name, bool defaultValue = false)
+        {
+            foreach (SerializationEntry entry in info)
+            {
+                if (entry.Name == name)
+                    return entry.Value is bool value ? value : defaultValue;
+            }
+
+            return defaultValue;
         }
         
         #endregion

@@ -7,13 +7,10 @@ namespace SpringExpressionsTests.Expressions
     /// alternative among repeated items, so the dot is suppressed punctuation rather than an operator,
     /// and member access is encoded as sibling position in a flat list under a single Expression node.
     ///
-    /// This is not a curiosity - the design in _Docs/null-conditional-operator.md depends on it (a '?.'
-    /// operator cannot "replace the dot node" because there is no dot node), and
-    /// _Docs/cast-and-type-syntax.md depends on it too (a C#-style prefix cast is impossible because
-    /// "(int) x" already parses as "(int).x").
-    ///
-    /// If a grammar change ever makes the dot mandatory, these tests fail and both documents need
-    /// revisiting.
+    /// Two consequences depend on this and are easy to break accidentally. There is no node representing
+    /// '.', so anything wanting to modify member access - the null-conditional operators, for instance -
+    /// has to attach itself to the node that follows rather than to a dot. And a C#-style prefix cast
+    /// cannot be added, because "(int) x" is already a valid chain meaning "(int).x".
     /// </summary>
     [TestFixture]
     public class OptionalDotTests : BaseCompiledTests

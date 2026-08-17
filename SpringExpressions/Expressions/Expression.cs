@@ -1,7 +1,7 @@
 #region License
 
 /*
- * Copyright © 2002-2011 the original author or authors.
+ * Copyright ï¿½ 2002-2011 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -174,7 +174,7 @@ namespace SpringExpressions
                 return new Expression();
             }
         }
-            // todo: error: a mo¿ê ParseAndCompile()
+            // todo: error: a moï¿½ï¿½ ParseAndCompile()
             // todo: error: compile options!
         public static IGetterExpression<TRoot, TResult> ParseGetter<TRoot, TResult>(
             string expression, 
@@ -339,6 +339,13 @@ namespace SpringExpressions
             var node = (BaseNode) getFirstChild();
             while (node != null)
             {
+                // A node reached through '?.' or '?[' is skipped when the value flowing into it is null,
+                // and the rest of the chain is abandoned with it: 'a?.B.C' yields null rather than trying
+                // '.C' on nothing. Each node is still visited at most once, so a chain rooted in a method
+                // call such as 'GetItems()?[0]' invokes that method exactly once.
+                if (node.IsNullConditional && result == null)
+                    return null;
+
                 result = GetValue(node, result, evalContext);
                 node = (BaseNode) node.getNextSibling();
             }
@@ -350,30 +357,145 @@ namespace SpringExpressions
             LExpression contextExpression,
             CompilationContext compilationContext)
 	    {
- // todo: error: napisane na kolanie ale chyba dziaa...... fajno jest, hej ho, hej ho! - pytanie co to ma robiæ?
-			LExpression currentExpression = contextExpression;
-
-			var node = (BaseNode)getFirstChild();
-		    while (node != null)
-		    {
-				currentExpression = GetExpressionTreeIfPossible(
-                    node,
-                    currentExpression, 
-                    compilationContext);
-
-			    node = (BaseNode) node.getNextSibling();
-				if (currentExpression == null)
-					return null;
-			}
-
-			return currentExpression;
+	        return BuildChainExpression((BaseNode)getFirstChild(), contextExpression, compilationContext);
 	    }
+
+        /// <summary>
+        /// Builds the expression tree for an access chain, threading each node's result into the next.
+        /// </summary>
+        /// <remarks>
+        /// Recursive rather than a loop because a null-conditional link has to place <i>everything that
+        /// follows it</i> inside the non-null branch of a conditional: 'a?.B.C' must skip both '.B' and
+        /// '.C' when 'a' is null.
+        /// </remarks>
+        /// <returns>
+        /// The chain expression, or null when some node cannot be compiled - the caller then falls back
+        /// to interpreting the whole expression.
+        /// </returns>
+        private static LExpression BuildChainExpression(
+            BaseNode node,
+            LExpression contextExpression,
+            CompilationContext compilationContext)
+        {
+            if (node == null)
+                return contextExpression;
+
+            var nextNode = (BaseNode)node.getNextSibling();
+
+            if (!node.IsNullConditional)
+            {
+                var appliedNode = GetExpressionTreeIfPossible(node, contextExpression, compilationContext);
+                if (appliedNode == null)
+                    return null;
+
+                return BuildChainExpression(nextNode, appliedNode, compilationContext);
+            }
+
+            var contextType = contextExpression.Type;
+            var underlyingType = Nullable.GetUnderlyingType(contextType);
+
+            // A non-nullable value type can never be null, so there is nothing to test: emit the plain
+            // access and skip the conditional altogether rather than generating a test that is always false.
+            if (contextType.IsValueType && underlyingType == null)
+            {
+                var appliedNode = GetExpressionTreeIfPossible(node, contextExpression, compilationContext);
+                if (appliedNode == null)
+                    return null;
+
+                return BuildChainExpression(nextNode, appliedNode, compilationContext);
+            }
+
+            // The left-hand side is assigned to a temporary and the rest of the chain reads the temporary.
+            // Referring to contextExpression twice instead - once in the null test, once in the access -
+            // would duplicate that whole subtree and evaluate it twice, so 'GetItems()?[0]' would call
+            // GetItems() twice. The temporary is what keeps evaluation to exactly once.
+            var temporary = LExpression.Variable(contextType, "nullConditionalOperand");
+
+            LExpression isNullTest;
+            LExpression nonNullContext;
+
+            if (underlyingType != null)
+            {
+                // Nullable<T>: test HasValue and unwrap for the access. Comparing a Nullable<T> to null with
+                // LExpression.Equal produces a lifted bool?, which Condition will not accept as its test.
+                isNullTest = LExpression.Not(LExpression.Property(temporary, "HasValue"));
+                nonNullContext = LExpression.Property(temporary, "Value");
+            }
+            else
+            {
+                isNullTest = LExpression.Equal(temporary, LExpression.Constant(null, contextType));
+                nonNullContext = temporary;
+            }
+
+            var applied = GetExpressionTreeIfPossible(node, nonNullContext, compilationContext);
+            if (applied == null)
+                return null;
+
+            var restOfChain = BuildChainExpression(nextNode, applied, compilationContext);
+            if (restOfChain == null)
+                return null;
+
+            // A chain ending in a void call produces no value, so there is nothing to return from either
+            // branch and Condition would demand two matching non-void branches. Guard the call instead.
+            if (restOfChain.Type == typeof(void))
+            {
+                return LExpression.Block(
+                    new[] { temporary },
+                    LExpression.Assign(temporary, contextExpression),
+                    LExpression.IfThen(LExpression.Not(isNullTest), restOfChain));
+            }
+
+            // Short-circuiting has to be able to yield null, so a value-typed result widens to Nullable<T>:
+            // 'a?.Count' is an int? that is null when 'a' is null, never a default 0.
+            var resultType = LiftToNullable(restOfChain.Type);
+
+            return LExpression.Block(
+                resultType,
+                new[] { temporary },
+                LExpression.Assign(temporary, contextExpression),
+                LExpression.Condition(
+                    isNullTest,
+                    LExpression.Default(resultType),
+                    resultType == restOfChain.Type
+                        ? restOfChain
+                        : LExpression.Convert(restOfChain, resultType)));
+        }
+
+        /// <summary>
+        /// Widens a value type to its nullable form so that it can carry null; other types are unchanged.
+        /// </summary>
+        private static Type LiftToNullable(Type type)
+        {
+            return type.IsValueType && Nullable.GetUnderlyingType(type) == null
+                ? typeof(Nullable<>).MakeGenericType(type)
+                : type;
+        }
+
+        /// <summary>
+        /// Rejects assignment to a chain containing a null-conditional operator.
+        /// </summary>
+        /// <remarks>
+        /// Such a chain has no well-defined target when it short-circuits - there is nothing to assign to -
+        /// so the whole expression is refused rather than silently assigning nothing or throwing later from
+        /// somewhere less obvious.
+        /// </remarks>
+        private void AssertChainIsAssignable()
+        {
+            for (var node = (BaseNode)getFirstChild(); node != null; node = (BaseNode)node.getNextSibling())
+            {
+                if (node.IsNullConditional)
+                    throw new NotSupportedException(
+                        "A null-conditional access ('?.' or '?[') cannot be used as the target of an assignment.");
+            }
+        }
 
         protected override LExpression GetExpressionTreeForSetterIfPossible(
             LExpression contextExpression, 
             CompilationContext compilationContext,
             LExpression newValueExpression)
         {
+            AssertChainIsAssignable();
+
             LExpression target = contextExpression;
             if (getNumberOfChildren() > 0)
             {
@@ -412,6 +534,8 @@ namespace SpringExpressions
 		/// <exception cref="NotSupportedException">If navigation expression is empty.</exception>
 		protected override void Set( object context, EvaluationContext evalContext, object newValue )
         {
+            AssertChainIsAssignable();
+
             object target = context;
 
             if (this.getNumberOfChildren() > 0)
