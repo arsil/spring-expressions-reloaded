@@ -265,6 +265,19 @@ namespace SpringExpressions
         {
                   // todo: Implicit numeric conversions
                         var methodParameters = mi.GetParameters();
+
+            // One argument per parameter is all this can emit. A params array gives more arguments than
+            // parameters and used to walk off the end of methodParameters with IndexOutOfRangeException,
+            // which says nothing to a caller; optional parameters give fewer, and the Call below would
+            // reject that anyway. Either way the shape has no compiled form and has to say so.
+            if (arguments.Count != methodParameters.Length)
+            {
+                throw new CompileErrorException(
+                    $"Method '{mi.Name}' takes {methodParameters.Length} parameter(s) but was given "
+                    + $"{arguments.Count} argument(s); no compiled form for a params array or for omitted "
+                    + "optional parameters.");
+            }
+
             for (int i = 0; i < arguments.Count; i++)
             {
                 if (arguments[i].Type != methodParameters[i].ParameterType)

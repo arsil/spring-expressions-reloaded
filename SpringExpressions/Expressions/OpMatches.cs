@@ -68,9 +68,12 @@ namespace SpringExpressions
                     rightExpression);
             }
 
-            // there is no point in creating compiled regex if pattern isn't constant.
-
-            return rightExpression;
+            // Neither operand is a statically known string, so there is nothing to match against and no
+            // compiled form. This used to return the right operand, which is not a refusal but a wrong
+            // answer: "'A' matches #root" compiled to just #root and produced the pattern instead of a
+            // bool, with nothing failing for a caller to notice.
+            throw CannotCompile(
+                "no compiled form unless the pattern is a constant string or both operands are strings");
         }
 
         /// <summary>
