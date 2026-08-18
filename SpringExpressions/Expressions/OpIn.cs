@@ -22,7 +22,6 @@ using System;
 using System.Collections;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Runtime.Serialization;
 using SpringExpressions.Expressions.LinqExpressionHelpers;
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -32,7 +31,6 @@ namespace SpringExpressions
     /// Represents logical IN operator.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class OpIn : BinaryOperator
     {
         /// <summary>
@@ -42,15 +40,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected OpIn(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+                protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
             CompilationContext compilationContext)
         {
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);

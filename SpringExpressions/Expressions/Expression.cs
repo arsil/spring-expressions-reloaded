@@ -48,7 +48,6 @@ namespace SpringExpressions
     /// </p>
     /// </remarks>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class Expression : BaseNode
     {
         /// <summary>
@@ -318,14 +317,7 @@ namespace SpringExpressions
         public Expression()
         { }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected Expression( SerializationInfo info, StreamingContext context )
-            : base( info, context )
-        { }
-
-        /// <summary>
+                /// <summary>
         /// Evaluates this expression for the specified root object and returns 
         /// value of the last node.
         /// </summary>

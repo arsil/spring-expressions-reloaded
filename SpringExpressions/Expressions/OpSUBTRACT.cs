@@ -21,7 +21,6 @@
 using System;
 using System.Collections;
 using System.Reflection;
-using System.Runtime.Serialization;
 using SpringCollections;
 using SpringExpressions.Expressions.Compiling;
 using SpringExpressions.Expressions.LinqExpressionHelpers;
@@ -35,7 +34,6 @@ namespace SpringExpressions
     /// Represents arithmetic subtraction operator.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class OpSUBTRACT : BinaryOperator
     {
         /// <summary>
@@ -45,15 +43,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected OpSUBTRACT(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+                protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
             CompilationContext compilationContext)
         {
             // TODO: dodanie char -  char daje inta...!  ???

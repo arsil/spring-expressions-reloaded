@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Dynamic;
 using System.IO;
 
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using SpringCore;
 using SpringCore.TypeResolution;
@@ -34,45 +33,6 @@ namespace SpringExpressionsTests.Expressions
 
             Assert.AreEqual(8, CompileAndExecuteGetter<int>(
                 "2 ^ ( {0, 1, 2, 3, 4, 5, 6} [ T(System.Convert).ToInt32(date('2024/06/05').DayOfWeek)] )"));
-        }
-
-        /// <summary>
-        /// This test ensures, that the default node-type is serializable.
-        /// </summary>
-        /// <remarks>
-        /// date() is parsed into DateLiteralNode( down:&lt;default node type&gt; ).
-        /// Normally antlr.CommonAST is the default node used by antlr. To enable serialization, Spring
-        /// uses a custom ASTFactory in <see cref="Expression.Parse"/>
-        /// </remarks>
-        [Test]
-        public void ExpressionDateLiteralNodeMaintainsStateAfterSerialization()
-        {
-            var exp = CompileGetter<DateTime>("date('08-24-1974', 'MM-dd-yyyy')");
-
-            Assert.AreEqual(new DateTime(1974, 8, 24), exp.GetValue());
-
-            exp = SerializeDeserializeExpression(exp);
-
-            Assert.AreEqual(new DateTime(1974, 8, 24), exp.GetValue());
-        }
-
-        private static T SerializeDeserializeExpression<T>(T expression)
-        {
-            byte[] data;
-            BinaryFormatter formatter = new BinaryFormatter();
-            using (MemoryStream ms = new MemoryStream())
-            {
-                formatter.Serialize(ms, expression);
-                ms.Flush();
-                data = ms.ToArray();
-            }
-
-            using (MemoryStream ms = new MemoryStream(data))
-            {
-                expression = (T)formatter.Deserialize(ms);
-            }
-
-            return expression;
         }
 
         [Test]

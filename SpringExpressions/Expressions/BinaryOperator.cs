@@ -19,7 +19,6 @@
 #endregion
 
 using System;
-using System.Runtime.Serialization;
 
 // ReSharper disable once CheckNamespace
 namespace SpringExpressions
@@ -28,7 +27,6 @@ namespace SpringExpressions
     /// Base class for binary operators.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public abstract class BinaryOperator : BaseNode
     {
         /// <summary>
@@ -48,14 +46,7 @@ namespace SpringExpressions
             base.addChild(right);
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected BinaryOperator(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {}
-        
-        /// <summary>
+                /// <summary>
         /// Gets the left operand.
         /// </summary>
         /// <value>The left operand.</value>

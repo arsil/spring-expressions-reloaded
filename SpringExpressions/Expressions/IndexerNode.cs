@@ -22,7 +22,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Runtime.Serialization;
 using SpringCore;
 using SpringUtil;
 using SpringReflection.Dynamic;
@@ -35,7 +34,6 @@ namespace SpringExpressions
     /// Represents parsed indexer node in the navigation expression.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class IndexerNode : NodeWithArguments
     {
         private const BindingFlags BINDING_FLAGS
@@ -52,15 +50,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected IndexerNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-
+        
         protected override LExpression GetExpressionTreeIfPossible(
             LExpression contextExpression,
             CompilationContext compilationContext)

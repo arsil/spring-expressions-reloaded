@@ -22,7 +22,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Runtime.Serialization;
 using SpringExpressions.Expressions.Compiling;
 using SpringExpressions.Util;
 using SpringUtil;
@@ -34,7 +33,6 @@ namespace SpringExpressions
     /// Represents logical equality operator.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class OpEqual : BinaryOperator
     {
         /// <summary>
@@ -44,15 +42,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected OpEqual(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+                protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
             CompilationContext compilationContext)
         {
 

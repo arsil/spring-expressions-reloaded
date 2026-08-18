@@ -21,25 +21,19 @@
 
   <!-- .NET Framework only. Keyed on TargetFrameworkIdentifier rather than "!= netcoreapp2.1" so that
        adding a modern TFM does not drag these desktop-only assemblies onto it. They back the
-       #if !NETCOREAPP blocks in ExpressionEvaluatorTests.cs (Remoting, Soap, EnterpriseServices). -->
+       #if !NETCOREAPP blocks in ExpressionEvaluatorTests.cs (Remoting, EnterpriseServices). -->
   <ItemGroup Condition=" '$(TargetFrameworkIdentifier)' == '.NETFramework' ">
     <Reference Include="System" />
     <Reference Include="System.Data" />
     <Reference Include="System.EnterpriseServices" />
     <Reference Include="System.Runtime.Remoting" />
-    <Reference Include="System.Runtime.Serialization.Formatters.Soap" />
     <Reference Include="System.Web.Services" />
     <Reference Include="System.Xml" />
   </ItemGroup>
 
-  <!-- BinaryFormatter is used unguarded by three tests (ExpressionEvaluatorTests.TestSerialization*,
-       CompiledExpressionTests). On .NET 8 the type still exists but throws unless this switch is on,
-       and the API is obsolete as SYSLIB0011. On .NET 9+ it is removed outright, so a future net9.0/
-       net10.0 target must guard those tests instead of setting this. -->
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'net8.0' ">
-    <EnableUnsafeBinaryFormatterSerialization>true</EnableUnsafeBinaryFormatterSerialization>
-    <NoWarn>$(NoWarn);SYSLIB0011</NoWarn>
-  </PropertyGroup>
+  <!-- No BinaryFormatter switch is needed: expressions are not serializable, so nothing here uses it.
+       That also removes what would otherwise block a net9.0/net10.0 target, where the type is gone. -->
+
 
   <!-- One test framework for every TFM. NUnit 3.13.2 ships lib/net35;net40;net45;netstandard2.0,
        so net40 is supported by the framework - it is only VSTest that cannot host net40. -->

@@ -21,7 +21,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
 using SpringExpressions.Parser.antlr.collections;
 
 namespace SpringExpressions
@@ -30,7 +29,6 @@ namespace SpringExpressions
     /// Base type for nodes that accept arguments.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public abstract class NodeWithArguments : BaseNode
     {
         private BaseNode[] args;
@@ -60,15 +58,7 @@ namespace SpringExpressions
             base.addChild(argumentNode);
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected NodeWithArguments(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        /// <summary>
+                /// <summary>
         /// Initializes the node. 
         /// </summary>
         private void InitializeNode()

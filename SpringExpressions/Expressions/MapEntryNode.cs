@@ -21,7 +21,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -31,7 +30,6 @@ namespace SpringExpressions
     /// Represents parsed map entry node.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class MapEntryNode : BaseNode
     {
         /// <summary>
@@ -40,15 +38,7 @@ namespace SpringExpressions
         public MapEntryNode()
         {}
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected MapEntryNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+                protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
             CompilationContext compilationContext)
         {
             var node = getFirstChild();

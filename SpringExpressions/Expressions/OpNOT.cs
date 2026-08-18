@@ -19,7 +19,6 @@
 #endregion
 
 using System;
-using System.Runtime.Serialization;
 using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 
@@ -31,7 +30,6 @@ namespace SpringExpressions
     /// Represents NOT operator (both, bitwise and logical).
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class OpNOT : UnaryOperator
     {
         /// <summary>
@@ -49,15 +47,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected OpNOT(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-
+        
 	    protected override LExpression GetExpressionTreeIfPossible(
             LExpression contextExpression,
             CompilationContext compilationContext)

@@ -44,15 +44,7 @@ namespace SpringExpressions
             this.addChild(operand);
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected UnaryOperator(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-        
-        /// <summary>
+                /// <summary>
         /// Gets the operand.
         /// </summary>
         /// <value>The operand.</value>

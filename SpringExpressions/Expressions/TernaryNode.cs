@@ -19,7 +19,6 @@
 #endregion
 
 using System;
-using System.Runtime.Serialization;
 using SpringExpressions.Parser.antlr.collections;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -30,7 +29,6 @@ namespace SpringExpressions
     /// Represents ternary expression node.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class TernaryNode : BaseNode
     {
         private bool initialized = false;
@@ -45,15 +43,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected TernaryNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-        
-        /// <summary>
+                /// <summary>
         /// Returns a value for the string literal node.
         /// </summary>
         /// <param name="context">Context to evaluate expressions against.</param>

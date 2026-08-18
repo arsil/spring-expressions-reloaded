@@ -22,7 +22,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Runtime.Serialization;
 using SpringCore.TypeResolution;
 using SpringExpressions.Parser.antlr.collections;
 
@@ -34,7 +33,6 @@ namespace SpringExpressions
     /// Represents parsed method node in the navigation expression.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class ArrayConstructorNode : NodeWithArguments
     {
         private Type arrayType;
@@ -46,14 +44,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected ArrayConstructorNode(SerializationInfo info, StreamingContext context) : base(info, context)
-        {
-        }
-
-	    protected override LExpression GetExpressionTreeIfPossible(
+        	    protected override LExpression GetExpressionTreeIfPossible(
             LExpression contextExpression,
             CompilationContext compilationContext)
 	    {

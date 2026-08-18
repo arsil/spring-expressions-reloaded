@@ -19,7 +19,6 @@
 #endregion
 
 using System;
-using System.Runtime.Serialization;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -29,7 +28,6 @@ namespace SpringExpressions
     /// Represents parsed boolean literal node.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class BooleanLiteralNode : BaseNode
     {
         private object nodeValue;
@@ -49,15 +47,7 @@ namespace SpringExpressions
             this.Text = text;
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected BooleanLiteralNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+                protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
             CompilationContext compilationContext)
         {
             return LExpression.Constant(bool.Parse(getText()), typeof(bool));

@@ -23,7 +23,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Runtime.Serialization;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -33,7 +32,6 @@ namespace SpringExpressions
 	/// Represents parsed list initializer node in the navigation expression.
 	/// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class ListInitializerNode : NodeWithArguments
 	{
         /// <summary>
@@ -43,15 +41,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected ListInitializerNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+                protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
             CompilationContext compilationContext)
         {
             var node = getFirstChild();

@@ -19,7 +19,6 @@
 #endregion
 
 using System;
-using System.Runtime.Serialization;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -29,7 +28,6 @@ namespace SpringExpressions
     /// Represents parsed null literal node.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class NullLiteralNode : BaseNode
     {
         /// <summary>
@@ -39,15 +37,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected NullLiteralNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+                protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
             CompilationContext compilationContext)
         {
             return LExpression.Constant(null);

@@ -25,7 +25,6 @@ using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Runtime.Serialization;
 using System.Threading;
 
 using SpringExpressions.Expressions.LinqExpressionHelpers;
@@ -39,7 +38,6 @@ namespace SpringExpressions
     /// Represents lambda expression.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class LambdaExpressionNode : BaseNode
     {
         /// <summary>
@@ -59,15 +57,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected LambdaExpressionNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-        
-        /// <summary>
+                /// <summary>
         /// Gets argument names for this lambda expression.
         /// </summary>
         public string[] ArgumentNames

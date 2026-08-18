@@ -20,7 +20,6 @@
 
 using System;
 using System.Collections;
-using System.Runtime.Serialization;
 
 namespace SpringExpressions
 {
@@ -28,7 +27,6 @@ namespace SpringExpressions
     /// Represents local function node.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class LocalFunctionNode : NodeWithArguments
     {
         /// <summary>
@@ -38,15 +36,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected LocalFunctionNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-        
-        /// <summary>
+                /// <summary>
         /// Evaluates function represented by this node.
         /// </summary>
         /// <param name="context">Context to evaluate expressions against.</param>

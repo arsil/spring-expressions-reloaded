@@ -20,7 +20,6 @@
 
 using System;
 using System.Reflection;
-using System.Runtime.Serialization;
 using SpringCore.TypeResolution;
 using SpringExpressions;
 using Expression = System.Linq.Expressions.Expression;
@@ -32,7 +31,6 @@ namespace SpringContext.Support
     /// Represents a reference to a Spring-managed object.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class ReferenceNode : BaseNode
     {
         /// <summary>
@@ -42,15 +40,7 @@ namespace SpringContext.Support
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected ReferenceNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-	    protected override Expression GetExpressionTreeIfPossible(Expression contextExpression,
+        	    protected override Expression GetExpressionTreeIfPossible(Expression contextExpression,
             CompilationContext compilationContext)
 	    {
 			if (getNumberOfChildren() == 2)

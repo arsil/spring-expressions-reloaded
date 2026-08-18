@@ -21,7 +21,6 @@
 using System;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -32,7 +31,6 @@ namespace SpringExpressions
     /// Represents logical MATCHES operator.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class OpMatches : BinaryOperator
     {
         private Regex regex;
@@ -44,15 +42,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected OpMatches(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+                protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
             CompilationContext compilationContext)
         {
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);

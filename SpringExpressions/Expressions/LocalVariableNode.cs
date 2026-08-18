@@ -20,7 +20,6 @@
 
 using System;
 using System.Collections;
-using System.Runtime.Serialization;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -30,7 +29,6 @@ namespace SpringExpressions
     /// Represents parsed variable node.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class LocalVariableNode : BaseNode
     {
         //internal const string LOCAL_VARIABLES = "__locals";
@@ -42,15 +40,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected LocalVariableNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-        
-        /// <summary>
+                /// <summary>
         /// Returns value of the local variable represented by this node.
         /// </summary>
         /// <param name="context">Context to evaluate expressions against.</param>

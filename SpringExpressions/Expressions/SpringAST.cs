@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.Serialization;
 using SpringExpressions.Parser.antlr;
 using SpringExpressions.Parser.antlr.collections;
 
@@ -9,15 +8,12 @@ namespace SpringExpressions
     /// For internal purposes only. Use <see cref="BaseNode"/> for expression node implementations.
     /// </summary>
     /// <remarks>
-    /// This class is only required to enable serialization of parsed Spring expressions since antlr.CommonAST
-    /// unfortunately is not marked as [Serializable].<br/>
-    /// <br/>
-    /// <b>Note:</b>Since SpringAST implements <see cref="ISerializable"/>, deriving classes 
-    /// have to explicitely override <see cref="GetObjectData"/> if they need to persist additional
-    /// data during serialization.
+    /// The class originally existed to make parsed expressions serializable, because antlr.CommonAST is not
+    /// marked as [Serializable]. Expressions are no longer serializable at all, so what it carries now is
+    /// the node's text and token type, the <see cref="IsNullConditional"/> flag, and the node factory the
+    /// parser builds nodes through.
     /// </remarks>
-    [Serializable]
-    public class SpringAST : Parser.antlr.BaseAST, ISerializable
+    public class SpringAST : Parser.antlr.BaseAST
     {
         #region Global SpringAST Factory
 
@@ -133,58 +129,5 @@ namespace SpringExpressions
             return this.text;
         }
 
-        #region ISerializable Implementation
-
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected SpringAST(SerializationInfo info, StreamingContext context)
-        {
-            base.down = (BaseAST)info.GetValue("down", typeof(BaseAST));
-            base.right = (BaseAST)info.GetValue("right", typeof(BaseAST));
-            this.ttype = info.GetInt32("ttype");
-            this.text = info.GetString("text");
-            this.IsNullConditional = TryGetBoolean(info, IsNullConditionalKey);
-        }
-
-        /// <summary>
-        /// populate SerializationInfo from this instance
-        /// </summary>
-        public virtual void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            info.AddValue("down", base.down, typeof(SpringAST));
-            info.AddValue("right", base.right, typeof(SpringAST));
-            info.AddValue("ttype", this.Type, typeof(int));
-            info.AddValue("text", this.Text, typeof(string));
-
-            // Written only when set, so that a node without a null-conditional operator produces exactly
-            // the same four values it always has. Streams written by builds that predate this member stay
-            // readable, and streams written now stay readable by those builds.
-            if (this.IsNullConditional)
-                info.AddValue(IsNullConditionalKey, true);
-        }
-
-        private const string IsNullConditionalKey = "isNullConditional";
-
-        /// <summary>
-        /// Reads an optional boolean, returning <paramref name="defaultValue"/> when the member is absent.
-        /// </summary>
-        /// <remarks>
-        /// <see cref="SerializationInfo"/> offers no "try get": <c>GetBoolean</c> throws
-        /// <see cref="SerializationException"/> when the member was never written, which is the case for
-        /// every stream produced before the member existed. Enumerating the entries cannot throw.
-        /// </remarks>
-        private static bool TryGetBoolean(SerializationInfo info, string name, bool defaultValue = false)
-        {
-            foreach (SerializationEntry entry in info)
-            {
-                if (entry.Name == name)
-                    return entry.Value is bool value ? value : defaultValue;
-            }
-
-            return defaultValue;
-        }
-        
-        #endregion
     }
 }

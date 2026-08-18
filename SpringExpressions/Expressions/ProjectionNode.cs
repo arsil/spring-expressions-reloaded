@@ -24,7 +24,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Runtime.Serialization;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -34,7 +33,6 @@ namespace SpringExpressions
     /// Represents parsed projection node in the navigation expression.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class ProjectionNode : BaseNode
     {
         /// <summary>
@@ -44,15 +42,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected ProjectionNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        protected override LExpression GetExpressionTreeIfPossible(
+                protected override LExpression GetExpressionTreeIfPossible(
             LExpression contextExpression,
             CompilationContext compilationContext)
         {

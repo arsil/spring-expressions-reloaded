@@ -30,7 +30,6 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.Remoting;
-using System.Runtime.Serialization;
 
 using SpringCollections;
 using SpringCore;
@@ -50,7 +49,6 @@ namespace SpringExpressions
     /// Represents node that navigates to object's property or public field.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class PropertyOrFieldNode : BaseNode
     {
         private const BindingFlags BINDING_FLAGS =
@@ -67,15 +65,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected PropertyOrFieldNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        /// <summary>
+                /// <summary>
         /// Initializes the node.
         /// </summary>
         /// <param name="context">The parent.</param>

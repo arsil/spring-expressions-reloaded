@@ -20,7 +20,6 @@
 
 using System;
 using System.Collections;
-using System.Runtime.Serialization;
 using SpringReflection.Dynamic;
 
 namespace SpringExpressions
@@ -29,7 +28,6 @@ namespace SpringExpressions
     /// Represents parsed function node.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class FunctionNode : NodeWithArguments
     {
         /// <summary>
@@ -39,15 +37,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected FunctionNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        /// <summary>
+                /// <summary>
         /// Evaluates function represented by this node.
         /// </summary>
         /// <param name="context">Context to evaluate expressions against.</param>

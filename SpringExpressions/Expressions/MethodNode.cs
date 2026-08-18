@@ -26,7 +26,6 @@ using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Runtime.Serialization;
 using JetBrains.Annotations;
 using SpringExpressions.Expressions.GenericProcessors;
 using SpringExpressions.Expressions.LinqExpressionHelpers;
@@ -43,7 +42,6 @@ namespace SpringExpressions
     /// Represents parsed method node in the navigation expression.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class MethodNode : NodeWithArguments
     {
         private const BindingFlags BINDING_FLAGS
@@ -88,15 +86,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected MethodNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        [NotNull]
+                [NotNull]
 	    protected override LExpression GetExpressionTreeIfPossible(
             LExpression contextExpression,
             CompilationContext compilationContext)

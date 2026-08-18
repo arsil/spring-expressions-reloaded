@@ -22,7 +22,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Runtime.Serialization;
 
 using SpringCore.TypeResolution;
 using SpringUtil;
@@ -36,7 +35,6 @@ namespace SpringExpressions
     /// Represents parsed method node in the navigation expression.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class ConstructorNode : NodeWithArguments
     {
         private SafeConstructor constructor;
@@ -60,15 +58,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected ConstructorNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-
+        
         protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
             CompilationContext compilationContext)
         {

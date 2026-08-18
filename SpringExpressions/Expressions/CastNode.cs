@@ -1,27 +1,17 @@
 ﻿using SpringCore.TypeResolution;
 using System;
-using System.Runtime.Serialization;
 
 using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
 {
-    [Serializable]
     public class CastNode : UnaryOperator
     {
         public CastNode()
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected CastNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        protected override object Get(object context, EvaluationContext evalContext)
+                protected override object Get(object context, EvaluationContext evalContext)
         {
             if (type == null)
             {

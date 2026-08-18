@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
 
 using NUnit.Framework;
 
@@ -618,86 +617,6 @@ namespace SpringExpressionsTests.Expressions
                 .Execute(target, VariablesWith(null));
 
             Assert.IsNull(target.Author.Name, "a short-circuited variable chain assigns null");
-        }
-
-        #endregion
-
-        #region Serialization
-
-        [Test]
-        public void FlagSurvivesSerializationAndTheChainStillShortCircuits()
-        {
-            var expression = Expression.Parse("Author?.Name");
-
-            var restored = RoundTrip(expression);
-
-            Assert.AreEqual("Nikola Tesla", restored.GetValue(FullGraph()));
-            Assert.IsNull(restored.GetValue(EmptyGraph()), "the restored expression must still short circuit");
-        }
-
-        [Test]
-        public void ExpressionWithoutTheOperatorDoesNotWriteTheFlagAtAll()
-        {
-            // Nodes that are not null-conditional serialize exactly the members they always have, so streams
-            // stay readable by builds that know nothing about this operator.
-            var bytes = Serialize(Expression.Parse("Author.Name"));
-            var text = System.Text.Encoding.ASCII.GetString(bytes);
-
-            Assert.IsFalse(text.Contains("isNullConditional"),
-                "a chain without '?.' must not add the member to its serialized form");
-
-            var withOperator = System.Text.Encoding.ASCII.GetString(Serialize(Expression.Parse("Author?.Name")));
-            Assert.IsTrue(withOperator.Contains("isNullConditional"),
-                "a chain with '?.' must persist the flag");
-        }
-
-        [Test]
-        public void ExpressionSerializedWithoutTheFlagMemberStillDeserializes()
-        {
-            // A stream captured from a build that had no notion of this operator, so the member is simply
-            // absent. Reading it must fall back to "not null-conditional" instead of failing, otherwise every
-            // previously stored expression would become unreadable.
-            var bytes = Convert.FromBase64String(StreamWithoutFlagMember);
-
-            using (var stream = new MemoryStream(bytes))
-            {
-                var restored = (IExpression)new BinaryFormatter().Deserialize(stream);
-
-                Assert.IsNotNull(restored);
-                Assert.IsFalse(((SpringAST)restored).IsNullConditional);
-                Assert.AreEqual(3, restored.GetValue(null), "the restored expression must still evaluate");
-            }
-        }
-
-        /// <summary>
-        /// A serialized "'abc'.Length" containing only the members that existed before the null-conditional
-        /// flag was introduced. Regenerate only if the serialized layout legitimately changes.
-        /// </summary>
-        private const string StreamWithoutFlagMember =
-            "AAEAAAD/////AQAAAAAAAAAMAgAAAEhTcHJpbmdFeHByZXNzaW9ucywgVmVyc2lvbj0xLjAuMC4wLCBDdWx0dXJlPW5ldXRyYWws" +
-            "IFB1YmxpY0tleVRva2VuPW51bGwFAQAAABxTcHJpbmdFeHByZXNzaW9ucy5FeHByZXNzaW9uBAAAAARkb3duBXJpZ2h0BXR0eXBl" +
-            "BHRleHQEBAABI1NwcmluZ0V4cHJlc3Npb25zLlN0cmluZ0xpdGVyYWxOb2RlAgAAABtTcHJpbmdFeHByZXNzaW9ucy5TcHJpbmdB" +
-            "U1QCAAAACAIAAAAJAwAAAAoEAAAABgQAAAAKZXhwcmVzc2lvbgUDAAAAI1NwcmluZ0V4cHJlc3Npb25zLlN0cmluZ0xpdGVyYWxO" +
-            "b2RlBAAAAARkb3duBXJpZ2h0BXR0eXBlBHRleHQEBAABG1NwcmluZ0V4cHJlc3Npb25zLlNwcmluZ0FTVAIAAAAlU3ByaW5nRXhw" +
-            "cmVzc2lvbnMuUHJvcGVydHlPckZpZWxkTm9kZQIAAAAIAgAAAAoJBQAAADIAAAAGBgAAAANhYmMFBQAAACVTcHJpbmdFeHByZXNz" +
-            "aW9ucy5Qcm9wZXJ0eU9yRmllbGROb2RlBAAAAARkb3duBXJpZ2h0BXR0eXBlBHRleHQEBAABG1NwcmluZ0V4cHJlc3Npb25zLlNw" +
-            "cmluZ0FTVAIAAAAbU3ByaW5nRXhwcmVzc2lvbnMuU3ByaW5nQVNUAgAAAAgCAAAACgooAAAABgcAAAAGTGVuZ3RoCw==";
-
-        private static byte[] Serialize(IExpression expression)
-        {
-            using (var stream = new MemoryStream())
-            {
-                new BinaryFormatter().Serialize(stream, expression);
-                return stream.ToArray();
-            }
-        }
-
-        private static IExpression RoundTrip(IExpression expression)
-        {
-            using (var stream = new MemoryStream(Serialize(expression)))
-            {
-                return (IExpression)new BinaryFormatter().Deserialize(stream);
-            }
         }
 
         #endregion

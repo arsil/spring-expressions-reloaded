@@ -20,7 +20,6 @@
 
 using System;
 using System.Linq.Expressions;
-using System.Runtime.Serialization;
 using JetBrains.Annotations;
 using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
@@ -32,7 +31,6 @@ namespace SpringExpressions
     /// <summary>
     /// </summary>
     /// <author>Erich Eichinger</author>
-    [Serializable]
     public class OpXOR : BinaryOperator
     {
         /// <summary>
@@ -49,15 +47,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected OpXOR(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        protected override LExpression GetExpressionTreeIfPossible(
+                protected override LExpression GetExpressionTreeIfPossible(
             LExpression contextExpression,
             CompilationContext compilationContext)
         {

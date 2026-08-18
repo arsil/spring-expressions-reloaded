@@ -20,7 +20,6 @@
 
 using System;
 using System.Globalization;
-using System.Runtime.Serialization;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -30,7 +29,6 @@ namespace SpringExpressions
     /// Represents parsed hexadecimal integer literal node.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class HexLiteralNode : BaseNode
     {
         private object nodeValue;
@@ -42,15 +40,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected HexLiteralNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-        
-        /// <summary>
+                /// <summary>
         /// Returns a value for the hexadecimal integer literal node.
         /// </summary>
         /// <param name="context">Context to evaluate expressions against.</param>

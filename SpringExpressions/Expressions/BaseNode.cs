@@ -159,15 +159,7 @@ namespace SpringExpressions
 		public BaseNode()
         { }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected BaseNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        /// <summary>
+                /// <summary>
         /// Returns node's value.
         /// </summary>
         /// <returns>Node's value.</returns>

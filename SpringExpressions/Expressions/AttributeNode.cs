@@ -19,7 +19,6 @@
 #endregion
 
 using System;
-using System.Runtime.Serialization;
 
 using SpringCore.TypeResolution;
 using SpringUtil;
@@ -30,7 +29,6 @@ namespace SpringExpressions
     /// Represents parsed attribute node in the navigation expression.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class AttributeNode : ConstructorNode
     {
         /// <summary>
@@ -40,15 +38,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected AttributeNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-        
-        /// <summary>
+                /// <summary>
         /// Tries to determine attribute type based on the specified
         /// attribute type name.
         /// </summary>

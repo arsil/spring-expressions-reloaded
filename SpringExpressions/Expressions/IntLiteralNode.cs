@@ -21,7 +21,6 @@
 using System;
 using System.Globalization;
 using System.Linq.Expressions;
-using System.Runtime.Serialization;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -31,7 +30,6 @@ namespace SpringExpressions
     /// Represents parsed integer literal node.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class IntLiteralNode : BaseNode
     {
         private object nodeValue;
@@ -51,15 +49,7 @@ namespace SpringExpressions
             this.Text = text;
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected IntLiteralNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        /// <summary>
+                /// <summary>
         /// Returns a value for the integer literal node.
         /// </summary>
         /// <param name="context">Context to evaluate expressions against.</param>

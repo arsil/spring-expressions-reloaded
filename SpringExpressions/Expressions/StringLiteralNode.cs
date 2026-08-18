@@ -20,7 +20,6 @@
 
 using System;
 using System.Linq.Expressions;
-using System.Runtime.Serialization;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -30,7 +29,6 @@ namespace SpringExpressions
     /// Represents parsed string literal node.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class StringLiteralNode : BaseNode
     {
 		/// <summary>
@@ -48,15 +46,7 @@ namespace SpringExpressions
             this.Text = text;
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected StringLiteralNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-        
-        /// <summary>
+                /// <summary>
         /// Returns a value for the string literal node.
         /// </summary>
         /// <param name="context">Context to evaluate expressions against.</param>

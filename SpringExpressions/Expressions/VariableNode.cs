@@ -21,7 +21,6 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Runtime.Serialization;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -31,7 +30,6 @@ namespace SpringExpressions
     /// Represents parsed variable node.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class VariableNode : BaseNode
     {
         /// <summary>
@@ -41,15 +39,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected VariableNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
         
-
         // todo: bieda polega na tym, iż tracimy tutaj informacje o zwracanym typie...
         // todo: na etapie kompilacji nie mamy nawet tego typu! i to jest super smutne!
         // todo: być może nie ma sensu tego przerabiać na kompilowane wyrażenie...

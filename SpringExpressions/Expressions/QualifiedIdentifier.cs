@@ -19,7 +19,6 @@
 #endregion
 
 using System;
-using System.Runtime.Serialization;
 using SpringExpressions.Parser.antlr.collections;
 
 namespace SpringExpressions
@@ -28,7 +27,6 @@ namespace SpringExpressions
     /// Represents parsed named argument node in the expression.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class QualifiedIdentifier : BaseNode
     {
         private string identifier;
@@ -41,15 +39,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected QualifiedIdentifier(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        /// <summary>
+                /// <summary>
         /// Returns the value of the named argument defined by this node.
         /// </summary>
         /// <param name="context">Context to evaluate expressions against.</param>

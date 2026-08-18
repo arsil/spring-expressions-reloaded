@@ -20,7 +20,6 @@
 
 using System;
 using System.Linq.Expressions;
-using System.Runtime.Serialization;
 using SpringExpressions.Expressions.LinqExpressionHelpers;
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -30,7 +29,6 @@ namespace SpringExpressions
     /// Represents logical IS operator.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class OpIs : BinaryOperator
     {
         /// <summary>
@@ -40,15 +38,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected OpIs(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+                protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
             CompilationContext compilationContext)
         {
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);

@@ -20,7 +20,6 @@
 
 using System;
 using System.Collections;
-using System.Runtime.Serialization;
 using SpringCollections;
 using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
@@ -33,7 +32,6 @@ namespace SpringExpressions
     /// Represents arithmetic multiplication operator.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class OpMULTIPLY : BinaryOperator
     {
 		/// <summary>
@@ -43,15 +41,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected OpMULTIPLY(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-
+        
 		protected override LExpression GetExpressionTreeIfPossible(
             LExpression contextExpression,
             CompilationContext compilationContext)

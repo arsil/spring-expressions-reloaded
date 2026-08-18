@@ -19,7 +19,6 @@
 #endregion
 
 using System;
-using System.Runtime.Serialization;
 using SpringExpressions.Parser.antlr.collections;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -30,7 +29,6 @@ namespace SpringExpressions
     /// Represents parsed assignment node in the navigation expression.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class AssignNode : BaseNode
     {        
         /// <summary>
@@ -40,15 +38,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected AssignNode(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        protected override LExpression GetExpressionTreeIfPossible(
+                protected override LExpression GetExpressionTreeIfPossible(
             LExpression contextExpression, CompilationContext compilationContext)
         {
             AST left = getFirstChild();

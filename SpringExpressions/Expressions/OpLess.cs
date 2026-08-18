@@ -22,7 +22,6 @@ using System;
 using System.ComponentModel;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Runtime.Serialization;
 using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 
@@ -34,7 +33,6 @@ namespace SpringExpressions
     /// Represents logical "less than" operator.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class OpLess : BinaryOperator
     {
         /// <summary>
@@ -44,15 +42,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected OpLess(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
+                protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
             CompilationContext compilationContext)
         {
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);

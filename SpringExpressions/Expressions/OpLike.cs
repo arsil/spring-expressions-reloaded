@@ -19,7 +19,6 @@
 #endregion
 
 using System;
-using System.Runtime.Serialization;
 #if !MONO_2_0
 // using Microsoft.VisualBasic;
 // using Microsoft.VisualBasic.CompilerServices;
@@ -31,7 +30,6 @@ namespace SpringExpressions
     /// Represents VB-style logical LIKE operator.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class OpLike : BinaryOperator
     {
         /// <summary>
@@ -41,15 +39,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected OpLike(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-        
-        /// <summary>
+                /// <summary>
         /// Returns a value for the logical LIKE operator node.
         /// </summary>
         /// <param name="context">Context to evaluate expressions against.</param>

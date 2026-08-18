@@ -33,11 +33,6 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.Serialization;
-using System.Runtime.Serialization.Formatters.Binary;
-#if !NETCOREAPP
-using System.Runtime.Serialization.Formatters.Soap;
-#endif
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -147,48 +142,19 @@ namespace SpringExpressions
 
 #endregion
 
-#region Serialization Tests
+#region Node construction
 
         /// <summary>
-        /// GetObjectData() is not overridden on purpose !!!
-        /// </summary>
-        [Serializable]
-        private class SerializationTestExpression : BaseNode
-        {
-            private int testValue = 0;
-
-            public int TestValue
-            {
-                get { return testValue; }
-            }
-
-            public SerializationTestExpression(int testValue)
-            {
-                this.testValue = testValue;
-            }
-
-            protected SerializationTestExpression(SerializationInfo info, StreamingContext context)
-                : base(info, context)
-            {
-            }
-
-            protected override object Get(object context, EvaluationContext evalContext)
-            {
-                throw new NotImplementedException();
-            }
-        }
-
-        /// <summary>
-        /// Tests serialization + deserialization of all BaseNode derived types
+        /// Every node type must remain instantiable through a parameterless constructor: the parser creates
+        /// nodes reflectively - see the ASTFactory lookup in <see cref="Expression.Parse"/>, which resolves
+        /// <c>type.GetConstructor(new Type[0])</c> - so a node missing one fails when an expression is
+        /// parsed rather than when the assembly is built.
         /// </summary>
         [Test]
-        public void AllExpressionNodeTypesAreSerializable()
+        public void AllExpressionNodeTypesAreConstructible()
         {
             Type[] possibleTypes = typeof(BaseNode).Assembly.GetTypes();
 
-            BinaryFormatter formatter = new BinaryFormatter();
-
-            // look for all BaseNode derived types defined in assembly Spring.Core
             for (int i = 0; i < possibleTypes.Length; i++)
             {
                 Type t = possibleTypes[i];
@@ -197,95 +163,12 @@ namespace SpringExpressions
                     && (!t.IsAbstract)
                     )
                 {
-                    //Console.WriteLine("testing " + t.FullName);
-
-                    // create using for public default ctor
-                    IExpression exp = (IExpression)Activator.CreateInstance(t, true);
-                    // serialize and deserialize it
-                    exp = SerializeDeserializeExpression(exp);
-#if !NETCOREAPP
-                    exp = SerializeDeserializeExpressionUsingSoap(exp);
-#endif
+                    Assert.IsNotNull(Activator.CreateInstance(t, true), t.FullName);
                 }
             }
         }
 
-        /// <summary>
-        /// <see cref="SpringAST"/> implements <see cref="ISerializable"/>.
-        /// Thus members in derived classes won't get automatically serialized.
-        /// </summary>
-        [Test]
-        public void MembersDontGetSerializedByDefault()
-        {
-            SerializationTestExpression exp = new SerializationTestExpression(5);
-            Assert.AreEqual(5, exp.TestValue);
-            SerializationTestExpression exp2 = (SerializationTestExpression)SerializeDeserializeExpression(exp);
-            Assert.AreEqual(0, exp2.TestValue);
-        }
-
-        /// <summary>
-        /// This test ensures, that the default node-type is serializable.
-        /// </summary>
-        /// <remarks>
-        /// date() is parsed into DateLiteralNode( down:&lt;default node type&gt; ).
-        /// Normally antlr.CommonAST is the default node used by antlr. To enable serialization, Spring
-        /// uses a custom ASTFactory in <see cref="Expression.Parse"/>
-        /// </remarks>
-        [Test]
-        public void ExpressionDateLiteralNodeMaintainsStateAfterSerialization()
-        {
-            IExpression exp = Expression.Parse("date('08-24-1974', 'MM-dd-yyyy')");
-
-            Assert.AreEqual(new DateTime(1974, 8, 24), exp.GetValue(null));
-
-            exp = SerializeDeserializeExpression(exp);
-
-            Assert.AreEqual(new DateTime(1974, 8, 24), exp.GetValue(null));
-        }
-
-        private static IExpression SerializeDeserializeExpression(IExpression exp)
-        {
-            byte[] data;
-            BinaryFormatter formatter = new BinaryFormatter();
-            using (MemoryStream ms = new MemoryStream())
-            {
-                formatter.Serialize(ms, exp);
-                ms.Flush();
-                data = ms.ToArray();
-            }
-
-            using (MemoryStream ms = new MemoryStream(data))
-            {
-                exp = (IExpression)formatter.Deserialize(ms);
-            }
-
-            return exp;
-        }
-
-#if !NETCOREAPP
-        private static IExpression SerializeDeserializeExpressionUsingSoap(IExpression exp)
-        {
-            string xml;
-            SoapFormatter formatter = new SoapFormatter();
-            using (MemoryStream ms = new MemoryStream())
-            {
-                formatter.Serialize(ms, exp);
-                ms.Position = 0;
-                byte[] b = new byte[ms.Length];
-                ms.Read(b, 0, (int)ms.Length);
-                xml = Encoding.ASCII.GetString(b, 0, b.Length);
-            }
-            using (StringReader sr = new StringReader(xml))
-            {
-                byte[] b = Encoding.ASCII.GetBytes(xml);
-                Stream stream = new MemoryStream(b);
-                exp = (IExpression)formatter.Deserialize(stream);
-            }
-            return exp;
-        }
-#endif
-
-#endregion Serialization Tests
+#endregion Node construction
 
         [Test]
         public void TestConstantRead()

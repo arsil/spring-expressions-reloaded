@@ -19,7 +19,6 @@
 #endregion
 
 using System;
-using System.Runtime.Serialization;
 using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 
@@ -31,7 +30,6 @@ namespace SpringExpressions
     /// Represents unary minus operator.
     /// </summary>
     /// <author>Aleksandar Seovic</author>
-    [Serializable]
     public class OpUnaryMinus : UnaryOperator
     {
         /// <summary>
@@ -41,15 +39,7 @@ namespace SpringExpressions
         {
         }
 
-        /// <summary>
-        /// Create a new instance from SerializationInfo
-        /// </summary>
-        protected OpUnaryMinus(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-        }
-
-        protected override LExpression GetExpressionTreeIfPossible(
+                protected override LExpression GetExpressionTreeIfPossible(
             LExpression contextExpression,
             CompilationContext compilationContext)
         {
