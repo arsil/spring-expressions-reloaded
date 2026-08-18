@@ -73,7 +73,7 @@ namespace SpringExpressions.Processors
                 functionNode.addChild(x);
                 functionNode.addChild(y);
 
-                _fn = functionNode;
+                _fn = Expression.Wrap(functionNode);
                 _variables = new Dictionary<string, object>();
                 _variables.Add( "compare", lambdaExpression );
             }

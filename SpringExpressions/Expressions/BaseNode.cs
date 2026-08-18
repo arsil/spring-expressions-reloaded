@@ -34,7 +34,7 @@ namespace SpringExpressions
     /// </summary>
     /// <author>Aleksandar Seovic</author>
     //[Serializable]
-    public abstract class BaseNode : SpringAST, IExpression
+    public abstract class BaseNode : SpringAST
     {
         protected class ArgumentMismatchException : Exception
         {
@@ -148,9 +148,6 @@ namespace SpringExpressions
 
         #endregion
 
-		// Used only by the object-typed context path, which compiles for the runtime type of the root.
-		private Func<object, IDictionary<string, object>, object> _compiledExpression;
-
 
 		/// <summary>
 		/// Create a new instance
@@ -158,100 +155,10 @@ namespace SpringExpressions
 		public BaseNode()
         { }
 
-                /// <summary>
-        /// Returns node's value.
-        /// </summary>
-        /// <returns>Node's value.</returns>
-        public object GetValue()
-        {
-            return GetValue<object>(null, null);
-        }
-
-        /// <summary>
-        /// Returns node's value for the given context.
-        /// </summary>
-        /// <param name="context">Object to evaluate node against.</param>
-        /// <returns>Node's value.</returns>
-        public object GetValue<TContext>(TContext context)
-        {
-			return GetValue<TContext>(context, null);
-
-		}
-
-		/// <summary>
-		/// Returns node's value for the given context.
-		/// </summary>
-		/// <param name="context">Object to evaluate node against.</param>
-		/// <param name="variables">Expression variables map.</param>
-		/// <returns>Node's value.</returns>
-		public object GetValue<TContext>(TContext context, IDictionary<string, object> variables)
-        {
-            // A context declared as object states nothing to bind against - object has no members the
-            // expression could want - so that case keeps doing what this path did before it became
-            // generic: look at the value and compile for its runtime type.
-            if (typeof(TContext) == typeof(object))
-                return GetValueForContextTypedAsObject(context, variables);
-
-            // Otherwise the call site named the type, so the root arrives already typed: nothing has to be
-            // guessed from the first value seen, and the delegate needs no cast of the root. That is the
-            // same compilation the typed overload performs, with object as the result type.
-            return GetValue<object, TContext>(context, variables);
-
-     // todo: jeśli kompilacja się nie udała, to powinniśmy pójść starą, wolną ścieżką (interpreterem)
-     // todo: - CompileOptions.TryCompileSwitchToInterpreterOnFailure - decydując o tym raz,
-     // todo: przy budowaniu delegata, a nie przy każdym wywołaniu.
-        }
-
-        /// <summary>
-        /// Evaluates against a context whose declared type is <c>object</c>, by compiling for the runtime
-        /// type of the value instead.
-        /// </summary>
-        /// <remarks>
-        /// This is the original weakly typed behaviour, and it keeps the original defect: the runtime type
-        /// of the first root reaching this instance is baked into the delegate, so a later root of another
-        /// type fails its cast. A caller that knows the type avoids all of it by letting
-        /// <c>TContext</c> be inferred.
-        /// </remarks>
-        private object GetValueForContextTypedAsObject(
-            object context, IDictionary<string, object> variables)
-        {
-                // todo: error: _compiled jest prawdzie tylko, jeśli context się nie zmienił!
-	        if (_compiledExpression == null)
-	        {
-				// todo: zapamiętujemy zbudowane expression!
-				// todo: zapamiętujemy funkcję, która dostaje na ryja obecta! z contextem!
-				// todo: i go rzutuje!
-				LExpression getRootContextExpression;
-		        var ctxParam = LExpression.Parameter(typeof(object), "context");
-
-		        if (context == null)
-			        getRootContextExpression = LExpression.Constant(null);
-		        else
-			        getRootContextExpression = LExpression.Convert(ctxParam, context.GetType());
-
-				var variablesParam = LExpression.Parameter(
-					typeof(IDictionary<string, object>), "variables");
-
-				var exp = GetExpressionTreeIfPossible(
-                    getRootContextExpression,
-                    new CompilationContext(getRootContextExpression, variablesParam));
-
-                if (exp.Type == typeof(void))
-                    exp = LExpression.Block(exp, LExpression.Constant(null, typeof(object)));
-                else if (exp.Type != typeof(object))
-		            exp = LExpression.Convert(exp, typeof(object));
-
-				Expression<Func<object, IDictionary<string, object>, object>> lambda
-			        = LExpression.Lambda<Func<object, IDictionary<string, object>, object>>(
-				        exp, ctxParam, variablesParam);
-
-				_compiledExpression = lambda.Compile();
-	        }
-
-			// The caller's own variables dictionary, on every call - so a #variable read or write sees this
-			// evaluation's dictionary rather than whichever one arrived first.
-			return _compiledExpression(context, variables);
-        }
+        // The object-typed context path lived here: it compiled for the runtime type of the first root
+        // this node saw and reused that delegate forever. It belongs to the expression object now, which
+        // keeps one compiled form per type - declared or discovered - so a second root type no longer
+        // fails. See WeaklyTypedExpression.
 
            // todo: error?
         internal object GetValueUsingInterpreter(
@@ -273,39 +180,10 @@ namespace SpringExpressions
         }
 
 
-        private object _compiledExpressionAsObject;
-
- // todo: error: Getter Settter typowany nie publiczny !
-        // todo: oczywiście bez sensu jest robić tyle GetXXXValue... totalnie bez sensu....
-        public TResult GetValue<TResult>(IDictionary<string, object> variables = null)
-        {
-            return GetValue<TResult, object>(null, variables);
-        }
-
-           // todo: error: jeśli tojest w GetValue<> to przecież ktoś moze to wywołać z nowymi typami
-           // todo: erorr: i całość skompilowanego kodu pójdzie się jebać!!! tej!
-           // todo: error: więc jak to robnić? 
-
-           // todo: error: jeśli więc nie całe expression będzie typowane, to lekka dupa, nie?
-
-        public TResult GetValue<TResult, TContext>(TContext context, IDictionary<string, object> variables)
-	    {
-              //todo: typ dla kompiled object....
-  // todo: musimy zapaiętać typy...
-
-    // todo: error: tutaj oczywiście jest problem, bo base-node nie jest w ogóle przygotowany na typowanie... stąd problem!
-		    if (_compiledExpressionAsObject == null)
-		    {
-                _compiledExpressionAsObject = Compiler.CompileGetter<TResult, TContext>(this);
-
-                // dupochron
-                if (_compiledExpressionAsObject == null)
-                    throw new InvalidOperationException("Unknown error [_compiledExpressionAsObject == null]!");
-            }
-
-			return ((Func<TContext, IDictionary<string, object>, TResult>) _compiledExpressionAsObject)(
-				context, variables);
-	    }
+        // The typed compilation that used to live here - GetValue<TResult>, GetValue<TResult, TContext> and
+        // the single object-typed slot they shared - is gone. A node cannot hold it: one slot serves one type
+        // pair, so a second pair could only fail its cast, which is what the author's todos here said. The
+        // expression object holds it now, one compiled form per context type. See WeaklyTypedExpression.
 
         /// <summary>
         /// Returns node's value for the given context.
@@ -326,9 +204,9 @@ namespace SpringExpressions
         /// </summary>
         /// <param name="context">Object to evaluate node against.</param>
         /// <param name="newValue">New value for this node.</param>
-        public void SetValue<TContext>(TContext context, object newValue)
+        internal void SetValue(object context, object newValue)
         {
-            SetValue<TContext>(context, null, newValue);
+            SetValue(context, null, newValue);
         }
 
         /// <summary>
@@ -337,10 +215,11 @@ namespace SpringExpressions
         /// <param name="context">Object to evaluate node against.</param>
         /// <param name="variables">Expression variables map.</param>
         /// <param name="newValue">New value for this node.</param>
-        public void SetValue<TContext>(TContext context, IDictionary<string, object> variables, object newValue)
+        internal void SetValue(object context, IDictionary<string, object> variables, object newValue)
         {
-            // TContext is not used yet: this path runs on the interpreter, which resolves members against
-            // the runtime type. It becomes useful once the setter is compiled here too.
+            // No context type parameter: setting runs on the interpreter, which resolves members against the
+            // runtime type, so a declared type would buy nothing here. It becomes useful once the setter is
+            // compiled too.
             EvaluationContext evalContext = new EvaluationContext(context, variables);
             Set(context, evalContext, newValue);
         }

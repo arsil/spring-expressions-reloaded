@@ -147,6 +147,19 @@ namespace SpringExpressions
         /// <param name="expression">Expression to parse.</param>
         public static IExpression Parse( string expression )
         {
+            return Wrap(ParseAst(expression));
+        }
+
+        /// <summary>
+        /// Parses an expression and returns its root AST node.
+        /// </summary>
+        /// <remarks>
+        /// The parse itself. <see cref="Parse"/> is this plus <see cref="Wrap"/>; the strongly typed
+        /// factories below use this directly, because they hand the tree to a compiler rather than
+        /// evaluating it.
+        /// </remarks>
+        internal static BaseNode ParseAst(string expression)
+        {
             if (StringUtils.HasText( expression ))
             {
                 ExpressionLexer lexer = new ExpressionLexer( new StringReader( expression ) );
@@ -166,13 +179,31 @@ namespace SpringExpressions
                 using (TextWriter tw = Console.Out)
                     springAst.xmlSerialize(tw);
                 ****/
-                return (IExpression)springAst;
+                return (BaseNode)springAst;
             }
             else
             {
                 return new Expression();
             }
         }
+
+        /// <summary>
+        /// Makes an AST node evaluable.
+        /// </summary>
+        /// <remarks>
+        /// Use this for a node that did not come from <see cref="Parse"/> - one built by hand, or one taken
+        /// out of a larger tree. The result owns the compiled form of that node: compiled state lives here
+        /// rather than on the tree, so the same node can be evaluated against several context types, each
+        /// getting its own compiled form.
+        /// </remarks>
+        /// <param name="expressionNode">The node to evaluate; must not be null.</param>
+        public static IExpression Wrap(BaseNode expressionNode)
+        {
+            AssertUtils.ArgumentNotNull(expressionNode, "expressionNode");
+
+            return new WeaklyTypedExpression(expressionNode);
+        }
+
             // todo: error: a możę ParseAndCompile()
             // todo: error: compile options!
         public static IGetterExpression<TRoot, TResult> ParseGetter<TRoot, TResult>(
@@ -181,7 +212,7 @@ namespace SpringExpressions
         {
             AssertUtils.ArgumentHasText(expression, "expression");
 
-            return new GetterExpression<TRoot, TResult>((BaseNode)Parse(expression), compileOptions);
+            return new GetterExpression<TRoot, TResult>(ParseAst(expression), compileOptions);
         }
 
         public static IGetterExpression<TResult> ParseGetter<TResult>(
@@ -190,7 +221,7 @@ namespace SpringExpressions
         {
             AssertUtils.ArgumentHasText(expression, "expression");
 
-            return new GetterExpression<TResult>((BaseNode)Parse(expression), compileOptions);
+            return new GetterExpression<TResult>(ParseAst(expression), compileOptions);
         }
 
         public static ISetterExpression<TRoot, TArgument> ParseSetter<TRoot, TArgument>(
@@ -199,7 +230,7 @@ namespace SpringExpressions
         {
             AssertUtils.ArgumentHasText(expression, "expression");
 
-            return new SetterExpression<TRoot, TArgument>((BaseNode)Parse(expression), compileOptions);
+            return new SetterExpression<TRoot, TArgument>(ParseAst(expression), compileOptions);
         }
 
         public static ISetterExpression<TArgument> ParseSetter<TArgument>(
@@ -208,7 +239,7 @@ namespace SpringExpressions
         {
             AssertUtils.ArgumentHasText(expression, "expression");
 
-            return new SetterExpression<TArgument>((BaseNode)Parse(expression), compileOptions);
+            return new SetterExpression<TArgument>(ParseAst(expression), compileOptions);
         }
 
         public static IVoidExpression<TRoot> ParseVoidExpression<TRoot>(
@@ -217,7 +248,7 @@ namespace SpringExpressions
         {
             AssertUtils.ArgumentHasText(expression, "expression");
 
-            return new VoidExpression<TRoot>((BaseNode)Parse(expression), compileOptions);
+            return new VoidExpression<TRoot>(ParseAst(expression), compileOptions);
         }
 
         public static IVoidExpression ParseVoidExpression(
@@ -226,7 +257,7 @@ namespace SpringExpressions
         {
             AssertUtils.ArgumentHasText(expression, "expression");
 
-            return new VoidExpression((BaseNode)Parse(expression), compileOptions);
+            return new VoidExpression(ParseAst(expression), compileOptions);
         }
 
 
@@ -275,11 +306,11 @@ namespace SpringExpressions
                 {
                     throw new SyntaxErrorException( ex.recog.Message, ex.recog.getLine(), ex.recog.getColumn(), expression );
                 }
-                return (IExpression)parser.getAST();
+                return Wrap((BaseNode)parser.getAST());
             }
             else
             {
-                return new Expression();
+                return Wrap(new Expression());
             }
         }
 
@@ -303,11 +334,11 @@ namespace SpringExpressions
                 {
                     throw new SyntaxErrorException( ex.recog.Message, ex.recog.getLine(), ex.recog.getColumn(), expression );
                 }
-                return (IExpression)parser.getAST();
+                return Wrap((BaseNode)parser.getAST());
             }
             else
             {
-                return new Expression();
+                return Wrap(new Expression());
             }
         }
 
@@ -560,7 +591,7 @@ namespace SpringExpressions
 
                 for (int i = 0; i < this.getNumberOfChildren() - 1; i++)
                 {
-                    target = ((IExpression)node).GetValue( target, variables );
+                    target = Wrap((BaseNode)node).GetValue(target, variables);
                     node = node.getNextSibling();
                 }
 

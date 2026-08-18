@@ -54,7 +54,7 @@ namespace SpringExpressions
             MethodNode mn = new MethodNode();
             mn.Text = "myCollProc";
 
-            IExpression exp = mn;
+            IExpression exp = Expression.Wrap(mn);
             int[] input = new int[] {1, 2, 3};
             Assert.AreSame(input, exp.GetValue(input, vars));
         }
@@ -82,7 +82,7 @@ namespace SpringExpressions
             mn.addChild(sln);
             mn.addChild(exp);
 
-            IExpression mnExp = mn;
+            IExpression mnExp = Expression.Wrap(mn);
             Assert.AreEqual("dummy", mnExp.GetValue(0m, null));
 
             int runs = 10000000;

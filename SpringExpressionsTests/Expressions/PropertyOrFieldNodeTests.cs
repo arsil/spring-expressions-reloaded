@@ -51,7 +51,7 @@ namespace SpringExpressions
             PropertyOrFieldNode pofNode = new PropertyOrFieldNode();
             pofNode.Text = "StringProp";
 
-            Assert.AreEqual(new DateTime(2008,1,1), ((IExpression) pofNode).GetValue(new DerivedClass()));
+            Assert.AreEqual(new DateTime(2008,1,1), Expression.Wrap(pofNode).GetValue(new DerivedClass()));
         }
 
         [Test]

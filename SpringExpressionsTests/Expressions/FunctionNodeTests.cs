@@ -50,7 +50,7 @@ namespace SpringExpressions
             str.Text = "theValue";
             fn.addChild(str);
 
-            IExpression exp = fn;
+            IExpression exp = Expression.Wrap(fn);
             Assert.AreEqual(str.Text, exp.GetValue<object>(null, vars));
         }
 
@@ -69,7 +69,7 @@ namespace SpringExpressions
             str2.Text = "theValue";
             fn.addChild(str2);
 
-            IExpression exp = fn;
+            IExpression exp = Expression.Wrap(fn);
             Assert.AreEqual(string.Format("{0},{1},{2}", this.GetHashCode(), str.Text, str2.Text), exp.GetValue<object>(null, vars));
         }
 
@@ -112,7 +112,7 @@ namespace SpringExpressions
             {
                 for (int i = 0; i < ITERATIONS; i++)
                 {
-                    fn.GetValue<object>(null, vars);
+                    Expression.Wrap(fn).GetValue<object>(null, vars);
                 }
             }
         }

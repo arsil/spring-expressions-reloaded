@@ -342,7 +342,21 @@ namespace SpringExpressions
 
                 // final call - Type!
                 {
-                    var type = TypeResolutionUtils.ResolveType(name);
+                    // ResolveType throws instead of returning null for a name that is not a type, and a member
+                    // name usually is not one - which made the guard below unreachable and reported
+                    // "Could not load type from string value 'Length'" for what is plainly a property access.
+                    // Failing to resolve here means only "not a type either", so it has to fall through to the
+                    // compile failure below: that is the signal callers can act on, including the interpreter
+                    // fallback in WeaklyTypedExpression.
+                    Type type = null;
+                    try
+                    {
+                        type = TypeResolutionUtils.ResolveType(name);
+                    }
+                    catch (TypeLoadException)
+                    {
+                    }
+
                     if (type != null)
                     {
 //                        if (!type.IsValueType)

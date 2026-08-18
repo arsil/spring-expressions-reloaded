@@ -68,7 +68,7 @@ namespace SpringExpressions
             StringLiteralNode sNode = new StringLiteralNode("theValue");
             ctorNode.AddArgument(sNode);
 
-            PublicTestClass instance = (PublicTestClass) ((IExpression)ctorNode).GetValue();
+            PublicTestClass instance = (PublicTestClass) Expression.Wrap(ctorNode).GetValue();
             Assert.AreEqual( sNode.Text, instance._s );
             Assert.AreEqual( -1, instance._i );
         }
@@ -85,7 +85,7 @@ namespace SpringExpressions
             iNode.Text="2";
             ctorNode.addChild(iNode);
 
-            PublicTestClass instance = (PublicTestClass) ((IExpression)ctorNode).GetValue();
+            PublicTestClass instance = (PublicTestClass) Expression.Wrap(ctorNode).GetValue();
             Assert.AreEqual( sNode.Text, instance._s );
             Assert.AreEqual( 2, instance._i );
         }
@@ -102,7 +102,7 @@ namespace SpringExpressions
             iNode.Text="3";
             ctorNode.addChild(iNode);
 
-            PublicTestClass instance = (PublicTestClass) ((IExpression)ctorNode).GetValue();
+            PublicTestClass instance = (PublicTestClass) Expression.Wrap(ctorNode).GetValue();
             Assert.AreEqual( sNode.Text, instance._s );
             Assert.AreEqual( 3, instance._i );
         }

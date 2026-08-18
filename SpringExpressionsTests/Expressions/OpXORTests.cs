@@ -33,17 +33,17 @@ namespace SpringExpressions
         public void XorsNumbers()
         {
             OpXOR bxor = new OpXOR(new IntLiteralNode("2"), new IntLiteralNode("3"));
-            Assert.AreEqual(2 ^ 3, bxor.GetValue());
+            Assert.AreEqual(2 ^ 3, Expression.Wrap(bxor).GetValue());
         }
 
         [Test]
         public void XorsBooleans()
         {
             OpXOR bxor1 = new OpXOR(new BooleanLiteralNode("true"), new BooleanLiteralNode("false"));
-            Assert.AreEqual(true ^ false, bxor1.GetValue());
+            Assert.AreEqual(true ^ false, Expression.Wrap(bxor1).GetValue());
 
             OpXOR bxor2 = new OpXOR(new BooleanLiteralNode("true"), new BooleanLiteralNode("true"));
-            Assert.AreEqual(true ^ true, bxor2.GetValue());
+            Assert.AreEqual(true ^ true, Expression.Wrap(bxor2).GetValue());
         }
     }
 }

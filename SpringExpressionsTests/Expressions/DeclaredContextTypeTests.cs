@@ -97,23 +97,40 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// One expression instance holds one compiled delegate, so it serves one context type. Evaluating
-        /// the same instance against a second, unrelated context type throws.
+        /// One instance serves any number of context types, and they do not displace each other.
         /// </summary>
         /// <remarks>
-        /// This is the captured-root defect in its new form rather than its removal: the signature change
-        /// means the root no longer has to be guessed from the first value seen, but the single delegate
-        /// slot still ties an instance to the first context type it compiled for - the cast that fails is
-        /// now the delegate's, not the root's. Caching one delegate per context type would remove the
-        /// limitation, at which point this test should assert the second value instead of the throw.
+        /// The compiled form belongs to the expression object, which keeps one per declared context type,
+        /// rather than to an AST node with a single slot. While it lived on the node this threw
+        /// `InvalidCastException` on the second type - first the root's cast, then the delegate's.
         /// </remarks>
         [Test]
-        public void OneInstanceServesOneContextTypeOnly()
+        public void OneInstanceServesManyContextTypes()
         {
             IExpression expression = Expression.Parse("Length");
 
             Assert.AreEqual(3, expression.GetValue("abc"));
-            Assert.Throws<InvalidCastException>(() => expression.GetValue(new int[3]));
+            Assert.AreEqual(3, expression.GetValue(new int[3]));
+            Assert.AreEqual(2, expression.GetValue(new string[2]));
+
+            // The first one still works after the others: entries accumulate rather than replace.
+            Assert.AreEqual(3, expression.GetValue("abc"));
+        }
+
+        /// <summary>
+        /// The same holds for a caller with nothing to declare. An object-typed context is compiled for the
+        /// runtime type of the value, and each runtime type gets its own compiled form - where the node used
+        /// to bake the first type it saw and fail the cast for every later one.
+        /// </summary>
+        [Test]
+        public void ObjectTypedContextAlsoServesManyRuntimeTypes()
+        {
+            IExpression expression = Expression.Parse("Length");
+
+            Assert.AreEqual(3, expression.GetValue((object)"abc"));
+            Assert.AreEqual(3, expression.GetValue((object)new int[3]));
+            Assert.AreEqual(2, expression.GetValue((object)new string[2]));
+            Assert.AreEqual(3, expression.GetValue((object)"abc"));
         }
     }
 }

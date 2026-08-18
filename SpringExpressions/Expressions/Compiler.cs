@@ -36,6 +36,13 @@ namespace SpringExpressions.Expressions
                 getRootContextExpression,
                 new CompilationContext(getRootContextExpression, variablesParam));
 
+            // An expression whose body is void - an assignment, say - still has to produce a value when the
+            // result type is object. Yielding null after it is what the weakly typed path always did.
+            if (exp.Type == typeof(void) && typeof(TResult) == typeof(object))
+            {
+                exp = LExpression.Block(exp, LExpression.Constant(null, typeof(object)));
+            }
+
             if (exp.Type.IsValueType)
             {
                 var resultType = typeof(TResult);
