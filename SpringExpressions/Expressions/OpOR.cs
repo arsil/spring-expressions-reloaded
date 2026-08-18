@@ -67,31 +67,36 @@ namespace SpringExpressions
         protected override object Get(object context, EvaluationContext evalContext)
         {
             object l = GetLeftValue(context, evalContext);
-            
-            if (NumberUtils.IsInteger(l))
+
+            // The same two roles as "and", decided the same way: a left operand that is neither null, an
+            // integer nor an enum rules out the bitwise role, so this is the logical operator, and the
+            // logical operator short-circuits: "true or X" never evaluates X.
+            if (l != null && !NumberUtils.IsInteger(l) && !(l is Enum))
             {
-                object r = GetRightValue(context, evalContext);
-                if (NumberUtils.IsInteger(r))
-                {
-                    return NumberUtils.BitwiseOr(l, r);
-                }
-            }
-            else if (l is Enum)
-            {
-                object r = GetRightValue(context, evalContext);
-                if (l.GetType() == r.GetType())
-                {
-                    Type enumType = l.GetType();
-                    Type integralType = Enum.GetUnderlyingType(enumType);
-                    l = Convert.ChangeType(l, integralType);
-                    r = Convert.ChangeType(r, integralType);
-                    object result = NumberUtils.BitwiseOr(l, r);
-                    return Enum.ToObject(enumType, result);
-                }
+                return Convert.ToBoolean(l)
+                    || Convert.ToBoolean(GetRightValue(context, evalContext));
             }
 
-            return Convert.ToBoolean(l) || 
-                Convert.ToBoolean(GetRightValue(context, evalContext));
+            object r = GetRightValue(context, evalContext);
+
+            if (NumberUtils.IsInteger(l) && NumberUtils.IsInteger(r))
+            {
+                return NumberUtils.BitwiseOr(l, r);
+            }
+
+            if (l is Enum && l.GetType() == r.GetType())
+            {
+                Type enumType = l.GetType();
+                Type integralType = Enum.GetUnderlyingType(enumType);
+                l = Convert.ChangeType(l, integralType);
+                r = Convert.ChangeType(r, integralType);
+                object result = NumberUtils.BitwiseOr(l, r);
+                return Enum.ToObject(enumType, result);
+            }
+
+            // The right operand has already been evaluated above. Reading it again here would run its
+            // side effects a second time.
+            return Convert.ToBoolean(l) || Convert.ToBoolean(r);
         }
     }
 }

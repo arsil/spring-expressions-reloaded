@@ -68,6 +68,17 @@ namespace SpringExpressions
         protected override object Get(object context, EvaluationContext evalContext)
         {
             object l = GetLeftValue(context, evalContext);
+
+            // One operator serves two roles here - logical for booleans, bitwise for integers and enums -
+            // and the left operand decides which. A left operand that is neither null, an integer nor an
+            // enum rules out the bitwise role whatever the right operand turns out to be, so this is the
+            // logical operator, and the logical operator short-circuits: "false and X" never evaluates X.
+            if (l != null && !NumberUtils.IsInteger(l) && !(l is Enum))
+            {
+                return Convert.ToBoolean(l)
+                    && Convert.ToBoolean(GetRightValue(context, evalContext));
+            }
+
             object r = GetRightValue(context, evalContext);
 
             var leftIsInteger = NumberUtils.IsInteger(l);
@@ -99,8 +110,9 @@ namespace SpringExpressions
                 }
             }
 
-            return Convert.ToBoolean(l) &&
-                Convert.ToBoolean(GetRightValue(context, evalContext));
+            // The right operand has already been evaluated above. Reading it again here would run its
+            // side effects a second time.
+            return Convert.ToBoolean(l) && Convert.ToBoolean(r);
         }
     }
 }
