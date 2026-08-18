@@ -41,32 +41,39 @@ namespace SpringExpressions
         /// <summary>
         /// Returns expression value.
         /// </summary>
-        /// <param name="context">Object to evaluate expression against.</param>
+        /// <remarks>
+        /// <typeparamref name="TContext"/> is inferred from the call site, so the expression binds members
+        /// against the type the caller declared - the type C# itself would bind against - instead of the
+        /// runtime type of whichever root the expression happened to see first. A caller holding an
+        /// <c>object</c> gets <c>TContext = object</c>, which is exactly the old behaviour; a null literal
+        /// has no type to infer, so it needs <c>GetValue&lt;object&gt;(null)</c> or a cast.
+        /// </remarks>
+        /// <param name="context">Object to evaluate expression against; may be null.</param>
         /// <returns>Value of the expression.</returns>
-        object GetValue(object context);
+        object GetValue<TContext>(TContext context);
 
         /// <summary>
         /// Returns expression value.
         /// </summary>
-        /// <param name="context">Object to evaluate expression against.</param>
+        /// <param name="context">Object to evaluate expression against; may be null.</param>
         /// <param name="variables">Expression variables map.</param>
         /// <returns>Value of the expression.</returns>
-        object GetValue(object context, IDictionary<string, object> variables);
+        object GetValue<TContext>(TContext context, IDictionary<string, object> variables);
 
         /// <summary>
         /// Sets expression value.
         /// </summary>
-        /// <param name="context">Object to evaluate expression against.</param>
+        /// <param name="context">Object to evaluate expression against; may be null.</param>
         /// <param name="newValue">New value for the last node of the expression.</param>
-        void SetValue(object context, object newValue);
+        void SetValue<TContext>(TContext context, object newValue);
 
         /// <summary>
         /// Sets expression value.
         /// </summary>
-        /// <param name="context">Object to evaluate expression against.</param>
+        /// <param name="context">Object to evaluate expression against; may be null.</param>
         /// <param name="variables">Expression variables map.</param>
         /// <param name="newValue">New value for the last node of the expression.</param>
-        void SetValue(object context, IDictionary<string, object> variables, object newValue);
+        void SetValue<TContext>(TContext context, IDictionary<string, object> variables, object newValue);
     }
 
            // todo: error: zmienić może nazwy IGetterExpression

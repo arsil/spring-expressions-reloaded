@@ -781,7 +781,7 @@ namespace SpringExpressions
 
             IExpression exp = Expression.Parse("new System.DateTime(2004, 8, 14)");
             Assert.AreEqual(1000, ExpressionEvaluator.GetValue(null, "new Decimal(1000)"));
-            Assert.AreEqual(new DateTime(2004, 8, 14), exp.GetValue(null));
+            Assert.AreEqual(new DateTime(2004, 8, 14), exp.GetValue());
             Assert.AreEqual(new DateTime(2004, 8, 14), exp.GetValue("xyz"));
             Assert.AreEqual(new DateTime(1974, 8, 24),
                             ExpressionEvaluator.GetValue(null, "new DateTime(2004, 8, 14).AddDays(10).AddYears(-30)"));

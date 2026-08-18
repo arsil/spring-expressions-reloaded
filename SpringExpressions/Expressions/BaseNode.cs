@@ -22,7 +22,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq.Expressions;
-using System.Runtime.Serialization;
 using JetBrains.Annotations;
 using SpringExpressions.Expressions;
 using SpringExpressions.Expressions.Compiling.Expressions;
@@ -149,7 +148,7 @@ namespace SpringExpressions
 
         #endregion
 
- //	    private Func<object, object> _compiledExpression;
+		// Used only by the object-typed context path, which compiles for the runtime type of the root.
 		private Func<object, IDictionary<string, object>, object> _compiledExpression;
 
 
@@ -165,7 +164,7 @@ namespace SpringExpressions
         /// <returns>Node's value.</returns>
         public object GetValue()
         {
-            return GetValue(null, null);
+            return GetValue<object>(null, null);
         }
 
         /// <summary>
@@ -173,9 +172,9 @@ namespace SpringExpressions
         /// </summary>
         /// <param name="context">Object to evaluate node against.</param>
         /// <returns>Node's value.</returns>
-        public object GetValue(object context)
+        public object GetValue<TContext>(TContext context)
         {
-			return GetValue(context, null);
+			return GetValue<TContext>(context, null);
 
 		}
 
@@ -185,61 +184,73 @@ namespace SpringExpressions
 		/// <param name="context">Object to evaluate node against.</param>
 		/// <param name="variables">Expression variables map.</param>
 		/// <returns>Node's value.</returns>
-		public object GetValue(object context, IDictionary<string, object> variables)
+		public object GetValue<TContext>(TContext context, IDictionary<string, object> variables)
         {
-                     // todo: error: strongly typed context?????
+            // A context declared as object states nothing to bind against - object has no members the
+            // expression could want - so that case keeps doing what this path did before it became
+            // generic: look at the value and compile for its runtime type.
+            if (typeof(TContext) == typeof(object))
+                return GetValueForContextTypedAsObject(context, variables);
 
-			     // The lock that used to guard this block is gone, and so is the reason for it: nothing
-			     // per-evaluation is stored on this instance any more. Context and variables are
-			     // parameters of the compiled delegate, and two threads racing to build that delegate
-			     // is benign - the two are equivalent and the field write is atomic.
-	        {
-                // todo: error: _compiled jest prawdzie tylko, jeśli context się nie zmienił!
-
-		        if (_compiledExpression == null)
-		        {
-					// todo: zapamiętujemy zbudowane expression!
-					// todo: zapamiętujemy funkcję, która dostaje na ryja obecta! z contextem!
-					// todo: i go rzutuje!
-					LExpression getRootContextExpression;
-			        var ctxParam = LExpression.Parameter(typeof(object), "context");
-
-			        if (context == null)
-				        getRootContextExpression = LExpression.Constant(null);
-			        else
-				        getRootContextExpression = LExpression.Convert(ctxParam,
-					        context.GetType());
-
-					var variablesParam = LExpression.Parameter(
-						typeof(IDictionary<string, object>), "variables");
-
-
-					var exp = GetExpressionTreeIfPossible(
-                        getRootContextExpression,
-                        new CompilationContext(getRootContextExpression, variablesParam));
-
-                    if (exp.Type == typeof(void))
-                        exp = LExpression.Block(exp, LExpression.Constant(null, typeof(object)));
-                    else if (exp.Type != typeof(object))
-			            exp = LExpression.Convert(exp, typeof(object));
-
-			        //var convExp = System.Linq.Expressions.Expression.Convert(expr, typeof(object));
-
-					Expression<Func<object, IDictionary<string, object>, object>> lambda
-				        = LExpression.Lambda<Func<object, IDictionary<string, object>, object>>(
-					        exp, ctxParam, variablesParam);
-
-					_compiledExpression = lambda.Compile();
-		        }
-
-				// The caller's own variables dictionary, on every call - so a #variable read or write
-				// sees this evaluation's dictionary rather than whichever one arrived first.
-				return _compiledExpression(context, variables);
+            // Otherwise the call site named the type, so the root arrives already typed: nothing has to be
+            // guessed from the first value seen, and the delegate needs no cast of the root. That is the
+            // same compilation the typed overload performs, with object as the result type.
+            return GetValue<object, TContext>(context, variables);
 
      // todo: jeśli kompilacja się nie udała, to powinniśmy pójść starą, wolną ścieżką (interpreterem)
      // todo: - CompileOptions.TryCompileSwitchToInterpreterOnFailure - decydując o tym raz,
      // todo: przy budowaniu delegata, a nie przy każdym wywołaniu.
-			}
+        }
+
+        /// <summary>
+        /// Evaluates against a context whose declared type is <c>object</c>, by compiling for the runtime
+        /// type of the value instead.
+        /// </summary>
+        /// <remarks>
+        /// This is the original weakly typed behaviour, and it keeps the original defect: the runtime type
+        /// of the first root reaching this instance is baked into the delegate, so a later root of another
+        /// type fails its cast. A caller that knows the type avoids all of it by letting
+        /// <c>TContext</c> be inferred.
+        /// </remarks>
+        private object GetValueForContextTypedAsObject(
+            object context, IDictionary<string, object> variables)
+        {
+                // todo: error: _compiled jest prawdzie tylko, jeśli context się nie zmienił!
+	        if (_compiledExpression == null)
+	        {
+				// todo: zapamiętujemy zbudowane expression!
+				// todo: zapamiętujemy funkcję, która dostaje na ryja obecta! z contextem!
+				// todo: i go rzutuje!
+				LExpression getRootContextExpression;
+		        var ctxParam = LExpression.Parameter(typeof(object), "context");
+
+		        if (context == null)
+			        getRootContextExpression = LExpression.Constant(null);
+		        else
+			        getRootContextExpression = LExpression.Convert(ctxParam, context.GetType());
+
+				var variablesParam = LExpression.Parameter(
+					typeof(IDictionary<string, object>), "variables");
+
+				var exp = GetExpressionTreeIfPossible(
+                    getRootContextExpression,
+                    new CompilationContext(getRootContextExpression, variablesParam));
+
+                if (exp.Type == typeof(void))
+                    exp = LExpression.Block(exp, LExpression.Constant(null, typeof(object)));
+                else if (exp.Type != typeof(object))
+		            exp = LExpression.Convert(exp, typeof(object));
+
+				Expression<Func<object, IDictionary<string, object>, object>> lambda
+			        = LExpression.Lambda<Func<object, IDictionary<string, object>, object>>(
+				        exp, ctxParam, variablesParam);
+
+				_compiledExpression = lambda.Compile();
+	        }
+
+			// The caller's own variables dictionary, on every call - so a #variable read or write sees this
+			// evaluation's dictionary rather than whichever one arrived first.
+			return _compiledExpression(context, variables);
         }
 
            // todo: error?
@@ -315,9 +326,9 @@ namespace SpringExpressions
         /// </summary>
         /// <param name="context">Object to evaluate node against.</param>
         /// <param name="newValue">New value for this node.</param>
-        public void SetValue(object context, object newValue)
+        public void SetValue<TContext>(TContext context, object newValue)
         {
-            SetValue(context, null, newValue);
+            SetValue<TContext>(context, null, newValue);
         }
 
         /// <summary>
@@ -326,8 +337,10 @@ namespace SpringExpressions
         /// <param name="context">Object to evaluate node against.</param>
         /// <param name="variables">Expression variables map.</param>
         /// <param name="newValue">New value for this node.</param>
-        public void SetValue(object context, IDictionary<string, object> variables, object newValue)
+        public void SetValue<TContext>(TContext context, IDictionary<string, object> variables, object newValue)
         {
+            // TContext is not used yet: this path runs on the interpreter, which resolves members against
+            // the runtime type. It becomes useful once the setter is compiled here too.
             EvaluationContext evalContext = new EvaluationContext(context, variables);
             Set(context, evalContext, newValue);
         }

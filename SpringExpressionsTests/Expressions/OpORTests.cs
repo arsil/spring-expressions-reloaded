@@ -34,14 +34,14 @@ namespace SpringExpressions
         public void OrsNumbers()
         {
             OpOR bor = new OpOR(new IntLiteralNode("2"), new IntLiteralNode("3"));
-            Assert.AreEqual(2 | 3, bor.GetValue(null, null));
+            Assert.AreEqual(2 | 3, bor.GetValue());
         }
 
         [Test]
         public void OrsBooleans()
         {
             OpOR bor = new OpOR(new BooleanLiteralNode("false"), new BooleanLiteralNode("true"));
-            Assert.AreEqual(false || true , bor.GetValue(null, null));
+            Assert.AreEqual(false || true , bor.GetValue());
         }
 
         [Test(Description = "SPRNET-1381")]

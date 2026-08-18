@@ -51,7 +51,7 @@ namespace SpringExpressions
             fn.addChild(str);
 
             IExpression exp = fn;
-            Assert.AreEqual(str.Text, exp.GetValue(null, vars));
+            Assert.AreEqual(str.Text, exp.GetValue<object>(null, vars));
         }
 
         [Test]
@@ -70,7 +70,7 @@ namespace SpringExpressions
             fn.addChild(str2);
 
             IExpression exp = fn;
-            Assert.AreEqual(string.Format("{0},{1},{2}", this.GetHashCode(), str.Text, str2.Text), exp.GetValue(null, vars));
+            Assert.AreEqual(string.Format("{0},{1},{2}", this.GetHashCode(), str.Text, str2.Text), exp.GetValue<object>(null, vars));
         }
 
         private delegate string TestCallback(string arg1, string arg2);
@@ -112,7 +112,7 @@ namespace SpringExpressions
             {
                 for (int i = 0; i < ITERATIONS; i++)
                 {
-                    fn.GetValue(null, vars);
+                    fn.GetValue<object>(null, vars);
                 }
             }
         }

@@ -82,7 +82,9 @@ namespace SpringExpressions.Processors
             {
                 _variables["x"] = x;
                 _variables["y"] = y;
-                return (int) _fn.GetValue(null, _variables);
+                // No root: the comparison reads #x and #y from the variables, so there is no context type
+                // to infer and object has to be named explicitly.
+                return (int) _fn.GetValue<object>(null, _variables);
             }
         }
 

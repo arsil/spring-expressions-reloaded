@@ -55,8 +55,8 @@ namespace SpringExpressionsTests.Expressions
         {
             IExpression expression = Expression.Parse("#x");
 
-            Assert.AreEqual(1, expression.GetValue(null, VariablesWithX(1)));
-            Assert.AreEqual(2, expression.GetValue(null, VariablesWithX(2)));
+            Assert.AreEqual(1, expression.GetValue<object>(null, VariablesWithX(1)));
+            Assert.AreEqual(2, expression.GetValue<object>(null, VariablesWithX(2)));
         }
 
         /// <remarks>

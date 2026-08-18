@@ -33,17 +33,17 @@ namespace SpringExpressions
         public void AndsNumbers()
         {
             OpAND band = new OpAND(new IntLiteralNode("2"), new IntLiteralNode("3"));
-            Assert.AreEqual( 2 & 3, band.GetValue(null,null) );
+            Assert.AreEqual( 2 & 3, band.GetValue() );
         }
 
         [Test]
         public void AndsBooleans()
         {
             OpAND band1 = new OpAND(new BooleanLiteralNode("true"), new BooleanLiteralNode("true"));
-            Assert.AreEqual(true, band1.GetValue(null, null));
+            Assert.AreEqual(true, band1.GetValue());
 
             OpAND band2 = new OpAND(new BooleanLiteralNode("true"), new BooleanLiteralNode("false"));
-            Assert.AreEqual(false, band2.GetValue(null, null));
+            Assert.AreEqual(false, band2.GetValue());
         }
 
         [Test(Description = "SPRNET-1381")]

@@ -35,7 +35,7 @@ namespace SpringExpressions
             OpADD add = new OpADD();
             add.addChild( new StringLiteralNode("20"));
             add.addChild( new StringLiteralNode("30"));
-            object result = add.GetValue(null, null);
+            object result = add.GetValue();
             Assert.AreEqual("2030", result);
         }
         [Test]
@@ -44,7 +44,7 @@ namespace SpringExpressions
             OpADD add = new OpADD();
             add.addChild( new IntLiteralNode("20"));
             add.addChild( new IntLiteralNode("30"));
-            object result = add.GetValue(null, null);
+            object result = add.GetValue();
             Assert.AreEqual(50, result);
         }
     }
