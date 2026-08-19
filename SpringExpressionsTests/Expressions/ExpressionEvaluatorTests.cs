@@ -2755,45 +2755,54 @@ namespace SpringExpressions
 
 #region Set operations tests
 
+        /// <summary>
+        /// '+', '*' and '-' over collections return a BCL generic set: <c>HashSet&lt;T&gt;</c> when the
+        /// operands share an item type, <c>HashSet&lt;object&gt;</c> when they do not. A test therefore
+        /// cannot name one concrete type, so this pins the part of the contract that matters - a HashSet of
+        /// some T - and hands the elements back as objects for the value assertions.
+        /// </summary>
+        /// <remarks>
+        /// These used to be SpringCollections.HybridSet, and the compiled path already returned a HashSet
+        /// for some of the same expressions, so the two backends disagreed. Both now produce BCL
+        /// collections. The frozen upstream suite still asserts HybridSet and fails, deliberately: it is
+        /// the record of a breaking change for anyone casting a set-operator result.
+        /// </remarks>
+        private static HashSet<object> AssertIsHashSetOfObject(object o)
+        {
+            // The closed type, not just the HashSet<> definition: HashSet<int> must not satisfy this. The
+            // compiled path builds a union of int collections as HashSet<int> and the interpreter always
+            // builds HashSet<object>, so a check that accepted either would be blind to the one thing worth
+            // watching. Compiler.NormalizeSetResult is what makes object the answer on both paths whenever
+            // the caller asked for nothing narrower - which is always, here, since these go through the
+            // weakly typed API. SetOperatorAgreementTests covers the same ground from the other side, by
+            // comparing the two backends against each other.
+            Assert.IsInstanceOf<HashSet<object>>(o);
+
+            return (HashSet<object>)o;
+        }
+
         [Test]
         public void TestUnionOperator()
         {
             object oo = ExpressionEvaluator.GetValue(null, "{1,2,3} + {3,4,5}");
-            if (oo is ISet)
-            {
-                Assert.IsInstanceOf(typeof(ISet), oo);
-                ISet set1 = (ISet)oo;
-                Assert.AreEqual(5, set1.Count);
-                Assert.IsTrue(set1.Contains(1));
-                Assert.IsTrue(set1.Contains(3));
-                Assert.IsTrue(set1.Contains(5));
-            }
-            else if (oo is ISet<int>)
-            {
-                Assert.IsInstanceOf(typeof(ISet<int>), oo);
-                ISet<int> set2 = (ISet<int>)oo;
-                Assert.AreEqual(5, set2.Count);
-                Assert.IsTrue(set2.Contains(1));
-                Assert.IsTrue(set2.Contains(3));
-                Assert.IsTrue(set2.Contains(5));
-            }
-            else
-            {
-                Assert.Fail("Should be set!");
-            }
+            var set1 = AssertIsHashSetOfObject(oo);
+            Assert.AreEqual(5, set1.Count);
+            Assert.IsTrue(set1.Contains(1));
+            Assert.IsTrue(set1.Contains(3));
+            Assert.IsTrue(set1.Contains(5));
 
             var o = ExpressionEvaluator.GetValue(null, "{1,2,3} + {3,4,5} + {'ivan', 'gox', 'damjao', 5}");
-            Assert.IsInstanceOf(typeof(ISet), o);
-            var union = (ISet)o;
+            var union = AssertIsHashSetOfObject(o);
             Assert.AreEqual(8, union.Count);
             Assert.IsTrue(union.Contains(1));
             Assert.IsTrue(union.Contains("ivan"));
 
+            // A HybridSet is still a valid *input*: it is an ISet, so the operator accepts it. Only the
+            // result type changed.
             ISet testset = new HybridSet();
             testset.AddAll(new int[] { 1, 2, 3, 5, 8 });
             o = ExpressionEvaluator.GetValue(testset, "#this + {1, 2, 13, 15}");
-            Assert.IsInstanceOf(typeof(ISet), o);
-            union = (ISet)o;
+            union = AssertIsHashSetOfObject(o);
             Assert.AreEqual(7, union.Count);
             Assert.IsTrue(union.Contains(1));
             Assert.IsTrue(union.Contains(15));
@@ -2816,23 +2825,20 @@ namespace SpringExpressions
         public void TestIntersectionOperator()
         {
             object o = ExpressionEvaluator.GetValue(null, "{111, 'ivan', 23, 24} * {111, 11, 'ivan'}");
-            Assert.IsInstanceOf(typeof(ISet), o);
-            ISet intersection = (ISet)o;
+            var intersection = AssertIsHashSetOfObject(o);
             Assert.AreEqual(2, intersection.Count);
             Assert.IsTrue(intersection.Contains(111));
             Assert.IsTrue(intersection.Contains("ivan"));
 
             o = ExpressionEvaluator.GetValue(null, "{24, 25, 'aaa' + 'bb'} * {date('2007/2/5').day * 5, 24 - 1}");
-            Assert.IsInstanceOf(typeof(ISet), o);
-            intersection = (ISet)o;
+            intersection = AssertIsHashSetOfObject(o);
             Assert.AreEqual(1, intersection.Count);
             Assert.IsTrue(intersection.Contains(25));
 
             ISet testset = new HybridSet();
             testset.AddAll(new int[] { 1, 2, 3, 5, 8 });
             o = ExpressionEvaluator.GetValue(testset, "#this * #{1:'one', 10:'ten'}");
-            Assert.IsInstanceOf(typeof(ISet), o);
-            intersection = (ISet)o;
+            intersection = AssertIsHashSetOfObject(o);
             Assert.AreEqual(1, intersection.Count);
             Assert.IsTrue(intersection.Contains(1));
 
@@ -2860,21 +2866,18 @@ namespace SpringExpressions
         public void TestDifferenceOperator()
         {
             object o = ExpressionEvaluator.GetValue(null, "{111, 11} - {14, 12, 11}");
-            Assert.IsInstanceOf(typeof(ISet), o);
-            ISet diff = (ISet)o;
+            var diff = AssertIsHashSetOfObject(o);
             Assert.AreEqual(1, diff.Count);
             Assert.IsTrue(diff.Contains(111));
 
             o = ExpressionEvaluator.GetValue(null, "{111, 11} - {14, 12, 11} - {111}");
-            Assert.IsInstanceOf(typeof(ISet), o);
-            diff = (ISet)o;
+            diff = AssertIsHashSetOfObject(o);
             Assert.AreEqual(0, diff.Count);
 
             ISet testset = new HybridSet();
             testset.AddAll(new int[] { 1, 2, 3, 5, 8 });
             o = ExpressionEvaluator.GetValue(testset, "#this - #{1:'one', 10:'ten'}");
-            Assert.IsInstanceOf(typeof(ISet), o);
-            diff = (ISet)o;
+            diff = AssertIsHashSetOfObject(o);
             Assert.AreEqual(4, diff.Count);
             Assert.IsFalse(diff.Contains(1));
 

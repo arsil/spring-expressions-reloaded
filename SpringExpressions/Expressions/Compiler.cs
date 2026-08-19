@@ -3,6 +3,9 @@ using System.Collections.Generic;
 
 using System.Linq.Expressions;
 
+using SpringExpressions.Expressions.Compiling.Expressions;
+using SpringUtil;
+
 using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions.Expressions
@@ -11,6 +14,121 @@ namespace SpringExpressions.Expressions
 
     internal static class Compiler
     {
+        /// <summary>
+        /// Builds the lambda, reporting a body the delegate type cannot accept as a
+        /// <see cref="CompileErrorException"/>.
+        /// </summary>
+        /// <remarks>
+        /// LExpression.Lambda validates the body against the delegate's return type and throws
+        /// ArgumentException when they do not match - a HashSet&lt;int&gt; body against a requested
+        /// ISet&lt;object&gt; result, for instance, since ISet&lt;T&gt; is invariant and no conversion
+        /// exists. ArgumentException is not this codebase's "cannot compile" signal, so
+        /// WeaklyTypedExpression's catch never sees it and an expression the interpreter would evaluate
+        /// perfectly well becomes a hard failure instead of falling back.
+        /// </remarks>
+        private static Expression<TDelegate> BuildLambda<TDelegate>(
+            LExpression body, params ParameterExpression[] parameters)
+        {
+            try
+            {
+                return LExpression.Lambda<TDelegate>(body, parameters);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new CompileErrorException(
+                    $"cannot compile an expression of type '{body.Type}' as '{typeof(TDelegate)}': {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Normalizes a set result to HashSet&lt;object&gt; where the caller asked for nothing narrower.
+        /// </summary>
+        /// <remarks>
+        /// The compiled path keeps a set's item type - a union of two int collections is a HashSet&lt;int&gt;
+        /// - while the interpreter sees only boxed values and always builds a HashSet&lt;object&gt;. So the
+        /// same expression had two different result types depending on which backend ran it, and the caller
+        /// does not choose the backend: the weakly typed path compiles when it can and interprets when it
+        /// cannot. Where nothing more specific than object was requested there is no reason to prefer the
+        /// typed one, and agreeing with the interpreter is worth more, so the root value is reprojected.
+        ///
+        /// Only the root value: everything inside the tree keeps the item type it needs, which is what lets
+        /// sum(), average(), max(), projections and selections over a union stay compiled. Reprojecting
+        /// rather than converting because ISet&lt;T&gt; is invariant - there is no conversion from
+        /// HashSet&lt;int&gt; to ISet&lt;object&gt; to emit, so this allocates a second set. That cost is paid
+        /// once per evaluation, and only when the root result is a typed set.
+        /// </remarks>
+        private static LExpression NormalizeSetResult(LExpression body, Type resultType)
+        {
+            var itemType = CollectionOperandUtils.GetSetItemType(body.Type);
+
+            // Already a set of object - what the interpreter builds - so there is nothing to reconcile.
+            if (itemType == null || itemType == typeof(object))
+            {
+                return body;
+            }
+
+            // A requested type that a plain HashSet<T> satisfies: copy into one, keeping the item type.
+            if (resultType != typeof(object)
+                && resultType.IsAssignableFrom(typeof(HashSet<>).MakeGenericType(itemType)))
+            {
+                return LExpression.Call(ToTypedHashSetMethodInfo.MakeGenericMethod(itemType), body);
+            }
+
+            // Otherwise hand back what the interpreter would have built. If that does not satisfy the
+            // request either - a set of some unrelated item type - BuildLambda refuses it as a compile
+            // error rather than the ArgumentException LExpression.Lambda would raise.
+            return LExpression.Call(ToHashSetOfObjectsMethodInfo, body);
+        }
+
+        /// <summary>
+        /// The list counterpart of <see cref="NormalizeSetResult"/>.
+        /// </summary>
+        /// <remarks>
+        /// Reached only for a list the expression built - see the caller - and only when its item type is
+        /// something narrower than object, which is the case a literal of uniformly typed items produces and
+        /// the interpreter cannot. A literal with no common item type is already a list of object and needs
+        /// nothing done to it.
+        /// </remarks>
+        private static LExpression NormalizeListResult(LExpression body, Type resultType)
+        {
+            var itemType = CollectionOperandUtils.GetListItemType(body.Type);
+
+            // Already a list of object - what the interpreter builds - so there is nothing to reconcile.
+            if (itemType == null || itemType == typeof(object))
+            {
+                return body;
+            }
+
+            // Nothing narrower requested: hand back what the interpreter would have built.
+            if (resultType != typeof(object)
+                && resultType.IsAssignableFrom(typeof(List<>).MakeGenericType(itemType)))
+            {
+                return LExpression.Call(ToTypedListMethodInfo.MakeGenericMethod(itemType), body);
+            }
+
+            return LExpression.Call(ToListOfObjectsMethodInfo, body);
+        }
+
+        private static readonly System.Reflection.MethodInfo ToTypedListMethodInfo
+            = typeof(CollectionOperandUtils).GetMethod(
+                nameof(CollectionOperandUtils.ToTypedList),
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+
+        private static readonly System.Reflection.MethodInfo ToListOfObjectsMethodInfo
+            = typeof(CollectionOperandUtils).GetMethod(
+                nameof(CollectionOperandUtils.ToListOfObjects),
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+
+        private static readonly System.Reflection.MethodInfo ToHashSetOfObjectsMethodInfo
+            = typeof(CollectionOperandUtils).GetMethod(
+                nameof(CollectionOperandUtils.ToHashSetOfObjects),
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+
+        private static readonly System.Reflection.MethodInfo ToTypedHashSetMethodInfo
+            = typeof(CollectionOperandUtils).GetMethod(
+                nameof(CollectionOperandUtils.ToTypedHashSet),
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+
         public static Func<TContext, IDictionary<string, object>, TResult> CompileGetter<TResult, TContext>(
             BaseNode expressionNode)
         {
@@ -31,10 +149,12 @@ namespace SpringExpressions.Expressions
             // untyped EvaluationContext.RootContext; the only thing it did need was the variables
             // dictionary, which is now the second parameter. Nothing per-evaluation is cached on the
             // expression instance, which is what makes a compiled expression safe to share.
+            var compilationContext = new CompilationContext(getRootContextExpression, variablesParam);
+
             var exp = GetExpressionTreeIfPossible(
                 expressionNode,
                 getRootContextExpression,
-                new CompilationContext(getRootContextExpression, variablesParam));
+                compilationContext);
 
             // An expression whose body is void - an assignment, say - still has to produce a value when the
             // result type is object. Yielding null after it is what the weakly typed path always did.
@@ -58,8 +178,17 @@ namespace SpringExpressions.Expressions
                 }
             }
 
+            // Only a collection this engine built may be reshaped. One that was read out of the object graph
+            // - a property, a field, a method result - is the caller's own object and is handed back exactly
+            // as it came, reference identity included, which is also what the interpreter does.
+            if (compilationContext.IsConstructedCollection(exp))
+            {
+                exp = NormalizeSetResult(exp, typeof(TResult));
+                exp = NormalizeListResult(exp, typeof(TResult));
+            }
+
             Expression<Func<TContext, IDictionary<string, object>, TResult>> lambda
-                = LExpression.Lambda<Func<TContext, IDictionary<string, object>, TResult>>(
+                = BuildLambda<Func<TContext, IDictionary<string, object>, TResult>>(
                     exp, ctxParam, variablesParam);
 
             return lambda.Compile();
@@ -99,7 +228,7 @@ namespace SpringExpressions.Expressions
             }
 */
             Expression<Action<TContext, IDictionary<string, object>, TArgument>> lambda
-                = LExpression.Lambda<Action<TContext, IDictionary<string, object>, TArgument>>(
+                = BuildLambda<Action<TContext, IDictionary<string, object>, TArgument>>(
                     exp, ctxParam, variablesParam, newValueParam);
 
             return lambda.Compile();
@@ -138,7 +267,7 @@ namespace SpringExpressions.Expressions
                    $"Expression '{exp.NodeType}' returning '{exp.Type}' is not a void expression!");
 
             Expression<Action<TContext, IDictionary<string, object>>> lambda
-                = LExpression.Lambda<Action<TContext, IDictionary<string, object>>>(
+                = BuildLambda<Action<TContext, IDictionary<string, object>>>(
                     exp, ctxParam, variablesParam);
 
             return lambda.Compile();

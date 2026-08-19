@@ -20,6 +20,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using SpringCollections;
 using SpringExpressions.Expressions.Compiling;
@@ -141,53 +142,58 @@ namespace SpringExpressions
                 return (DateTime) leftValue - (DateTime) rightValue;
             }
 
-            if (leftValue is IList || leftValue is ISet)
+            // IsAnySet matches the vendored non-generic ISet and any generic ISet<T>, whatever its item type.
+            // Both are needed: the operators return a HashSet, so in a chained expression the second
+            // operator receives the first one's result, and a caller can hand in a HashSet<int> too.
+            if (leftValue is IList || CollectionOperandUtils.IsAnySet(leftValue))
             {
-                ISet leftset = new HybridSet(leftValue as ICollection);
-                ISet rightset;
-                if(rightValue is IList || rightValue is ISet)
+                var difference = CollectionOperandUtils.ToHashSetOfObjects((IEnumerable) leftValue);
+
+                if (rightValue is IList || CollectionOperandUtils.IsAnySet(rightValue))
                 {
-                    rightset = new HybridSet(rightValue as ICollection);
+                    difference.ExceptWith(CollectionOperandUtils.ToHashSetOfObjects((IEnumerable) rightValue));
                 }
-                else if (rightValue is IDictionary)
+                else if (rightValue is IDictionary rightDictionary)
                 {
-                    rightset = new HybridSet(((IDictionary) rightValue).Keys);
+                    difference.ExceptWith(CollectionOperandUtils.KeysToHashSetOfObjects(rightDictionary));
                 }
                 else
                 {
                     throw new ArgumentException("Cannot subtract instances of '"
                     + leftValue.GetType().FullName
                     + "' and '"
-                    + rightValue.GetType().FullName
+                    + rightValue?.GetType().FullName
                     + "'.");
                 }
-                return leftset.Minus(rightset);
+
+                return difference;
             }
 
-            if (leftValue is IDictionary)
+            if (leftValue is IDictionary leftDictionary)
             {
-                ISet leftset = new HybridSet(((IDictionary) leftValue).Keys);
-                ISet rightset;
-                if (rightValue is IList || rightValue is ISet)
+                var keys = CollectionOperandUtils.KeysToHashSetOfObjects(leftDictionary);
+
+                if (rightValue is IList || CollectionOperandUtils.IsAnySet(rightValue))
                 {
-                    rightset = new HybridSet(rightValue as ICollection);
+                    keys.ExceptWith(CollectionOperandUtils.ToHashSetOfObjects((IEnumerable) rightValue));
                 }
-                else if (rightValue is IDictionary)
+                else if (rightValue is IDictionary rightDictionary)
                 {
-                    rightset = new HybridSet(((IDictionary) rightValue).Keys);
+                    keys.ExceptWith(CollectionOperandUtils.KeysToHashSetOfObjects(rightDictionary));
                 }
                 else
                 {
                     throw new ArgumentException("Cannot subtract instances of '"
                     + leftValue.GetType().FullName
                     + "' and '"
-                    + rightValue.GetType().FullName
+                    + rightValue?.GetType().FullName
                     + "'.");
                 }
-                IDictionary result = new Hashtable(rightset.Count);
-                foreach(object key in leftset.Minus(rightset))
+
+                IDictionary result = new Dictionary<object, object>(keys.Count);
+                foreach(object key in keys)
                 {
-                    result.Add(key, ((IDictionary)leftValue)[key]);
+                    result.Add(key, leftDictionary[key]);
                 }
                 return result;
             }

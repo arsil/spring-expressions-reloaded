@@ -20,6 +20,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using SpringCollections;
 using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
@@ -90,53 +91,58 @@ namespace SpringExpressions
 
                // todo: error: bad idea:!!!!
 
-            if (leftValue is IList || leftValue is ISet)
+            // IsAnySet matches the vendored non-generic ISet and any generic ISet<T>, whatever its item type.
+            // Both are needed: the operators return a HashSet, so in a chained expression the second
+            // "{1,2} * {2,3} * {2}" would fail on its second operator.
+            if (leftValue is IList || CollectionOperandUtils.IsAnySet(leftValue))
             {
-                ISet leftset = new HybridSet(leftValue as ICollection);
-                ISet rightset;
-                if (rightValue is IList || rightValue is ISet)
+                var intersection = CollectionOperandUtils.ToHashSetOfObjects((IEnumerable) leftValue);
+
+                if (rightValue is IList || CollectionOperandUtils.IsAnySet(rightValue))
                 {
-                    rightset = new HybridSet(rightValue as ICollection);
+                    intersection.IntersectWith(CollectionOperandUtils.ToHashSetOfObjects((IEnumerable) rightValue));
                 }
-                else if (rightValue is IDictionary)
+                else if (rightValue is IDictionary rightDictionary)
                 {
-                    rightset = new HybridSet(((IDictionary)rightValue).Keys);
+                    intersection.IntersectWith(CollectionOperandUtils.KeysToHashSetOfObjects(rightDictionary));
                 }
                 else
                 {
-                    throw new ArgumentException("Cannot subtract instances of '"
+                    throw new ArgumentException("Cannot multiply instances of '"
                     + leftValue.GetType().FullName
                     + "' and '"
-                    + rightValue.GetType().FullName
+                    + rightValue?.GetType().FullName
                     + "'.");
                 }
-                return leftset.Intersect(rightset);
+
+                return intersection;
             }
 
-            if (leftValue is IDictionary)
+            if (leftValue is IDictionary leftDictionary)
             {
-                ISet leftset = new HybridSet(((IDictionary)leftValue).Keys);
-                ISet rightset;
-                if (rightValue is IList || rightValue is ISet)
+                var keys = CollectionOperandUtils.KeysToHashSetOfObjects(leftDictionary);
+
+                if (rightValue is IList || CollectionOperandUtils.IsAnySet(rightValue))
                 {
-                    rightset = new HybridSet(rightValue as ICollection);
+                    keys.IntersectWith(CollectionOperandUtils.ToHashSetOfObjects((IEnumerable) rightValue));
                 }
-                else if (rightValue is IDictionary)
+                else if (rightValue is IDictionary rightDictionary)
                 {
-                    rightset = new HybridSet(((IDictionary)rightValue).Keys);
+                    keys.IntersectWith(CollectionOperandUtils.KeysToHashSetOfObjects(rightDictionary));
                 }
                 else
                 {
-                    throw new ArgumentException("Cannot subtract instances of '"
+                    throw new ArgumentException("Cannot multiply instances of '"
                     + leftValue.GetType().FullName
                     + "' and '"
-                    + rightValue.GetType().FullName
+                    + rightValue?.GetType().FullName
                     + "'.");
                 }
-                IDictionary result = new Hashtable(rightset.Count);
-                foreach (object key in leftset.Intersect(rightset))
+
+                IDictionary result = new Dictionary<object, object>(keys.Count);
+                foreach (object key in keys)
                 {
-                    result.Add(key, ((IDictionary)leftValue)[key]);
+                    result.Add(key, leftDictionary[key]);
                 }
                 return result;
             }

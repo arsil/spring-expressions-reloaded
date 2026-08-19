@@ -145,7 +145,10 @@ namespace SpringExpressions
                     leftExpression.Type, leftExpression.Type.GetGenericArguments()[0]))
             {
                 var finalUnionMi = _genericsUnionMi.MakeGenericMethod(leftExpression.Type.GetGenericArguments()[0]);
-                return LExpression.Call(finalUnionMi, leftExpression, rightExpression);
+                var typedUnion = LExpression.Call(finalUnionMi, leftExpression, rightExpression);
+
+                compilationContext.MarkAsConstructedCollection(typedUnion);
+                return typedUnion;
             }
 
 
@@ -179,8 +182,18 @@ namespace SpringExpressions
             throw CannotCompile("no compiled addition for these operand types");
         }
 
-            // todo: error: return value! why ISet not IList<> ?
-        private static ISet<T> GenericsUnion<T>(IEnumerable<T> arg1, IEnumerable<T> arg2)
+        /// <summary>
+        /// The union of two collections that share an item type, keeping that item type.
+        /// </summary>
+        /// <remarks>
+        /// Keeping the item type is what lets sum(), average(), max(), projections and selections over a
+        /// union stay compiled. Declared as the concrete HashSet&lt;T&gt; rather than ISet&lt;T&gt;, so that
+        /// assigning the result to a HashSet&lt;T&gt; property compiles - the interface is not assignable to
+        /// it. The caller registers the emitted call with
+        /// <see cref="CompilationContext.MarkAsConstructedCollection"/>, so Compiler can tell this is a set
+        /// the engine built without the value needing a type of its own.
+        /// </remarks>
+        private static HashSet<T> GenericsUnion<T>(IEnumerable<T> arg1, IEnumerable<T> arg2)
         {
                  // todo: null-handling
             var set1 = new HashSet<T>(arg1);
@@ -192,18 +205,20 @@ namespace SpringExpressions
         private static MethodInfo _genericsUnionMi = typeof(OpADD).GetMethod(
                nameof(GenericsUnion), BindingFlags.Static | BindingFlags.NonPublic);
 
-        private static ISet TypelessUnion(IEnumerable left, IEnumerable right)
+        // Counterpart of the interpreter's branch in Get: the operands have no usable common item type, so
+        // the union is a HashSet<object> rather than a HybridSet. Kept in step with GenericsUnion<T> above,
+        // which already returned a HashSet.
+        private static HashSet<object> TypelessUnion(IEnumerable left, IEnumerable right)
         {
-            ISet leftset = new HybridSet();
-            ISet rightset = new HybridSet();
+            var union = new HashSet<object>();
 
             foreach (var e in left)
-                leftset.Add(e);
+                union.Add(e);
 
             foreach (var e in right)
-                rightset.Add(e);
+                union.Add(e);
 
-            return leftset.Union(rightset);
+            return union;
         }
 
         private static MethodInfo _typelessUnionMi = typeof(OpADD).GetMethod(
@@ -256,29 +271,33 @@ namespace SpringExpressions
                 return string.Concat(leftValue, rightValue);
             }
 
-            if ((leftValue is IList || leftValue is ISet) && (rightValue is IList || rightValue is ISet))
+            // IsAnySet matches the vendored non-generic ISet and any generic ISet<T>, whatever its item type.
+            // Both are needed: the operators return a HashSet, so in a chained expression the second
+            // operator receives the first one's result, and a caller can hand in a HashSet<int> too.
+            if ((leftValue is IList || CollectionOperandUtils.IsAnySet(leftValue))
+                && (rightValue is IList || CollectionOperandUtils.IsAnySet(rightValue)))
             {
-                ISet leftset = new HybridSet(leftValue as ICollection);
-                ISet rightset = new HybridSet(rightValue as ICollection);
-                return leftset.Union(rightset);
+                var union = CollectionOperandUtils.ToHashSetOfObjects((IEnumerable) leftValue);
+                union.UnionWith(CollectionOperandUtils.ToHashSetOfObjects((IEnumerable) rightValue));
+                return union;
             }
 
-            if (leftValue is IDictionary && rightValue is IDictionary)
+            if (leftValue is IDictionary leftDictionary && rightValue is IDictionary rightDictionary)
             {
-                ISet leftset = new HybridSet(((IDictionary) leftValue).Keys);
-                ISet rightset = new HybridSet(((IDictionary) rightValue).Keys);
-                ISet unionset = leftset.Union(rightset);
-                
-                IDictionary result = new Hashtable(unionset.Count);
-                foreach(object key in unionset)
+                var leftKeys = CollectionOperandUtils.KeysToHashSetOfObjects(leftDictionary);
+                var unionKeys = CollectionOperandUtils.KeysToHashSetOfObjects(leftDictionary);
+                unionKeys.UnionWith(CollectionOperandUtils.KeysToHashSetOfObjects(rightDictionary));
+
+                IDictionary result = new Dictionary<object, object>(unionKeys.Count);
+                foreach(object key in unionKeys)
                 {
-                    if(leftset.Contains(key))
+                    if(leftKeys.Contains(key))
                     {
-                        result.Add(key, ((IDictionary)leftValue)[key]);
+                        result.Add(key, leftDictionary[key]);
                     }
                     else
                     {
-                        result.Add(key, ((IDictionary)rightValue)[key]);
+                        result.Add(key, rightDictionary[key]);
                     }
                 }
                 return result;

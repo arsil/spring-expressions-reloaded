@@ -84,13 +84,22 @@ namespace SpringExpressions.Processors
                 return method(source, includeNulls);
             }
 
-            HybridSet set = new HybridSet(source);
-            if (!includeNulls)
+            // A List, matching the generic path above: distinct() is an order-preserving dedup rather than
+            // a set constructor, so the two source shapes now agree on the result shape as well. This was
+            // a HybridSet, the last one left in an operator or processor result.
+            var seen = new HashSet<object>();
+            var distinct = new List<object>();
+
+            foreach (var element in source)
             {
-                set.Remove(null);
+                if (element == null && !includeNulls)
+                    continue;
+
+                if (seen.Add(element))
+                    distinct.Add(element);
             }
 
-            return set;
+            return distinct;
         }
 
         private static object DistinctNullsWithCast<T>(ICollection collection, bool includeNulls)
