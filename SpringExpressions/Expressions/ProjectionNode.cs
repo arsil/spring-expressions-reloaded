@@ -98,10 +98,16 @@ namespace SpringExpressions
 
                 //functionExpr.GetType().InvokeMember("Compile")
 
-                return LExpression.Call(
+                // The list Projection<,> builds is the engine's own, so Compiler may reshape the root
+                // to agree with the interpreter; a collection merely read is the caller's and keeps its
+                // identity, and the registry is what tells the two apart.
+                var projection = LExpression.Call(
                     finalProjectionMi, 
                     contextExpression,
                     LExpression.Constant(compiledFunction));
+
+                compilationContext.MarkAsConstructedCollection(projection);
+                return projection;
                 /*
                 var genericList = typeof(List<>).MakeGenericType(projectionResultType);
                 var genericEnumerable = typeof(IEnumerable<>).MakeGenericType(projectionResultType);
@@ -166,7 +172,11 @@ namespace SpringExpressions
             }
 
             BaseNode expression = (BaseNode) this.getFirstChild();
-            IList projectedList = new ArrayList();
+
+            // List<object>, not ArrayList. The interpreter sees boxed values and has no item type to
+            // work from, so object is all it can offer; the compiled path keeps the item type and the
+            // root is reprojected to match at the boundary.
+            IList projectedList = new List<object>();
             using (evalContext.SwitchThisContext())
             {
                 foreach(object o in enumerable)
