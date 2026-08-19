@@ -412,7 +412,7 @@ namespace SpringExpressions
                         newValueExpression = LExpression.ConvertChecked(newValueExpression, memberInfo.PropertyType);
                     }
 
-                    return LExpression.Assign(
+                    return BuildAssign(
                         LExpression.Property(finalContextExpression, memberInfo),
                         newValueExpression);
                 }
@@ -447,7 +447,7 @@ namespace SpringExpressions
                         newValueExpression = LExpression.ConvertChecked(newValueExpression, memberInfo.FieldType);
                     }
 
-                    return LExpression.Assign(
+                    return BuildAssign(
                         LExpression.Field(finalContextExpression, memberInfo),
                         newValueExpression);
                 }

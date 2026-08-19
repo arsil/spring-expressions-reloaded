@@ -47,8 +47,9 @@ namespace SpringExpressions
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
-            if (rightExpression.Type.IsGenericType &&
-                rightExpression.Type.GetGenericTypeDefinition() == typeof(List<>))
+            // Any List<T>, including a subclass: the bounds come from a list literal, and only the indexer
+            // is wanted here, so comparing the exact generic definition was never the right question.
+            if (CollectionOperandUtils.GetListItemType(rightExpression.Type) != null)
             {
 
                           // todo: error handling! null!

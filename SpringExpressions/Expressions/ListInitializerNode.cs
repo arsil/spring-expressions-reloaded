@@ -23,6 +23,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
+using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -108,6 +109,9 @@ namespace SpringExpressions
                     arguments[argIndex] = LExpression.Constant(null, commonType);
 
 
+                // A plain List<T>. That this list was built here rather than read out of the object graph is
+                // recorded on the CompilationContext below, not in the type, so no special type can travel
+                // out with the value.
                 var genericList = typeof(List<>).MakeGenericType(commonType);
                 var genericEnumerable = typeof(IEnumerable<>).MakeGenericType(commonType);
 
@@ -120,12 +124,13 @@ namespace SpringExpressions
             }
             else
             {
-                // ArrayList for objects
-                // we need conversion to object
-                constructor = typeof(ArrayList).GetConstructor(
+                // List<object>, not ArrayList: no operator or literal result carries a pre-generics
+                // collection any more. Registered like the typed case below, but the boundary will find
+                // nothing to do - object is already the item type the interpreter would have produced.
+                constructor = typeof(List<object>).GetConstructor(
                     BindingFlags.Instance | BindingFlags.Public,
                     null,
-                    new[] { typeof(ICollection) },
+                    new[] { typeof(IEnumerable<object>) },
                     null
                 );
 
@@ -136,9 +141,12 @@ namespace SpringExpressions
                 }
             }
 
-            return LExpression.New(
+            var literal = LExpression.New(
                 constructor,
                 LExpression.NewArrayInit(commonType, arguments));
+
+            compilationContext.MarkAsConstructedCollection(literal);
+            return literal;
         }
 
         /// <summary>
@@ -151,8 +159,11 @@ namespace SpringExpressions
         {
             object[] values = ResolveArguments(evalContext);
 
-               // todo: error: uspójnić z kodem kompilatora - szczególnie typy!!!!!
-            return new ArrayList(values);
+            // List<object>, not ArrayList. The interpreter sees boxed values and has no item type to work
+            // from, so object is all it can offer; the compiled path keeps the item type where the
+            // items share a type and is reprojected to match at the boundary. Both now agree, and neither
+            // yields a pre-generics collection.
+            return new List<object>(values);
         }
     }
 }

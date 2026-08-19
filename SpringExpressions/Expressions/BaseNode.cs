@@ -335,6 +335,31 @@ namespace SpringExpressions
             return new CompileErrorException(this, reason);
         }
 
+        /// <summary>
+        /// Builds an assignment, reporting a value the target cannot accept as a
+        /// <see cref="CompileErrorException"/>.
+        /// </summary>
+        /// <remarks>
+        /// LExpression.Assign validates the value against the target's type and throws ArgumentException
+        /// when no conversion exists - assigning a set of int to an ISet&lt;object&gt; property, say, since
+        /// ISet&lt;T&gt; is invariant. ArgumentException is not this codebase's "cannot compile" signal, so
+        /// WeaklyTypedExpression's catch never sees it and the whole expression fails outright instead of
+        /// falling back to the interpreter, which assigns such a value quite happily.
+        /// </remarks>
+        [NotNull]
+        protected LExpression BuildAssign([NotNull] LExpression target, [NotNull] LExpression value)
+        {
+            try
+            {
+                return LExpression.Assign(target, value);
+            }
+            catch (ArgumentException ex)
+            {
+                throw CannotCompile(
+                    $"cannot assign a value of type '{value.Type}' to a target of type '{target.Type}': {ex.Message}");
+            }
+        }
+
         // todo: funkcja, która na twarz dostaje kontext i go zwraca... taki dowcip...
         // todo: i jest dalej rootem do budowania!
     }

@@ -21,6 +21,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using SpringUtil;
 using System.Reflection;
 using SpringCore.TypeResolution;
 using SpringExpressions.Parser.antlr.collections;
@@ -84,8 +85,9 @@ namespace SpringExpressions
 			    var arrayExpression = GetExpressionTreeIfPossible((BaseNode) valuesRoot, contextExpression, compilationContext);
 			    var arrayExpressonType = arrayExpression.Type;
 
-			    if (arrayExpressonType.IsGenericType
-					&& arrayExpressonType.GetGenericTypeDefinition() == typeof(List<>))
+			    // Any List<T>, including a subclass - a caller's own would do. Only an inherited ToArray is
+			    // wanted here, so comparing the exact generic definition was never the right question.
+			    if (CollectionOperandUtils.GetListItemType(arrayExpressonType) != null)
 			    {
 				    // typed List
 				    var toArrayListMi = arrayExpressonType.GetMethod("ToArray");
@@ -140,9 +142,16 @@ namespace SpringExpressions
                 AST valuesRoot = getFirstChild().getNextSibling();
                 if (valuesRoot != null)
                 {
-                       // todo: error: same type as compiled one! ----------------------------------------------------------------------------------------------------------------------
-                    ArrayList values = (ArrayList)GetValue(((BaseNode)valuesRoot), context, evalContext);
-                    return values.ToArray(arrayType);
+                    // ICollection, not ArrayList: a list literal is a List<object> now, so this has to take
+                    // whatever the initializer node built. ArrayList.ToArray(Type) was CreateInstance
+                    // followed by Array.Copy, and ICollection.CopyTo is that same Array.Copy, so the
+                    // conversion behaviour is unchanged - widening of primitives is allowed, anything else
+                    // throws InvalidCastException.
+                    var values = (ICollection)GetValue(((BaseNode)valuesRoot), context, evalContext);
+                    var array = Array.CreateInstance(arrayType, values.Count);
+                    values.CopyTo(array, 0);
+
+                    return array;
                 }
             }
 

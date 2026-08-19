@@ -100,7 +100,7 @@ namespace SpringExpressions
                 // TODO: error: ??? nie rozumiem komentarza:) może pobranie arraya? tylko trzeba przetestować, czy nie stracimy typu!.. .bo jak przez object, to syf!
             if (contextExpression.Type.IsArray)
             {
-                return LExpression.Assign(
+                return BuildAssign(
                     LExpression.ArrayIndex(contextExpression, arguments),
                     newValueExpression);
             }
