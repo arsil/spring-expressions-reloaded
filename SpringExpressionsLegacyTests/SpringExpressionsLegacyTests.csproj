@@ -1,0 +1,78 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The upstream Spring.NET test suite, frozen.
+
+       Sources are copied verbatim from commit 8f5bbe3 (the extraction point) and carry ONLY the changes
+       a real consumer would be forced to make when upgrading their project to this library: nothing is
+       modernised, nothing is "improved", and in particular the non-generic fixture types (ArrayList,
+       Hashtable, ISet) are left exactly as they were. That is the point of the project - it is what keeps
+       the weakly typed halves of the engine covered (Expressions/Processors, declared-type member binding
+       against non-generic collections) as SpringExpressionsTests moves towards generics and the compiled
+       path. It also measures the migration cost itself: every edit here is one a user would have to make.
+
+       Do not add tests to this project. New coverage belongs in SpringExpressionsTests. -->
+
+  <PropertyGroup>
+    <ProjectGuid>{7C3F9A21-5D64-4E8B-9F0A-1B2C3D4E5F60}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>SpringExpressionsLegacyTests</RootNamespace>
+    <AssemblyName>SpringExpressionsLegacyTests</AssemblyName>
+    <TargetFrameworks>net40;net472;netcoreapp2.1;net8.0;net10.0</TargetFrameworks>
+    <FileAlignment>512</FileAlignment>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+
+  <!-- .NET Framework only, as in the original csproj. These back the Remoting / EnterpriseServices /
+       web-service material, which has no counterpart on .NET Core and later. -->
+  <ItemGroup Condition=" '$(TargetFrameworkIdentifier)' == '.NETFramework' ">
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.EnterpriseServices" />
+    <Reference Include="System.Runtime.Remoting" />
+    <Reference Include="System.Web.Services" />
+    <Reference Include="System.Xml" />
+    <Reference Include="Microsoft.CSharp" />
+  </ItemGroup>
+
+  <!-- NUnit 3.13.2 to match SpringExpressionsTests. The original vendored nunit.framework.dll 2.6.4 is
+       .NET Framework only and cannot load on .NET Core at all, so the framework upgrade is itself a
+       forced change rather than a choice. -->
+  <ItemGroup>
+    <PackageReference Include="NUnit" Version="3.13.2" />
+  </ItemGroup>
+
+  <!-- Runner wiring copied from SpringExpressionsTests, where the per-TFM versions are load-bearing:
+       net472/net8.0/net10.0 need adapter >= 5.0.0 (4.2.1's nunit.engine 3.13 dies enumerating runtimes
+       on a machine with .NET 10 installed), netcoreapp2.1 needs 4.2.1 (last with a netcoreapp2.1 asset),
+       and net40 has no VSTest host at all - it runs under nunit3-console. -->
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net472' Or '$(TargetFramework)' == 'net8.0' Or '$(TargetFramework)' == 'net10.0' ">
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.0.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp2.1' ">
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.0.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.2.1" />
+  </ItemGroup>
+
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net40' ">
+    <PackageReference Include="NUnit.ConsoleRunner" Version="3.22.0"
+                      ExcludeAssets="all" GeneratePathProperty="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SpringExpressions\SpringExpressions.csproj" />
+  </ItemGroup>
+
+</Project>

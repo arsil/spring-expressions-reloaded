@@ -2,8 +2,8 @@ SpringExpressions/bin
 SpringExpressions/obj
 SpringExpressionsTests/bin
 SpringExpressionsTests/obj
-TestownicaZCore/bin
-TestownicaZCore/obj
+SpringExpressionsLegacyTests/bin
+SpringExpressionsLegacyTests/obj
 *.suo
 _ReSharper.Caches
 .vs
