@@ -22,6 +22,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using System.Reflection;
 using JetBrains.Annotations;
 using SpringExpressions.Expressions;
 using SpringExpressions.Expressions.Compiling.Expressions;
@@ -357,6 +358,36 @@ namespace SpringExpressions
             {
                 throw CannotCompile(
                     $"cannot assign a value of type '{value.Type}' to a target of type '{target.Type}': {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Builds a method call, reporting an instance or an argument the method cannot accept as a
+        /// <see cref="CompileErrorException"/>.
+        /// </summary>
+        /// <remarks>
+        /// LExpression.Call validates the instance and every argument against the method's signature and
+        /// throws ArgumentException when something does not fit - an instance method resolved against a
+        /// type-name context, so there is no instance to call it on, or a null argument typed object
+        /// against an IFormatProvider parameter. ArgumentException is not this codebase's "cannot compile"
+        /// signal, so WeaklyTypedExpression's catch never sees it and an expression the interpreter
+        /// evaluates quite happily becomes a hard failure instead of falling back.
+        /// </remarks>
+        [NotNull]
+        protected LExpression BuildCall(
+            LExpression instance,
+            [NotNull] MethodInfo method,
+            [NotNull] IEnumerable<LExpression> arguments)
+        {
+            try
+            {
+                return LExpression.Call(instance, method, arguments);
+            }
+            catch (ArgumentException ex)
+            {
+                throw CannotCompile(
+                    $"cannot call method '{method.DeclaringType}.{method.Name}' with the given instance "
+                    + $"and arguments: {ex.Message}");
             }
         }
 

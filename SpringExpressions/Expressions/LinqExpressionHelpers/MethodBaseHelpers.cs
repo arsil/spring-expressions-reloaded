@@ -110,7 +110,13 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
         public static Tuple<MethodInfo, LExpression[]> GetMethodByArgumentValues(
             IEnumerable<MethodInfo> methods, LExpression[] arguments)
         {
+            // No overload accepting the arguments' static types is "no method", not a crash: the caller
+            // treats null as unresolved and reports the miss as a CompileErrorException.
             var result = GetMethodBaseByArgumentValues("method", methods, arguments);
+
+            if (result == null)
+                return null;
+
             return new Tuple<MethodInfo, LExpression[]>((MethodInfo)result.Item1, result.Item2);
         }
 

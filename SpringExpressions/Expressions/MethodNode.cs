@@ -218,7 +218,7 @@ namespace SpringExpressions
 
                         if (miAndArguments != null)
                         {
-                            return LExpression.Call(instance, miAndArguments.Item1, miAndArguments.Item2);
+                            return BuildCall(instance, miAndArguments.Item1, miAndArguments.Item2);
                         }
 
                         /*
@@ -257,7 +257,7 @@ namespace SpringExpressions
             }
 
             ConvertParameters(methodInfo, arguments);
-			return LExpression.Call(instance, methodInfo, arguments);
+			return BuildCall(instance, methodInfo, arguments);
 	    }
 
 
