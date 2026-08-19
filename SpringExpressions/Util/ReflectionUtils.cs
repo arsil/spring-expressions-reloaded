@@ -1617,7 +1617,7 @@ namespace SpringUtil
                 }
 
                 FieldInfo[] fields = GetFields(type);
-#if NETSTANDARD
+#if !NETFRAMEWORK
 				Action callback = () =>
 #else
                 SecurityCritical.ExecutePrivileged(new PermissionSet(PermissionState.Unrestricted), delegate
@@ -1647,7 +1647,7 @@ namespace SpringUtil
 
 						handler = (MemberwiseCopyHandler)dm.CreateDelegate(typeof(MemberwiseCopyHandler));
 					}
-#if !NETSTANDARD
+#if NETFRAMEWORK
 				);
 #else
 				;

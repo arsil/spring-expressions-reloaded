@@ -6,7 +6,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>SpringExpressions</RootNamespace>
     <AssemblyName>SpringExpressions</AssemblyName>
-    <TargetFrameworks>net40;net472;netstandard2.0</TargetFrameworks>
+    <TargetFrameworks>net40;net472;netstandard2.0;net10.0</TargetFrameworks>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -18,6 +18,16 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   
+  <!-- No DefineConstants for the conditional compilation: the SDK supplies the symbols. The guards in the
+       source key on NETFRAMEWORK, which the SDK defines for net40 and net472 and for no other target, and
+       that is exactly the distinction they need - the #if NETFRAMEWORK side uses Code Access Security
+       (IStackWalk, SecurityTreatAsSafe, PermissionSet), AppDomain.CurrentDomain.DefineDynamicAssembly and
+       AssemblyBuilder.Save, none of which exist on .NET Core or later. A new modern TFM therefore needs no
+       symbol wiring at all. (Also available, unused here: NET, NETCOREAPP, NETSTANDARD, and the
+       NET<x>_OR_GREATER / NETSTANDARD<x>_OR_GREATER ladders.) -->
+
+  <!-- netstandard2.0 only. net10.0 has every one of these in its shared framework, and pulling the 4.3.0
+       / 4.7.0 era packages onto a modern target would only add downgrade noise. -->
   <ItemGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
     <PackageReference Include="System.Reflection" Version="4.3.0" />
     <PackageReference Include="System.Reflection.Primitives" Version="4.3.0" />
@@ -27,6 +37,15 @@
     <PackageReference Include="Microsoft.Win32.Registry" Version="4.7.0" />
     <PackageReference Include="System.CodeDom" Version="4.7.0" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="4.7.0" />
+  </ItemGroup>
+
+  <!-- Two assemblies that are in the .NET Framework BCL but are out-of-band packages on .NET Core and
+       later, and they are not optional: ReflectionUtils uses CSharpCodeProvider/CodeTypeReference to
+       render a type name, and NameValueConverter derives from NameValueSectionHandler. Without these the
+       net10.0 build fails with CS1069 "the type has been forwarded to assembly ...". -->
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net10.0' ">
+    <PackageReference Include="System.CodeDom" Version="9.0.0" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'net40' ">
@@ -45,7 +64,10 @@
     <None Include="D:\ExperimentalProjects\SpringExpressionsMaster-2wip\SpringExpressions\.editorconfig" />
   </ItemGroup>
   
-  <ItemGroup>
+  <!-- .NET Framework only. On .NET Core / .NET 5+ the compiler support for `dynamic` comes from the shared
+       framework and a bare Reference here fails to resolve with MSB3245 while changing nothing. Keyed on
+       TargetFrameworkIdentifier to match SpringExpressionsTests.csproj, which had this right already. -->
+  <ItemGroup Condition=" '$(TargetFrameworkIdentifier)' == '.NETFramework' ">
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
 

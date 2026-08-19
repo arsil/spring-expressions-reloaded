@@ -25,7 +25,7 @@ using System.Collections;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.Remoting;
-#if !NETSTANDARD
+#if NETFRAMEWORK
 using System.Runtime.Remoting.Proxies;
 #endif
 using SpringReflection.Dynamic;
@@ -301,7 +301,7 @@ namespace SpringUtil
                 return true;
             }
 
-#if !NETSTANDARD
+#if NETFRAMEWORK
             if (RemotingServices.IsTransparentProxy(obj))
             {
                 RealProxy rp = RemotingServices.GetRealProxy(obj);

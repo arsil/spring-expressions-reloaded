@@ -153,7 +153,7 @@ namespace SpringCore.TypeConversion
                     return Registry.PerformanceData;
                 case "HKEY_CURRENT_CONFIG":
                     return Registry.CurrentConfig;
-#if !NETSTANDARD
+#if NETFRAMEWORK
 				case "HKEY_DYN_DATA":
                     return Registry.DynData;
 #endif

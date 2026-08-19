@@ -26,7 +26,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Runtime.Remoting;
 
-#if !NETSTANDARD
+#if NETFRAMEWORK
 using System.Runtime.Remoting.Proxies;
 #endif
 
@@ -103,7 +103,7 @@ namespace SpringUtil
             Type targetType = null;
             if (RemotingServices.IsTransparentProxy(target))
             {
-#if !NETSTANDARD
+#if NETFRAMEWORK
                 RealProxy rp = RemotingServices.GetRealProxy(target);
                 IRemotingTypeInfo rti = rp as IRemotingTypeInfo;
                 if (rti != null)

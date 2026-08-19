@@ -5,7 +5,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>SpringExpressionsTests</RootNamespace>
     <AssemblyName>SpringExpressionsTests</AssemblyName>
-    <TargetFrameworks>net40;net472;netcoreapp2.1;net8.0</TargetFrameworks>
+    <TargetFrameworks>net40;net472;netcoreapp2.1;net8.0;net10.0</TargetFrameworks>
     <FileAlignment>512</FileAlignment>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
@@ -60,8 +60,8 @@
         - netcoreapp2.1 needs 4.2.1, the last version shipping a netcoreapp2.1 asset. 5.x ships only
           net462 + netcoreapp3.1; on netcoreapp2.1 the net462 asset gets loaded and fails on the
           missing System.Runtime.Remoting.Channels.IChannel.
-        - net8.0 uses 5.0.0's netcoreapp3.1 asset. -->
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net472' Or '$(TargetFramework)' == 'net8.0' ">
+        - net8.0 and net10.0 use 5.0.0's netcoreapp3.1 asset. -->
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net472' Or '$(TargetFramework)' == 'net8.0' Or '$(TargetFramework)' == 'net10.0' ">
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.0.0" />
     <PackageReference Include="NUnit3TestAdapter" Version="5.0.0" />
   </ItemGroup>

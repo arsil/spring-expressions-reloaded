@@ -102,7 +102,7 @@ namespace SpringUtil
             }
         }
         
-#if !NETSTANDARD
+#if NETFRAMEWORK
         private static ModuleBuilder BuildModule(AssemblyName an)
         {
 #if DEBUG_DYNAMIC
@@ -153,7 +153,7 @@ namespace SpringUtil
 
             AssemblyBuilder assembly = (AssemblyBuilder) module.Assembly;
 
-#if !NETSTANDARD
+#if NETFRAMEWORK
             assembly.Save(assembly.GetName().Name + ".dll");            
 #endif
         }

@@ -855,14 +855,17 @@ namespace SpringExpressions
 
         private class FieldValueAccessor : BaseValueAccessor
         {
-            private SafeField field;
+            // Named _field, not field: from C# 14 (net10.0) 'field' is a contextual keyword that binds to a
+            // property's synthesized backing field, so inside the accessors below a member called 'field'
+            // is shadowed and does not compile.
+            private SafeField _field;
             private bool isWriteable;
             private Type targetType;
             private Type contextType;
 
             public FieldValueAccessor(FieldInfo fieldInfo)
             {
-                this.field = new SafeField(fieldInfo);
+                this._field = new SafeField(fieldInfo);
                 this.isWriteable = !(fieldInfo.IsInitOnly || fieldInfo.IsLiteral);
                 this.targetType = fieldInfo.FieldType;
                 this.contextType = fieldInfo.DeclaringType;
@@ -870,12 +873,12 @@ namespace SpringExpressions
 
             public override object Get(object context)
             {
-                return field.GetValue(context);
+                return _field.GetValue(context);
             }
 
             public override void Set(object context, object value)
             {
-                field.SetValue(context, value);
+                _field.SetValue(context, value);
             }
 
             public override bool IsWriteable
@@ -895,11 +898,11 @@ namespace SpringExpressions
 
             public override MemberInfo MemberInfo
             {
-                get { return field.FieldInfo; }
+                get { return _field.FieldInfo; }
             }
 
             public FieldInfo FieldInfo
-            {  get { return field.FieldInfo; } }
+            {  get { return _field.FieldInfo; } }
 
             public override bool RequiresRefresh(Type contextType)
             {

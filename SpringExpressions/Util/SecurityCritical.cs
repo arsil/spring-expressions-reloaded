@@ -18,7 +18,7 @@
 
 #endregion
 
-#if !NETSTANDARD
+#if NETFRAMEWORK
 using System;
 using System.Runtime.CompilerServices;
 using System.Security;
