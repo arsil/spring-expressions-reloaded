@@ -68,6 +68,14 @@ namespace SpringExpressionsTests.Expressions
             var expectedValue = interpreted.GetValue();
             var actualValue = compiled.GetValue();
 
+            // The runtime types must agree at the requested TResult too, not only at object: a typed
+            // request is satisfied by reprojection on both backends, and NUnit's value comparison alone
+            // would tolerate, say, differently typed collections holding equal items.
+            Assert.AreEqual(
+                (expectedValue as object ?? NullType).GetType(),
+                (actualValue as object ?? NullType).GetType(),
+                $"Type mismatch at TResult: Expression: {expression}");
+
             Assert.AreEqual(expectedValue, actualValue, $"Value mismatch: Interpreted {expectedValue}, but was {actualValue}. " +
                 $"Expression: {expression}");
 
@@ -91,6 +99,14 @@ namespace SpringExpressionsTests.Expressions
 
             var expectedValue = interpreted.GetValue(root);
             var actualValue = compiled.GetValue(root);
+
+            // The runtime types must agree at the requested TResult too, not only at object: a typed
+            // request is satisfied by reprojection on both backends, and NUnit's value comparison alone
+            // would tolerate, say, differently typed collections holding equal items.
+            Assert.AreEqual(
+                (expectedValue as object ?? NullType).GetType(),
+                (actualValue as object ?? NullType).GetType(),
+                $"Type mismatch at TResult: Expression: {expression}");
 
             Assert.AreEqual(expectedValue, actualValue, $"Value mismatch: Interpreted: {expectedValue}, compiled: {actualValue}. " +
                 $"Expression: {expression}");

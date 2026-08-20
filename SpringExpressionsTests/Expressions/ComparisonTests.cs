@@ -82,6 +82,16 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual("3", distinctInterpreted[3].Id);
 
 
+                var distinctInterpretedAsObject = (List<object>)InterpretGetter<List<OnlyOldComparable>, object>(
+                    "sort()").GetValue(ctx);
+                Assert.AreEqual(4, distinctInterpretedAsObject.Count);
+
+                Assert.AreEqual("1", ((OnlyOldComparable)distinctInterpretedAsObject[0]).Id);
+                Assert.AreEqual("1", ((OnlyOldComparable)distinctInterpretedAsObject[1]).Id);
+                Assert.AreEqual("2", ((OnlyOldComparable)distinctInterpretedAsObject[2]).Id);
+                Assert.AreEqual("3", ((OnlyOldComparable)distinctInterpretedAsObject[3]).Id);
+
+
                 var distinctCompiled = CompileGetter<List<OnlyOldComparable>, List<OnlyOldComparable>>(
                     "sort()").GetValue(ctx);
                 Assert.AreEqual(4, distinctCompiled.Count);
@@ -101,6 +111,16 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual("2", distinctInterpreted[1].Id);
                 Assert.AreEqual("1", distinctInterpreted[2].Id);
                 Assert.AreEqual("1", distinctInterpreted[3].Id);
+
+
+                var distinctInterpretedAsObject = (List<object>)InterpretGetter<List<OnlyOldComparable>, object>(
+                    "sort(false)").GetValue(ctx);
+                Assert.AreEqual(4, distinctInterpretedAsObject.Count);
+
+                Assert.AreEqual("3", ((OnlyOldComparable)distinctInterpretedAsObject[0]).Id);
+                Assert.AreEqual("2", ((OnlyOldComparable)distinctInterpretedAsObject[1]).Id);
+                Assert.AreEqual("1", ((OnlyOldComparable)distinctInterpretedAsObject[2]).Id);
+                Assert.AreEqual("1", ((OnlyOldComparable)distinctInterpretedAsObject[3]).Id);
 
 
                 var distinctCompiled = CompileGetter<List<OnlyOldComparable>, List<OnlyOldComparable>>(

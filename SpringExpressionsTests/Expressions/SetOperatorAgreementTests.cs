@@ -149,5 +149,68 @@ namespace SpringExpressionsTests.Expressions
                     getter.GetValue();
                 });
         }
+
+        /// <summary>
+        /// A typed request is satisfied by both backends - the compiled path keeps its HashSet&lt;T&gt;,
+        /// the interpreted one reprojects its HashSet&lt;object&gt; - and both land on exactly a
+        /// HashSet&lt;T&gt;.
+        /// </summary>
+        [Test]
+        public void TypedRequestsAgreeOnAUnion()
+        {
+            var result = TestCompiledVsInterpreted<HashSet<int>>("{1,2} + {3}").Result;
+
+            Assert.AreEqual(typeof(HashSet<int>), result.GetType());
+            Assert.AreEqual(new HashSet<int> { 1, 2, 3 }, result);
+
+            Assert.AreEqual(typeof(HashSet<int>),
+                TestCompiledVsInterpreted<ISet<int>>("{1,2} + {3}").Result.GetType());
+        }
+
+        [Test]
+        public void TypedRequestsAgreeOnAUnionOfATypedSetAndALiteral()
+        {
+            var holder = new TypedSetHolder();
+
+            var result = TestCompiledVsInterpreted<TypedSetHolder, HashSet<int>>("IntSet + {3}", holder)
+                .Result;
+
+            Assert.AreEqual(typeof(HashSet<int>), result.GetType());
+            Assert.AreEqual(new HashSet<int> { 1, 2, 3 }, result);
+        }
+
+        /// <summary>
+        /// Intersection has no compiled form - it is refused with the CompileErrorException the weak
+        /// path's fallback can see - and the interpreted path still satisfies a typed request through
+        /// the reprojection.
+        /// </summary>
+        [Test]
+        public void IntersectionSatisfiesATypedRequestInterpretedOnly()
+        {
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseGetter<HashSet<int>>(
+                    "{1,2,3} * {2,3,4}", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+
+            var interpreted = InterpretGetter<HashSet<int>>("{1,2,3} * {2,3,4}").GetValue();
+
+            Assert.AreEqual(typeof(HashSet<int>), interpreted.GetType());
+            Assert.AreEqual(new HashSet<int> { 2, 3 }, interpreted);
+        }
+
+        /// <summary>
+        /// Difference has no compiled form either; same paired shape as the intersection.
+        /// </summary>
+        [Test]
+        public void DifferenceSatisfiesATypedRequestInterpretedOnly()
+        {
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseGetter<HashSet<int>>(
+                    "{1,2,3} - {2}", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+
+            var interpreted = InterpretGetter<HashSet<int>>("{1,2,3} - {2}").GetValue();
+
+            Assert.AreEqual(typeof(HashSet<int>), interpreted.GetType());
+            Assert.AreEqual(new HashSet<int> { 1, 3 }, interpreted);
+        }
     }
 }

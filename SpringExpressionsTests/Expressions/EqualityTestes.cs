@@ -57,6 +57,12 @@ namespace SpringExpressionsTests.Expressions
                 Assert.That(distinctInterpreted.Select(i => i.Id), Is.EquivalentTo(new[] { "2", "1" }));
 
 
+                var distinctInterpretedAsObject = (List<object>)InterpretGetter<List<OnlyOldEquals>, object>(
+                    "distinct()").GetValue(ctx);
+                Assert.AreEqual(2, distinctInterpretedAsObject.Count);
+                Assert.That(distinctInterpretedAsObject.Cast<OnlyOldEquals>().Select(i => i.Id), Is.EquivalentTo(new[] { "2", "1" }));
+
+
                 var distinctCompiled = CompileGetter<List<OnlyOldEquals>, List<OnlyOldEquals>>(
                     "distinct()").GetValue(ctx);
                 Assert.AreEqual(2, distinctCompiled.Count);
@@ -68,6 +74,12 @@ namespace SpringExpressionsTests.Expressions
                     "distinct(true)").GetValue(ctx);
                 Assert.AreEqual(3, distinctInterpreted.Count);
                 Assert.That(distinctInterpreted.Select(i => i?.Id), Is.EquivalentTo(new[] { "2", "1", null }));
+
+
+                var distinctInterpretedAsObject = (List<object>)InterpretGetter<List<OnlyOldEquals>, object>(
+                    "distinct(true)").GetValue(ctx);
+                Assert.AreEqual(3, distinctInterpretedAsObject.Count);
+                Assert.That(distinctInterpretedAsObject.Cast<OnlyOldEquals>().Select(i => i?.Id), Is.EquivalentTo(new[] { "2", "1", null }));
 
 
                 var distinctCompiled = CompileGetter<List<OnlyOldEquals>, List<OnlyOldEquals>>(
@@ -123,6 +135,12 @@ namespace SpringExpressionsTests.Expressions
                 Assert.That(distinctInterpreted.Select(i => i.Id), Is.EquivalentTo(new[] { "2", "1" }));
 
 
+                var distinctInterpretedAsObject = (List<object>)InterpretGetter<List<OnlyEquatable>, object>(
+                    "distinct()").GetValue(ctx);
+                Assert.AreEqual(2, distinctInterpretedAsObject.Count);
+                Assert.That(distinctInterpretedAsObject.Cast<OnlyEquatable>().Select(i => i.Id), Is.EquivalentTo(new[] { "2", "1" }));
+
+
                 var distinctCompiled = CompileGetter<List<OnlyEquatable>, List<OnlyEquatable>>(
                     "distinct()").GetValue(ctx);
                 Assert.AreEqual(2, distinctCompiled.Count);
@@ -134,6 +152,12 @@ namespace SpringExpressionsTests.Expressions
                     "distinct(true)").GetValue(ctx);
                 Assert.AreEqual(3, distinctInterpreted.Count);
                 Assert.That(distinctInterpreted.Select(i => i?.Id), Is.EquivalentTo(new[] { "2", "1", null }));
+
+
+                var distinctInterpretedAsObject = (List<object>)InterpretGetter<List<OnlyEquatable>, object>(
+                    "distinct(true)").GetValue(ctx);
+                Assert.AreEqual(3, distinctInterpretedAsObject.Count);
+                Assert.That(distinctInterpretedAsObject.Cast<OnlyEquatable>().Select(i => i?.Id), Is.EquivalentTo(new[] { "2", "1", null }));
 
 
                 var distinctCompiled = CompileGetter<List<OnlyEquatable>, List<OnlyEquatable>>(
@@ -172,6 +196,12 @@ namespace SpringExpressionsTests.Expressions
                 Assert.That(distinctInterpreted, Is.EquivalentTo(new[] { 1, 9, 5 }));
 
 
+                var distinctInterpretedAsObject = (List<object>)InterpretGetter<List<int>, object>(
+                    "distinct()").GetValue(ctx);
+                Assert.AreEqual(3, distinctInterpretedAsObject.Count);
+                Assert.That(distinctInterpretedAsObject, Is.EquivalentTo(new[] { 1, 9, 5 }));
+
+
                 var distinctCompiled = CompileGetter<List<int>, List<int>>(
                     "distinct()").GetValue(ctx);
                 Assert.AreEqual(3, distinctCompiled.Count);
@@ -183,6 +213,12 @@ namespace SpringExpressionsTests.Expressions
                     "distinct(true)").GetValue(ctx);
                 Assert.AreEqual(3, distinctInterpreted.Count);
                 Assert.That(distinctInterpreted, Is.EquivalentTo(new[] { 1, 9, 5 }));
+
+
+                var distinctInterpretedAsObject = (List<object>)InterpretGetter<List<int>, object>(
+                    "distinct(true)").GetValue(ctx);
+                Assert.AreEqual(3, distinctInterpretedAsObject.Count);
+                Assert.That(distinctInterpretedAsObject, Is.EquivalentTo(new[] { 1, 9, 5 }));
 
 
                 var distinctCompiled = CompileGetter<List<int>, List<int>>(
@@ -245,6 +281,12 @@ namespace SpringExpressionsTests.Expressions
                 Assert.That(distinctInterpreted, Is.EquivalentTo(new int?[] { 1, 9, 5 }));
 
 
+                var distinctInterpretedAsObject = (List<object>)InterpretGetter<List<int?>, object>(
+                    "distinct()").GetValue(ctx);
+                Assert.AreEqual(3, distinctInterpretedAsObject.Count);
+                Assert.That(distinctInterpretedAsObject, Is.EquivalentTo(new int?[] { 1, 9, 5 }));
+
+
                 var distinctCompiled = CompileGetter<List<int?>, List<int?>>(
                     "distinct()").GetValue(ctx);
                 Assert.AreEqual(3, distinctCompiled.Count);
@@ -256,6 +298,12 @@ namespace SpringExpressionsTests.Expressions
                     "distinct(true)").GetValue(ctx);
                 Assert.AreEqual(4, distinctInterpreted.Count);
                 Assert.That(distinctInterpreted, Is.EquivalentTo(new int?[] { 1, null, 9, 5 }));
+
+
+                var distinctInterpretedAsObject = (List<object>)InterpretGetter<List<int?>, object>(
+                    "distinct(true)").GetValue(ctx);
+                Assert.AreEqual(4, distinctInterpretedAsObject.Count);
+                Assert.That(distinctInterpretedAsObject, Is.EquivalentTo(new int?[] { 1, null, 9, 5 }));
 
 
                 var distinctCompiled = CompileGetter<List<int?>, List<int?>>(
@@ -318,6 +366,12 @@ namespace SpringExpressionsTests.Expressions
                 Assert.That(distinctInterpreted, Is.EquivalentTo(new [] { "1", "9", "5" }));
 
 
+                var distinctInterpretedAsObject = (List<object>)InterpretGetter<List<string>, object>(
+                    "distinct()").GetValue(ctx);
+                Assert.AreEqual(3, distinctInterpretedAsObject.Count);
+                Assert.That(distinctInterpretedAsObject, Is.EquivalentTo(new [] { "1", "9", "5" }));
+
+
                 var distinctCompiled = CompileGetter<List<string>, List<string>>(
                     "distinct()").GetValue(ctx);
                 Assert.AreEqual(3, distinctCompiled.Count);
@@ -329,6 +383,12 @@ namespace SpringExpressionsTests.Expressions
                     "distinct(true)").GetValue(ctx);
                 Assert.AreEqual(4, distinctInterpreted.Count);
                 Assert.That(distinctInterpreted, Is.EquivalentTo(new [] { "1", null, "9", "5" }));
+
+
+                var distinctInterpretedAsObject = (List<object>)InterpretGetter<List<string>, object>(
+                    "distinct(true)").GetValue(ctx);
+                Assert.AreEqual(4, distinctInterpretedAsObject.Count);
+                Assert.That(distinctInterpretedAsObject, Is.EquivalentTo(new [] { "1", null, "9", "5" }));
 
 
                 var distinctCompiled = CompileGetter<List<string>, List<string>>(
@@ -384,6 +444,12 @@ namespace SpringExpressionsTests.Expressions
                     "distinct()").GetValue(ctx);
                 Assert.AreEqual(3, distinctInterpreted.Count);
                 Assert.That(distinctInterpreted.Select(i => i?.Id).Distinct(), Is.EquivalentTo(new[] { "A", "B" }));
+
+
+                var distinctInterpretedAsObject = (List<object>)InterpretGetter<List<OnlyEqualityOperator>, object>(
+                    "distinct()").GetValue(ctx);
+                Assert.AreEqual(3, distinctInterpretedAsObject.Count);
+                Assert.That(distinctInterpretedAsObject.Cast<OnlyEqualityOperator>().Select(i => i?.Id).Distinct(), Is.EquivalentTo(new[] { "A", "B" }));
 
 
                 var distinctCompiled = CompileGetter<List<OnlyEqualityOperator>, List<OnlyEqualityOperator>>(

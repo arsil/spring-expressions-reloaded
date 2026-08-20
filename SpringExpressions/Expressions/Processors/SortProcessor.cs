@@ -24,7 +24,6 @@ using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using SpringCollections;
 using SpringExpressions.Expressions.LinqExpressionHelpers;
@@ -57,7 +56,7 @@ namespace SpringExpressions.Processors
         /// Ignored.
         /// </param>
         /// <returns>
-        /// An array containing sorted collection elements.
+        /// A list containing sorted collection elements.
         /// </returns>
         /// <exception cref="ArgumentException">
         /// If <paramref name="source"/> collection is not empty and it is 
@@ -65,7 +64,7 @@ namespace SpringExpressions.Processors
         /// </exception>
         public object Process(ICollection source, object[] args)
         {
-            if (source == null || source.Count == 0)
+            if (source == null)
             {
                 return source;
             }
@@ -76,100 +75,42 @@ namespace SpringExpressions.Processors
                 sortAscending = (bool) args[0];
             }
 
-            if (MethodBaseHelpers.IsGenericEnumerable(source.GetType(), out Type itemType))
+            // List<object>, not an ArrayList copied into a typed array: the weakly typed path
+            // returns object-typed collections for every result the engine builds, and the compiled
+            // root is reshaped to match. Always a freshly built list, never the caller's own
+            // collection, whatever the Count.
+            var list = new List<object>(source.Count);
+            foreach (object item in source)
             {
-                // what comes as generics leaves as generics.
-                var method = Methods.GetOrAdd(itemType, CreateMethod);
-                return method(source, sortAscending);
+                list.Add(item);
             }
 
-
-            ArrayList list = new ArrayList(source);
-            list.Sort();
+            list.Sort(GetComparer(source).Compare);
             if (!sortAscending)
             {
                 list.Reverse();
             }
 
-            // todo: error: why?-------------------------------------------------------------------------------------
-            Type elementType = DetermineElementType(list);
-            return list.ToArray(elementType);
+            return list;
         }
 
-        private Type DetermineElementType(IList list)
+        private static IComparer GetComparer(ICollection source)
         {
-            for (int i=0; i<list.Count; i++)
-            {
-                object element = list[i];
-                if (element != null) return element.GetType();
-            }
-            return typeof (object);
+            // Comparer<T>.Default reaches IComparable<T> where the item type implements it; boxed
+            // values compared as object only ever reach the non-generic IComparable. Only the
+            // ordering is item-typed - the result stays a List<object>.
+            if (MethodBaseHelpers.IsGenericEnumerable(source.GetType(), out Type itemType))
+                return Comparers.GetOrAdd(itemType, CreateComparer);
+
+            return Comparer.Default;
         }
 
+        private static IComparer CreateComparer(Type itemType)
+            => (IComparer)typeof(Comparer<>).MakeGenericType(itemType)
+                .GetProperty("Default", BindingFlags.Public | BindingFlags.Static)
+                .GetValue(null, null);
 
-        static SortProcessor()
-        {
-            AddMethodForType<int>();
-            AddMethodForType<decimal>();
-            AddMethodForType<double>();
-            AddMethodForType<float>();
-            AddMethodForType<long>();
-            AddMethodForType<DateTime>();
-            AddMethodForType<TimeSpan>();
-            AddMethodForType<string>();
-            AddMethodForType<ulong>();
-            AddMethodForType<uint>();
-            AddMethodForType<short>();
-            AddMethodForType<ushort>();
-            AddMethodForType<byte>();
-            AddMethodForType<sbyte>();
-            AddMethodForType<char>();
-            AddMethodForType<bool>();
-
-            AddMethodForType<int?>();
-            AddMethodForType<decimal?>();
-            AddMethodForType<double?>();
-            AddMethodForType<float?>();
-            AddMethodForType<long?>();
-            AddMethodForType<DateTime?>();
-            AddMethodForType<TimeSpan?>();
-            AddMethodForType<ulong?>();
-            AddMethodForType<uint?>();
-            AddMethodForType<short?>();
-            AddMethodForType<ushort?>();
-            AddMethodForType<byte?>();
-            AddMethodForType<sbyte?>();
-            AddMethodForType<char?>();
-            AddMethodForType<bool?>();
-        }
-
-        private static object SortWithCast<T>(ICollection collection, bool sortAscending)
-        {
-            var cast = (IEnumerable<T>)collection;
-            var result = new List<T>(cast);
-            result.Sort();
-
-            if (!sortAscending)
-                result.Reverse();
-
-            return result;
-        }
-
-        private static readonly MethodInfo MiSortWithCast = typeof(SortProcessor)
-            .GetMethod(nameof(SortWithCast), BindingFlags.Static | BindingFlags.NonPublic);
-
-        private static void AddMethodForType<T>()
-        { Methods[typeof(T)] = SortWithCast<T>; }
-
-        private static Func<ICollection, bool, object> CreateMethod(Type itemType)
-        {
-            var genericMethod = MiSortWithCast.MakeGenericMethod(itemType);
-            return (Func<ICollection, bool, object>)Delegate
-                .CreateDelegate(typeof(Func<ICollection, bool, object>), genericMethod);
-        }
-
-        private static readonly ConcurrentDictionary<Type, Func<ICollection, bool, object>> Methods
-            = new ConcurrentDictionary<Type, Func<ICollection, bool, object>>();
-
+        private static readonly ConcurrentDictionary<Type, IComparer> Comparers
+            = new ConcurrentDictionary<Type, IComparer>();
     }
 }

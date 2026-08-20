@@ -95,5 +95,45 @@ namespace SpringExpressionsTests.Expressions
 
             Assert.AreEqual(new object[] { 3, 1, 3, 2 }, result);
         }
+
+        /// <summary>
+        /// A typed request is satisfied by both backends - the compiled path keeps its List&lt;T&gt;, the
+        /// interpreted one reprojects its List&lt;object&gt; - and both land on exactly a List&lt;T&gt;.
+        /// </summary>
+        [Test]
+        public void TypedRequestsAgreeOnAnIntegerLiteral()
+        {
+            var result = TestCompiledVsInterpreted<List<int>>("{1,2,3}").Result;
+
+            Assert.AreEqual(typeof(List<int>), result.GetType());
+            Assert.AreEqual(new List<int> { 1, 2, 3 }, result);
+
+            Assert.AreEqual(typeof(List<int>),
+                TestCompiledVsInterpreted<IList<int>>("{1,2,3}").Result.GetType());
+            Assert.AreEqual(typeof(List<int>),
+                TestCompiledVsInterpreted<IEnumerable<int>>("{1,2,3}").Result.GetType());
+        }
+
+        [Test]
+        public void TypedRequestsAgreeOnAStringLiteral()
+        {
+            var result = TestCompiledVsInterpreted<List<string>>("{'a','b'}").Result;
+
+            Assert.AreEqual(typeof(List<string>), result.GetType());
+            Assert.AreEqual(new List<string> { "a", "b" }, result);
+        }
+
+        /// <summary>
+        /// Mixed item types have no common T, so object items are all that can be asked for - and both
+        /// backends satisfy that request with the same List&lt;object&gt;, order intact.
+        /// </summary>
+        [Test]
+        public void TypedRequestOnAMixedLiteralTakesObjectItems()
+        {
+            var result = TestCompiledVsInterpreted<List<object>>("{1,'a'}").Result;
+
+            Assert.AreEqual(typeof(List<object>), result.GetType());
+            Assert.AreEqual(new List<object> { 1, "a" }, result);
+        }
     }
 }

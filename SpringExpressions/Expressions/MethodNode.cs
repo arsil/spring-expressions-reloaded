@@ -125,7 +125,8 @@ namespace SpringExpressions
                 || (contextExpression is ConstantExpression constExpression
                     && constExpression.Value == null))
             {
-                var result = TryCollectionProcessors(instance, methodName, argumentsTypes, arguments);
+                var result = TryCollectionProcessors(
+                    instance, methodName, argumentsTypes, arguments, compilationContext);
                 if (result != null)
                     return result;
             }
@@ -289,7 +290,8 @@ namespace SpringExpressions
             LExpression instance,
             string methodName,
             List<Type> argumentsTypes,
-            List<LExpression> arguments)
+            List<LExpression> arguments,
+            CompilationContext compilationContext)
         {
             if (instance is ConstantExpression constExpression
                 && constExpression.Value == null
@@ -319,7 +321,17 @@ namespace SpringExpressions
                 if (GenericProcessorsFacade.TryGetMethodInfo(
                         methodName, instance.Type, itemType, processorArgumentTypes, out var mi))
                 {
-                    return LExpression.Call(mi, processorArguments.ToArray());
+                    var processorCall = LExpression.Call(mi, processorArguments.ToArray());
+
+                    // A list a processor builds is the engine's own, so Compiler reshapes the root to
+                    // the List<object> the interpreter produces; a scalar result (sum, count, ...) has
+                    // no list item type and is left alone. The weakly typed branch below needs no
+                    // registration: it delegates to the interpreter processors, so it already returns
+                    // List<object> at runtime.
+                    if (CollectionOperandUtils.GetListItemType(processorCall.Type) != null)
+                        compilationContext.MarkAsConstructedCollection(processorCall);
+
+                    return processorCall;
                 }
             }
 

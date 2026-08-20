@@ -22,7 +22,6 @@ using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using SpringCollections;
 using SpringExpressions.Expressions.LinqExpressionHelpers;
@@ -77,17 +76,11 @@ namespace SpringExpressions.Processors
                 throw new ArgumentException("Only a single argument can be specified for a distinct() processor.");
             }
 
-            if (MethodBaseHelpers.IsGenericEnumerable(source.GetType(), out Type itemType))
-            {
-                // what comes as generics leaves as generics.
-                var method = _methods.GetOrAdd(itemType, CreateMethod);
-                return method(source, includeNulls);
-            }
-
-            // A List, matching the generic path above: distinct() is an order-preserving dedup rather than
-            // a set constructor, so the two source shapes now agree on the result shape as well. This was
-            // a HybridSet, the last one left in an operator or processor result.
-            var seen = new HashSet<object>();
+            // List<object>: distinct() is an order-preserving dedup rather than a set constructor - this
+            // was a HybridSet, the last one left in an operator or processor result. The weakly typed
+            // path returns object-typed collections for every result the engine builds, and the compiled
+            // root is reshaped to match.
+            var seen = new HashSet<object>(GetEqualityComparer(source));
             var distinct = new List<object>();
 
             foreach (var element in source)
@@ -102,68 +95,43 @@ namespace SpringExpressions.Processors
             return distinct;
         }
 
-        private static object DistinctNullsWithCast<T>(ICollection collection, bool includeNulls)
+        private static IEqualityComparer<object> GetEqualityComparer(ICollection source)
         {
-            var cast = (IEnumerable<T>) collection;
-            if (includeNulls)
-                return new List<T>(cast.Distinct());
+            // EqualityComparer<T>.Default reaches IEquatable<T> where the item type implements it;
+            // boxed values compared as object never would. Only the equality is item-typed - the
+            // result stays a List<object>.
+            if (MethodBaseHelpers.IsGenericEnumerable(source.GetType(), out Type itemType))
+                return Comparers.GetOrAdd(itemType, CreateComparer);
 
-            return new List<T>(from it in cast.Distinct() where it != null select it);
+            return EqualityComparer<object>.Default;
         }
 
-        private static readonly MethodInfo MiDistinctNullsWithCast = typeof(DistinctProcessor)
-            .GetMethod(nameof(DistinctNullsWithCast), BindingFlags.Static | BindingFlags.NonPublic);
-
-        static DistinctProcessor()
+        private static IEqualityComparer<object> CreateComparer(Type itemType)
         {
-            AddMethodForType<int>();
-            AddMethodForType<decimal>();
-            AddMethodForType<double>();
-            AddMethodForType<float>();
-            AddMethodForType<long>();
-            AddMethodForType<DateTime>();
-            AddMethodForType<TimeSpan>();
-            AddMethodForType<string>();
-            AddMethodForType<ulong>();
-            AddMethodForType<uint>();
-            AddMethodForType<short>();
-            AddMethodForType<ushort>();
-            AddMethodForType<byte>();
-            AddMethodForType<sbyte>();
-            AddMethodForType<char>();
-            AddMethodForType<bool>();
+            var itemTyped = (IEqualityComparer)typeof(EqualityComparer<>).MakeGenericType(itemType)
+                .GetProperty("Default", BindingFlags.Public | BindingFlags.Static)
+                .GetValue(null, null);
 
-            AddMethodForType<int?>();
-            AddMethodForType<decimal?>();
-            AddMethodForType<double?>();
-            AddMethodForType<float?>();
-            AddMethodForType<long?>();
-            AddMethodForType<DateTime?>();
-            AddMethodForType<TimeSpan?>();
-            AddMethodForType<ulong?>();
-            AddMethodForType<uint?>();
-            AddMethodForType<short?>();
-            AddMethodForType<ushort?>();
-            AddMethodForType<byte?>();
-            AddMethodForType<sbyte?>();
-            AddMethodForType<char?>();
-            AddMethodForType<bool?>();
+            return new NonGenericEqualityComparerAdapter(itemTyped);
         }
 
-        private static void AddMethodForType<T>()
+        private sealed class NonGenericEqualityComparerAdapter : IEqualityComparer<object>
         {
-            _methods[typeof(T)] = DistinctNullsWithCast<T>;
+            private readonly IEqualityComparer _itemTyped;
+
+            public NonGenericEqualityComparerAdapter(IEqualityComparer itemTyped)
+            {
+                _itemTyped = itemTyped;
+            }
+
+            bool IEqualityComparer<object>.Equals(object x, object y)
+                => _itemTyped.Equals(x, y);
+
+            int IEqualityComparer<object>.GetHashCode(object obj)
+                => _itemTyped.GetHashCode(obj);
         }
 
-        private static Func<ICollection, bool, object> CreateMethod(Type itemType)
-        {
-            var genericMethod = MiDistinctNullsWithCast.MakeGenericMethod(itemType);
-            return (Func<ICollection, bool, object>)Delegate
-                .CreateDelegate(typeof(Func<ICollection, bool, object>), genericMethod);
-        }
-
-        private static readonly ConcurrentDictionary<Type, Func<ICollection, bool, object>> _methods
-            = new ConcurrentDictionary<Type, Func<ICollection, bool, object>>();
-
+        private static readonly ConcurrentDictionary<Type, IEqualityComparer<object>> Comparers
+            = new ConcurrentDictionary<Type, IEqualityComparer<object>>();
     }
 }

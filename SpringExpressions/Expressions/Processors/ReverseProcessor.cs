@@ -22,6 +22,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 
 #endregion
 
@@ -47,15 +48,22 @@ namespace SpringExpressions.Processors
         /// </returns>
         public object Process(ICollection source, object[] args)
         {
-            if (source == null || source.Count == 0)
+            if (source == null)
             {
                 return source;
             }
 
-            ArrayList list = new ArrayList(source);
-            list.Reverse();
+            // List<object>, not ArrayList: the weakly typed path returns object-typed collections
+            // for every result the engine builds, and the compiled root is reshaped to match. Always
+            // a freshly built list, never the caller's own collection, whatever the Count.
+            var list = new List<object>(source.Count);
+            foreach (object item in source)
+            {
+                list.Add(item);
+            }
 
-            return list;            
+            list.Reverse();
+            return list;
         }
     }
 }
