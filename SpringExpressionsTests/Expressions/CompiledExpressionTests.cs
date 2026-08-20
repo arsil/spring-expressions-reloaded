@@ -1536,15 +1536,12 @@ namespace SpringExpressionsTests.Expressions
                 CompileAndExecuteGetter<bool>("#{'abc' : 1, 'xyz' : 2} is typeof(IDictionary<string, int>)"));
 
 
-            // todo: error: dictionary's underling type for weakly typed keys or values -------------------------------------------------------------
-            /*
-            TypeRegistry.RegisterType(typeof(IDictionary<,>));
-            Assert.AreEqual(
-                CompileAndExecuteGetter<object>("#{'abc' : 'Value 1', 'xyz' : DateTime.Today}").GetType(), "test");
-
+            // Keys and values unify independently: uniform keys survive mixed values into a
+            // Dictionary<string, object> mid-tree, and uniform values survive mixed keys likewise.
             Assert.IsTrue(
                 CompileAndExecuteGetter<bool>("#{'abc' : 'Value 1', 'xyz' : DateTime.Today} is typeof(IDictionary<string, object>)"));
-            */
+            Assert.IsTrue(
+                CompileAndExecuteGetter<bool>("#{'abc' : 1, DateTime.Today : 2} is typeof(IDictionary<object, int>)"));
         }
 
         /// <summary>

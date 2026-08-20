@@ -44,7 +44,8 @@ namespace SpringExpressions
              CompilationContext compilationContext)
          {
              var node = getFirstChild();
-             Type commonType = null;
+             Type commonKeyType = null;
+             Type commonValueType = null;
              List<LExpression> dictionaryEntries = new List<LExpression>();
 
              while (node != null)
@@ -52,36 +53,61 @@ namespace SpringExpressions
                  var item = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
                  dictionaryEntries.Add(item);
 
-                 var dupa = item.Type.GetGenericTypeDefinition();
-                 if (dupa != typeof(KeyValuePair<,>))
+                 if (!item.Type.IsGenericType
+                     || item.Type.GetGenericTypeDefinition() != typeof(KeyValuePair<,>))
                      throw CannotCompile("no compiled form for this map initializer");
 
-                 if (commonType == null)
-                     commonType = item.Type;
-                 else if (item.Type != commonType)
-                     commonType = typeof(KeyValuePair<object, object>);
+                 // Keys and values unify independently, each to the entries' shared type or to object,
+                 // so uniform keys survive mixed values into a Dictionary<K, object>, and the mirror
+                 // case likewise - unifying whole pair types would collapse both components on any
+                 // mismatch in either.
+                 var entryTypes = item.Type.GetGenericArguments();
+
+                 commonKeyType = commonKeyType == null || commonKeyType == entryTypes[0]
+                     ? entryTypes[0]
+                     : typeof(object);
+                 commonValueType = commonValueType == null || commonValueType == entryTypes[1]
+                     ? entryTypes[1]
+                     : typeof(object);
 
                  node = node.getNextSibling();
              }
 
-             if (commonType == null)
+             if (commonKeyType == null)
                  throw CannotCompile("no compiled form for this map initializer");
 
-             if (commonType != typeof(KeyValuePair<object, object>))
+             if (commonKeyType != typeof(object) || commonValueType != typeof(object))
              {
                  // strongly typed dictionary
 
-                 var kvpGenericArguments = commonType.GetGenericArguments();
-/*                 var constructorArgType
-                     = typeof(IEnumerable<>).MakeGenericType(
-                         typeof(KeyValuePair<,>).MakeGenericType(kvpGenericArguments));
-                 var dictionaryType = typeof(Dictionary<,>).MakeGenericType(kvpGenericArguments);
-                 var constructor = dictionaryType.GetConstructor(new[] { constructorArgType });
-*/
+                 var commonType = typeof(KeyValuePair<,>).MakeGenericType(commonKeyType, commonValueType);
+
+                 // An entry whose pair type is narrower than the unified one is widened to it; each
+                 // component's conversion is identity or boxing, nothing else.
+                 for (var i = 0; i < dictionaryEntries.Count; i++)
+                 {
+                     if (dictionaryEntries[i].Type == commonType)
+                         continue;
+
+                     var entryTypes = dictionaryEntries[i].Type.GetGenericArguments();
+                     var convertMi = GetType().GetMethod("ConvertEntry").MakeGenericMethod(
+                         entryTypes[0], entryTypes[1], commonKeyType, commonValueType);
+
+                     dictionaryEntries[i] = LExpression.Call(convertMi, dictionaryEntries[i]);
+                 }
+
                  // todo: null check!
-                 var mi = GetType().GetMethod("CreateStronglyTypedDictionary").MakeGenericMethod(kvpGenericArguments);
-                 return LExpression.Call(mi,
+                 var mi = GetType().GetMethod("CreateStronglyTypedDictionary")
+                     .MakeGenericMethod(commonKeyType, commonValueType);
+
+                 // The dictionary this builds is the engine's own, so Compiler may reshape the root to
+                 // the Dictionary<object, object> the interpreter produces; a dictionary merely read is
+                 // the caller's and keeps its identity, and the registry is what tells the two apart.
+                 var literal = LExpression.Call(mi,
                      LExpression.NewArrayInit(commonType, dictionaryEntries));
+
+                 compilationContext.MarkAsConstructedCollection(literal);
+                 return literal;
              }
              else
              {
@@ -93,8 +119,13 @@ namespace SpringExpressions
 
                  var mi2 = GetType().GetMethod("CreateWeaklyTypedDictionary");
 
-                return LExpression.Call(mi2,
+                 // Already the shape the interpreter builds, so there is nothing for the boundary to
+                 // reconcile - registered all the same, like the object-typed list literal.
+                 var literal = LExpression.Call(mi2,
                      LExpression.NewArrayInit(typeof(DictionaryEntry), dictionaryEntries));
+
+                 compilationContext.MarkAsConstructedCollection(literal);
+                 return literal;
              }
 
             throw CannotCompile("no compiled form for this map initializer");
@@ -108,8 +139,10 @@ namespace SpringExpressions
          /// <returns>Node's value.</returns>
         protected override object Get(object context, EvaluationContext evalContext)
         {
-            // todo: error: uspójnić z kodem kompilatora - szczególnie typy!!!!!
-            IDictionary entries = new Hashtable();
+            // Dictionary<object, object>, not Hashtable. The interpreter sees boxed keys and values and
+            // has no types to work from, so object is all it can offer; the compiled path keeps the
+            // entry types where they are uniform and the root is reprojected to match at the boundary.
+            IDictionary entries = new Dictionary<object, object>();
             AST entryNode = this.getFirstChild();
             while (entryNode != null)
             {
@@ -135,10 +168,17 @@ namespace SpringExpressions
          public static DictionaryEntry ToOldDictionaryEntry<T, K>(
              KeyValuePair<T, K> kvp) => new DictionaryEntry(kvp.Key, kvp.Value);
 
-         public static Hashtable CreateWeaklyTypedDictionary(
+         public static KeyValuePair<TKeyTo, TValueTo> ConvertEntry<TKey, TValue, TKeyTo, TValueTo>(
+             KeyValuePair<TKey, TValue> entry)
+         {
+             return new KeyValuePair<TKeyTo, TValueTo>(
+                 (TKeyTo)(object)entry.Key, (TValueTo)(object)entry.Value);
+         }
+
+         public static Dictionary<object, object> CreateWeaklyTypedDictionary(
              IEnumerable<DictionaryEntry> values)
          {
-             var result = new Hashtable();
+             var result = new Dictionary<object, object>();
              foreach (var kvp in values)
                  result[kvp.Key] = kvp.Value;
 

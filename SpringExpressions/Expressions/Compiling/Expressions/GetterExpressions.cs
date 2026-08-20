@@ -43,6 +43,9 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
                 if (value is HashSet<object> && SetReprojection != null)
                     return SetReprojection(value);
 
+                if (value is Dictionary<object, object> && DictionaryReprojection != null)
+                    return DictionaryReprojection(value);
+
                 return (TResult)value;
             }
 
@@ -91,6 +94,47 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
                 .MakeGenericMethod(itemType);
 
             return (Func<object, TResult>)Delegate.CreateDelegate(typeof(Func<object, TResult>), copyMethod);
+        }
+
+        /// <summary>
+        /// The dictionary counterpart of <see cref="ListReprojection"/>: requires exactly two generic
+        /// arguments on TResult, satisfiable by a Dictionary of them.
+        /// </summary>
+        private static readonly Func<object, TResult> DictionaryReprojection = BuildDictionaryReprojection();
+
+        private static Func<object, TResult> BuildDictionaryReprojection()
+        {
+            var resultType = typeof(TResult);
+
+            if (!resultType.IsGenericType)
+                return null;
+
+            var genericArguments = resultType.GetGenericArguments();
+            if (genericArguments.Length != 2)
+                return null;
+
+            var keyType = genericArguments[0];
+            var valueType = genericArguments[1];
+            if (keyType == typeof(object) && valueType == typeof(object))
+                return null;
+
+            if (!resultType.IsAssignableFrom(typeof(Dictionary<,>).MakeGenericType(keyType, valueType)))
+                return null;
+
+            var copyMethod = typeof(BaseGetterExpression<TRoot, TResult>)
+                .GetMethod(nameof(CopyToTypedDictionary), BindingFlags.Static | BindingFlags.NonPublic)
+                .MakeGenericMethod(keyType, valueType);
+
+            return (Func<object, TResult>)Delegate.CreateDelegate(typeof(Func<object, TResult>), copyMethod);
+        }
+
+        private static Dictionary<TKey, TValue> CopyToTypedDictionary<TKey, TValue>(object source)
+        {
+            var result = new Dictionary<TKey, TValue>();
+            foreach (DictionaryEntry entry in (IDictionary)source)
+                result[(TKey)entry.Key] = (TValue)entry.Value;
+
+            return result;
         }
 
         private static List<T> CopyToTypedList<T>(object source)

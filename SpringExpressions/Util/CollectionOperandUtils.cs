@@ -166,5 +166,66 @@ namespace SpringUtil
         {
             return ToHashSetOfObjects(dictionary.Keys);
         }
+
+        /// <summary>
+        /// The key and value types of a <see cref="Dictionary{TKey,TValue}"/>, or of anything deriving
+        /// from one; false if <paramref name="type"/> is neither.
+        /// </summary>
+        /// <remarks>
+        /// Walks the base chain rather than testing the generic definition for equality, so a caller's
+        /// own Dictionary subclass counts too - the same reasoning as <see cref="GetListItemType"/>.
+        /// </remarks>
+        internal static bool TryGetDictionaryItemTypes(
+            [NotNull] Type type, out Type keyType, out Type valueType)
+        {
+            for (var current = type; current != null; current = current.BaseType)
+            {
+                if (current.IsGenericType && current.GetGenericTypeDefinition() == typeof(Dictionary<,>))
+                {
+                    var arguments = current.GetGenericArguments();
+                    keyType = arguments[0];
+                    valueType = arguments[1];
+                    return true;
+                }
+            }
+
+            keyType = null;
+            valueType = null;
+            return false;
+        }
+
+        /// <summary>
+        /// A plain <see cref="Dictionary{TKey,TValue}"/> holding the same entries.
+        /// </summary>
+        /// <remarks>
+        /// Used where a dictionary the engine built is reshaped at the boundary to the key and value
+        /// types the caller asked for. CompilationContext.MarkAsConstructedCollection is how "the engine
+        /// built it" is known.
+        /// </remarks>
+        [NotNull]
+        internal static Dictionary<TKey, TValue> ToTypedDictionary<TKey, TValue>(
+            [NotNull] IEnumerable<KeyValuePair<TKey, TValue>> entries)
+        {
+            var result = new Dictionary<TKey, TValue>();
+
+            foreach (var entry in entries)
+                result[entry.Key] = entry.Value;
+
+            return result;
+        }
+
+        /// <summary>
+        /// The entries of <paramref name="dictionary"/> with keys and values as objects.
+        /// </summary>
+        [NotNull]
+        internal static Dictionary<object, object> ToDictionaryOfObjects([NotNull] IDictionary dictionary)
+        {
+            var result = new Dictionary<object, object>(dictionary.Count);
+
+            foreach (DictionaryEntry entry in dictionary)
+                result[entry.Key] = entry.Value;
+
+            return result;
+        }
     }
 }

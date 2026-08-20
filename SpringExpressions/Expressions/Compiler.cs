@@ -109,6 +109,51 @@ namespace SpringExpressions.Expressions
             return LExpression.Call(ToListOfObjectsMethodInfo, body);
         }
 
+        /// <summary>
+        /// The dictionary counterpart of <see cref="NormalizeSetResult"/> and
+        /// <see cref="NormalizeListResult"/>.
+        /// </summary>
+        /// <remarks>
+        /// Reached only for a dictionary the expression built - see the caller - and only when its key or
+        /// value type is something narrower than object, which is the case a map literal of uniformly
+        /// typed entries produces and the interpreter cannot. A literal with mixed entry types is already
+        /// a dictionary of object and needs nothing done to it.
+        /// </remarks>
+        private static LExpression NormalizeDictionaryResult(LExpression body, Type resultType)
+        {
+            if (!CollectionOperandUtils.TryGetDictionaryItemTypes(body.Type, out var keyType, out var valueType))
+            {
+                return body;
+            }
+
+            // Already a dictionary of object - what the interpreter builds - so there is nothing to
+            // reconcile.
+            if (keyType == typeof(object) && valueType == typeof(object))
+            {
+                return body;
+            }
+
+            // A requested type that a plain Dictionary<K,V> satisfies: copy into one, keeping the types.
+            if (resultType != typeof(object)
+                && resultType.IsAssignableFrom(typeof(Dictionary<,>).MakeGenericType(keyType, valueType)))
+            {
+                return LExpression.Call(
+                    ToTypedDictionaryMethodInfo.MakeGenericMethod(keyType, valueType), body);
+            }
+
+            return LExpression.Call(ToDictionaryOfObjectsMethodInfo, body);
+        }
+
+        private static readonly System.Reflection.MethodInfo ToTypedDictionaryMethodInfo
+            = typeof(CollectionOperandUtils).GetMethod(
+                nameof(CollectionOperandUtils.ToTypedDictionary),
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+
+        private static readonly System.Reflection.MethodInfo ToDictionaryOfObjectsMethodInfo
+            = typeof(CollectionOperandUtils).GetMethod(
+                nameof(CollectionOperandUtils.ToDictionaryOfObjects),
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+
         private static readonly System.Reflection.MethodInfo ToTypedListMethodInfo
             = typeof(CollectionOperandUtils).GetMethod(
                 nameof(CollectionOperandUtils.ToTypedList),
@@ -185,6 +230,7 @@ namespace SpringExpressions.Expressions
             {
                 exp = NormalizeSetResult(exp, typeof(TResult));
                 exp = NormalizeListResult(exp, typeof(TResult));
+                exp = NormalizeDictionaryResult(exp, typeof(TResult));
             }
 
             Expression<Func<TContext, IDictionary<string, object>, TResult>> lambda
