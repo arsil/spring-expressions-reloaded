@@ -3,6 +3,7 @@
 using NUnit.Framework;
 
 using SpringExpressions;
+using SpringExpressions.Expressions.Compiling.Expressions;
 
 namespace SpringExpressionsTests.Expressions
 {
@@ -15,6 +16,7 @@ namespace SpringExpressionsTests.Expressions
         public List<int> Ints { get; } = new List<int> { 1, 2, 3 };
         public int[] IntArray { get; } = { 4, 5, 6 };
         public List<string> Names { get; } = new List<string> { "Ala", "Ola", "Basia" };
+        public int? NullInt { get; } = null;
     }
 
     /// <summary>
@@ -89,6 +91,30 @@ namespace SpringExpressionsTests.Expressions
 
             TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Ints.?{#this > 99}", holder)
                 .ResultEqualsTo(new List<object>());
+        }
+
+        /// <summary>
+        /// A null predicate result counts as no match, not as an error: a nullable operand inside the
+        /// predicate makes the whole predicate "unknown", which a filter reads as false. This used to
+        /// throw NullReferenceException from the interpreter's (bool) cast. The compiled path refuses a
+        /// non-boolean predicate, so the interpreter serves the shape either way.
+        /// </summary>
+        [Test]
+        public void SelectionPredicateTreatsNullAsNoMatch()
+        {
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseGetter<ProjectionSourceHolder, object>(
+                    "Ints.?{#root.NullInt and 3}", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+
+            var holder = new ProjectionSourceHolder();
+            var selected = InterpretGetter<ProjectionSourceHolder, object>("Ints.?{#root.NullInt and 3}")
+                .GetValue(holder);
+
+            Assert.AreEqual(typeof(List<object>), selected.GetType());
+            Assert.AreEqual(new List<object>(), selected);
+
+            Assert.IsNull(ExpressionEvaluator.GetValue(holder, "Ints.^{#root.NullInt and 3}"));
+            Assert.IsNull(ExpressionEvaluator.GetValue(holder, "Ints.${#root.NullInt and 3}"));
         }
 
         /// <summary>

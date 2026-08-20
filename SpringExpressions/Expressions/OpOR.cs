@@ -79,9 +79,20 @@ namespace SpringExpressions
 
             object r = GetRightValue(context, evalContext);
 
-            if (NumberUtils.IsInteger(l) && NumberUtils.IsInteger(r))
+            var leftIsInteger = NumberUtils.IsInteger(l);
+            var rightIsInteger = NumberUtils.IsInteger(r);
+
+            if (leftIsInteger && rightIsInteger)
             {
                 return NumberUtils.BitwiseOr(l, r);
+            }
+
+            // Nullable value types are boxed as values or nulls, so we may get
+            // null values for Nullable<T>
+            // Any math operation involving value and null returns null
+            if ((leftIsInteger || rightIsInteger) && (l == null || r == null))
+            {
+                return null;
             }
 
             if (l is Enum && l.GetType() == r.GetType())

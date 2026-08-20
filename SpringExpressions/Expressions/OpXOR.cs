@@ -70,11 +70,23 @@ namespace SpringExpressions
             object l = GetLeftValue(context, evalContext);
             object r = GetRightValue(context, evalContext);
 
-            if (NumberUtils.IsInteger(l) && NumberUtils.IsInteger(r))
+            var leftIsInteger = NumberUtils.IsInteger(l);
+            var rightIsInteger = NumberUtils.IsInteger(r);
+
+            if (leftIsInteger && rightIsInteger)
             {
                 return NumberUtils.BitwiseXor(l, r);
             }
-            else if (l is Enum && l.GetType() == r.GetType())
+
+            // Nullable value types are boxed as values or nulls, so we may get
+            // null values for Nullable<T>
+            // Any math operation involving value and null returns null
+            if ((leftIsInteger || rightIsInteger) && (l == null || r == null))
+            {
+                return null;
+            }
+
+            if (l is Enum && l.GetType() == r.GetType())
             {
                 Type enumType = l.GetType();
                 Type integralType = Enum.GetUnderlyingType(enumType);

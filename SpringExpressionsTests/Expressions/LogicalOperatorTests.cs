@@ -1,5 +1,8 @@
 ﻿using NUnit.Framework;
 
+using SpringExpressions;
+using SpringExpressions.Expressions.Compiling.Expressions;
+
 namespace SpringExpressionsTests.Expressions
 {
     /// <summary>
@@ -34,6 +37,17 @@ namespace SpringExpressionsTests.Expressions
             }
         }
     }
+
+    /// <summary>
+    /// Nullable integers for the operator-role tests: whether a value is present is a runtime fact,
+    /// so the two backends must agree on what a null one means.
+    /// </summary>
+    public class NullableOperands
+    {
+        public int? NullInt { get { return null; } }
+        public int? OneInt { get { return 1; } }
+    }
+
 
     /// <summary>
     /// "and" and "or" are each a single operator serving two roles - logical for boolean operands, bitwise
@@ -143,6 +157,77 @@ namespace SpringExpressionsTests.Expressions
                 .ResultEqualsTo(1 & 3);
             TestCompiledVsInterpreted<OperandCounter, int>("One or 2", new OperandCounter())
                 .ResultEqualsTo(1 | 2);
+        }
+
+        /// <summary>
+        /// The rule for null operands, per operand type family: in the integer/enum family a null is a
+        /// lifted "unknown" and propagates - "null and 3" is null, as it is for +, -, and the rest of
+        /// nullable math - while in the boolean family a null coerces to false, the way a filter reads
+        /// it. One rule per family, identical across and, or and xor.
+        /// </summary>
+        /// <remarks>
+        /// A null literal leaves the role undecidable at compile time, so the compiled path refuses the
+        /// shape - with the CompileErrorException the weakly typed path's fallback can see - and the
+        /// interpreter evaluates it.
+        /// </remarks>
+        [Test]
+        public void NullOperandsAreRefusedCompiledButStillEvaluate()
+        {
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseGetter<object>(
+                    "null and 3", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseGetter<object>(
+                    "null or 3", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+
+            Assert.IsNull(ExpressionEvaluator.GetValue(null, "null and 3"));
+            Assert.IsNull(ExpressionEvaluator.GetValue(null, "3 and null"));
+            Assert.IsNull(ExpressionEvaluator.GetValue(null, "null or 3"));
+            Assert.IsNull(ExpressionEvaluator.GetValue(null, "null xor 3"));
+
+            Assert.AreEqual(false, ExpressionEvaluator.GetValue(null, "null and true"));
+            Assert.AreEqual(false, ExpressionEvaluator.GetValue(null, "true and null"));
+            Assert.AreEqual(false, ExpressionEvaluator.GetValue(null, "null and false"));
+            Assert.AreEqual(true, ExpressionEvaluator.GetValue(null, "null or true"));
+            Assert.AreEqual(false, ExpressionEvaluator.GetValue(null, "null or false"));
+            Assert.AreEqual(true, ExpressionEvaluator.GetValue(null, "null xor true"));
+            Assert.AreEqual(false, ExpressionEvaluator.GetValue(null, "null and null"));
+            Assert.AreEqual(false, ExpressionEvaluator.GetValue(null, "null or null"));
+        }
+
+        /// <summary>
+        /// The lifted rule holds for nullable-integer operands across all three operators, on both
+        /// backends: null propagates, values compute bitwise. or and xor used to lack the nullable
+        /// handling and coerced a null to a boolean - measured as a compiled-vs-interpreted divergence,
+        /// since the compiled path has always lifted declared int? operands.
+        /// </summary>
+        [Test]
+        public void NullableIntegerOperandsLiftAcrossAllThreeOperators()
+        {
+            var holder = new NullableOperands();
+
+            TestCompiledVsInterpreted<NullableOperands, object>("NullInt and 3", holder).ResultEqualsTo(null);
+            TestCompiledVsInterpreted<NullableOperands, object>("NullInt or 3", holder).ResultEqualsTo(null);
+            TestCompiledVsInterpreted<NullableOperands, object>("NullInt xor 3", holder).ResultEqualsTo(null);
+
+            TestCompiledVsInterpreted<NullableOperands, object>("OneInt and 3", holder).ResultEqualsTo(1 & 3);
+            TestCompiledVsInterpreted<NullableOperands, object>("OneInt or 2", holder).ResultEqualsTo(1 | 2);
+            TestCompiledVsInterpreted<NullableOperands, object>("OneInt xor 3", holder).ResultEqualsTo(1 ^ 3);
+        }
+
+        /// <summary>
+        /// A null logical result dissolves the moment it meets a boolean context: not, the conditional
+        /// operator, and the boolean family of and/or all coerce it to false rather than throwing.
+        /// </summary>
+        [Test]
+        public void NullLogicalResultsCoerceInBooleanContexts()
+        {
+            var holder = new NullableOperands();
+
+            Assert.AreEqual(true, ExpressionEvaluator.GetValue(holder, "!(NullInt and 3)"));
+            Assert.AreEqual("no", ExpressionEvaluator.GetValue(holder, "(NullInt and 3) ? 'yes' : 'no'"));
+            Assert.AreEqual(false, ExpressionEvaluator.GetValue(holder, "(NullInt and 3) and true"));
+            Assert.AreEqual(true, ExpressionEvaluator.GetValue(holder, "(NullInt and 3) or true"));
         }
     }
 }

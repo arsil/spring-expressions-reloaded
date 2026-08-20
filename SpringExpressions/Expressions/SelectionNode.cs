@@ -162,7 +162,11 @@ namespace SpringExpressions
                 foreach (object o in enumerable)
                 {
                     evalContext.ThisContext = o;
-                    bool isMatch = (bool)GetValue(expression, o, evalContext);
+                    // A null predicate result counts as no match: a filter treats "unknown" as false
+                    // rather than as an error - a nullable operand inside the predicate can
+                    // produce null, and unboxing it would throw.
+                    object match = GetValue(expression, o, evalContext);
+                    bool isMatch = match != null && (bool)match;
                     if (isMatch)
                     {
                         if (minIndex <= found && found <= maxIndex)

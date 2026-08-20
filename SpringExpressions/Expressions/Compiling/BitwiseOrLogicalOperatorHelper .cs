@@ -97,9 +97,11 @@ namespace SpringExpressions.Expressions.Compiling
                 }
             }
 
-                    // todo: error: which operation???
-                // todo: error:
-                throw new ArgumentException($"Cannot perform operation on {left.Type} and {right.Type}.");
+            // Anything else - an object-typed operand (a null literal, say), a string, mixed
+            // integer-and-bool shapes - has no compiled form. Null is the "cannot compile" signal, so
+            // the weakly typed path falls back to the interpreter, which evaluates several of these
+            // shapes; an ArgumentException here escaped that fallback and made them hard failures.
+            return null;
         }
     }
 }
