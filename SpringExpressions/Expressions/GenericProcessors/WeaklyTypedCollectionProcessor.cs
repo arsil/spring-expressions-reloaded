@@ -5,6 +5,11 @@ using SpringExpressions.Processors;
 
 namespace SpringExpressions.Expressions.GenericProcessors
 {
+    /// <summary>
+    /// Every method here is resolved reflectively by the expression-language name of the processor it
+    /// bridges, so each name must match that name exactly - a mismatch is not an error anywhere, it
+    /// just makes the method unreachable and the shape silently fall back to the interpreter.
+    /// </summary>
     internal class WeaklyTypedCollectionProcessor
     {
         public static int count(ICollection collection)
@@ -29,7 +34,7 @@ namespace SpringExpressions.Expressions.GenericProcessors
             => _sort.Process(collection, new object[] { sortAscending });
 
 
-        public static object notNull(ICollection collection)
+        public static object nonNull(ICollection collection)
             => _nonNull.Process(collection, NoParams);
 
 

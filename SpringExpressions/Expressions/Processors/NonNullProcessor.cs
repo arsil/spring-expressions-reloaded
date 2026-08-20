@@ -19,6 +19,7 @@
 #endregion
 
 using System.Collections;
+using System.Collections.Generic;
 
 namespace SpringExpressions.Processors
 {
@@ -47,7 +48,10 @@ namespace SpringExpressions.Processors
                 return null;
             }
 
-            ArrayList list = new ArrayList();
+            // List<object>, not an Object[] copied out of an ArrayList: the weakly typed path returns
+            // object-typed collections for every result the engine builds, and the compiled root is
+            // reshaped to match.
+            var list = new List<object>();
             foreach (object item in source)
             {
                 if (item != null)
@@ -55,7 +59,8 @@ namespace SpringExpressions.Processors
                     list.Add(item);
                 }
             }
-            return list.ToArray();
+
+            return list;
         }
     }
 }

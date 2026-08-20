@@ -20,6 +20,8 @@ namespace SpringExpressionsTests.Expressions
         public List<int> Dupes { get; } = new List<int> { 3, 1, 3, 2 };
         public List<int> EmptyInts { get; } = new List<int>();
         public ArrayList Objects { get; } = new ArrayList { 1, "a", 2.5m };
+        public List<string> NamesWithNulls { get; } = new List<string> { "Ola", null, "Ala", null };
+        public ArrayList ObjectsWithNulls { get; } = new ArrayList { 1, null, "a", null };
 
         public List<GenericOnlyComparable> Comparables { get; } = new List<GenericOnlyComparable>
             { new GenericOnlyComparable(2), new GenericOnlyComparable(1), new GenericOnlyComparable(3) };
@@ -231,6 +233,60 @@ namespace SpringExpressionsTests.Expressions
 
             Assert.AreEqual(typeof(List<object>), interpreted.GetType());
             Assert.AreEqual(new[] { "Ala", "Ela", "Ola" }, interpreted);
+        }
+
+        /// <summary>
+        /// nonNull() used to return an Object[] from the interpreter against a List&lt;T&gt; compiled -
+        /// not even the same kind of thing. Both are lists now.
+        /// </summary>
+        [Test]
+        public void NonNullDropsNullsFromATypedList()
+        {
+            var holder = new ProcessorSourceHolder();
+
+            var result = TestCompiledVsInterpreted<ProcessorSourceHolder, object>(
+                    "NamesWithNulls.nonNull()", holder)
+                .Result;
+
+            Assert.AreEqual(typeof(List<object>), result.GetType());
+            Assert.AreEqual(new object[] { "Ola", "Ala" }, result);
+
+            TestCompiledVsInterpreted<ProcessorSourceHolder, List<string>>("NamesWithNulls.nonNull()", holder)
+                .ResultEqualsTo(new List<string> { "Ola", "Ala" });
+        }
+
+        /// <summary>
+        /// A non-generic source compiles through the weakly typed bridge - whose method was named
+        /// notNull, a name "nonNull()" could never resolve, so this shape used to be refused compiled.
+        /// </summary>
+        [Test]
+        public void NonNullOverANonGenericCollection()
+        {
+            var holder = new ProcessorSourceHolder();
+
+            var result = TestCompiledVsInterpreted<ProcessorSourceHolder, object>(
+                    "ObjectsWithNulls.nonNull()", holder)
+                .Result;
+
+            Assert.AreEqual(typeof(List<object>), result.GetType());
+            Assert.AreEqual(new object[] { 1, "a" }, result);
+        }
+
+        /// <summary>
+        /// An item type the compiled facade's dictionary does not list is served through the same
+        /// bridge, so both backends run the one interpreter processor and agree.
+        /// </summary>
+        [Test]
+        public void NonNullOverAnItemTypeTheFacadeDoesNotList()
+        {
+            var holder = new ProcessorSourceHolder();
+
+            var result = TestCompiledVsInterpreted<ProcessorSourceHolder, object>(
+                    "Comparables.nonNull()", holder)
+                .Result;
+
+            Assert.AreEqual(typeof(List<object>), result.GetType());
+            Assert.AreEqual(3, ((List<object>)result).Count);
         }
 
         /// <summary>
