@@ -22,6 +22,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using SpringCore.TypeConversion;
 
 #endregion
@@ -48,41 +49,41 @@ namespace SpringExpressions.Processors
         /// </returns>
         public object Process(ICollection source, object[] args)
         {
-            if (source == null
-                || source.Count == 0)
+            if (source == null)
             {
                 return source;
             }
 
-            Type targetType = typeof(double);
+            // Argument validation before the data check: bad arguments must not pass just because the
+            // source happened to be empty.
+            Type targetType;
             if (args == null || args.Length == 0)
             {
                 throw new ArgumentNullException("args", "convert() processor requires a Type value argument.");
             }
-            else if (args.Length == 1)
-            {
-                if (args[0] is Type)
-                {
-                    targetType = (Type)args[0];
-                }
-                else
-                {
-                    throw new ArgumentException("convert() processor argument must be a Type value.");
-                }
-            }
             else if (args.Length > 1)
             {
                 throw new ArgumentException("Only a single argument can be specified for a convert() processor.");
-            }        
-    
-            ArrayList result = new ArrayList();
-            foreach(object val in source)
+            }
+            else if (args[0] is Type)
             {
-                object newVal = TypeConversionUtils.ConvertValueIfNecessary(targetType, val, null);
-                result.Add(newVal);                
+                targetType = (Type)args[0];
+            }
+            else
+            {
+                throw new ArgumentException("convert() processor argument must be a Type value.");
             }
 
-            return result.ToArray(targetType);
+            // List<T>, not a typed array: convert(T) is a typed request written in the expression
+            // language, so it returns what every typed request returns. Always a freshly built list,
+            // never the caller's own collection, whatever the Count.
+            var result = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(targetType));
+            foreach (object val in source)
+            {
+                result.Add(TypeConversionUtils.ConvertValueIfNecessary(targetType, val, null));
+            }
+
+            return result;
         }
     }
 }

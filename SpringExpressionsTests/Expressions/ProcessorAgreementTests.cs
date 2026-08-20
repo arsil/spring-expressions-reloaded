@@ -290,6 +290,44 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
+        /// convert(T) is a typed request written in the expression language, so it is exempt from the
+        /// List&lt;object&gt; convention: the result is a List&lt;T&gt; of the argument's type, from both
+        /// backends. It used to be a typed array - the last one the engine built outside "new T[]".
+        /// </summary>
+        [Test]
+        public void ConvertBuildsAListOfTheRequestedType()
+        {
+            var holder = new ProcessorSourceHolder();
+
+            var result = TestCompiledVsInterpreted<ProcessorSourceHolder, object>("Ints.convert(decimal)", holder)
+                .Result;
+
+            Assert.AreEqual(typeof(List<decimal>), result.GetType());
+            Assert.AreEqual(new List<decimal> { 3m, 1m, 2m }, result);
+
+            TestCompiledVsInterpreted<ProcessorSourceHolder, List<decimal>>("Ints.convert(decimal)", holder)
+                .ResultEqualsTo(new List<decimal> { 3m, 1m, 2m });
+        }
+
+        /// <summary>
+        /// An empty source is not returned as-is: it used to come back unconverted, the caller's own
+        /// collection of the wrong element type.
+        /// </summary>
+        [Test]
+        public void ConvertOfAnEmptyListIsAFreshTypedList()
+        {
+            var holder = new ProcessorSourceHolder();
+
+            var compiled = CompileGetter<ProcessorSourceHolder, object>("EmptyInts.convert(decimal)").GetValue(holder);
+            var interpreted = InterpretGetter<ProcessorSourceHolder, object>("EmptyInts.convert(decimal)").GetValue(holder);
+
+            Assert.AreEqual(typeof(List<decimal>), compiled.GetType());
+            Assert.AreEqual(typeof(List<decimal>), interpreted.GetType());
+            Assert.AreNotSame(holder.EmptyInts, compiled, "compiled path handed back the source collection");
+            Assert.AreNotSame(holder.EmptyInts, interpreted, "interpreted path handed back the source collection");
+        }
+
+        /// <summary>
         /// Asking the compiled path for the item type still gets exactly a List&lt;T&gt;; only where
         /// nothing narrower than object was requested does the root become the List&lt;object&gt; the
         /// interpreter would build.

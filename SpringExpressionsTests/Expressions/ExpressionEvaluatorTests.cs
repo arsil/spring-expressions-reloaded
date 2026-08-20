@@ -2099,7 +2099,7 @@ namespace SpringExpressions
         public void TestConversionProcessor()
         {
             object[] arr = new object[] { "0", 1, 1.1m, "1.1", 1.1f };
-            decimal[] result = (decimal[]) ExpressionEvaluator.GetValue(arr, "convert(decimal)");
+            List<decimal> result = (List<decimal>) ExpressionEvaluator.GetValue(arr, "convert(decimal)");
             Assert.AreEqual( 0.0m, result[0] );
             Assert.AreEqual(1.0m, result[1]);
             Assert.AreEqual(1.1m, result[2]);

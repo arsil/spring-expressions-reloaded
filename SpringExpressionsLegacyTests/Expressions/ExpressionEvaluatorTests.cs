@@ -2000,10 +2000,23 @@ namespace SpringExpressions
         }
 
         [Test]
+        [Ignore("Deliberate breaking change: convert(T) returns List<T>, not a typed array - the (decimal[]) cast throws. Its 1:1 sibling with a list cast is TestConversionProcessorReturnsList.")]
         public void TestConversionProcessor()
         {
             object[] arr = new object[] { "0", 1, 1.1m, "1.1", 1.1f };
             decimal[] result = (decimal[]) ExpressionEvaluator.GetValue(arr, "convert(decimal)");
+            Assert.AreEqual( 0.0m, result[0] );
+            Assert.AreEqual(1.0m, result[1]);
+            Assert.AreEqual(1.1m, result[2]);
+            Assert.AreEqual(1.1m, result[3]);
+            Assert.AreEqual(1.1m, result[4]);
+        }
+
+                [Test]
+        public void TestConversionProcessorReturnsList()
+        {
+            object[] arr = new object[] { "0", 1, 1.1m, "1.1", 1.1f };
+            IList result = (IList) ExpressionEvaluator.GetValue(arr, "convert(decimal)");
             Assert.AreEqual( 0.0m, result[0] );
             Assert.AreEqual(1.0m, result[1]);
             Assert.AreEqual(1.1m, result[2]);
@@ -2617,6 +2630,7 @@ namespace SpringExpressions
         #region Set operations tests
 
         [Test]
+        [Ignore("Deliberate breaking change: collection operators return HashSet<T>, not SpringCollections.ISet - kept verbatim as the record. Its 1:1 sibling with BCL-set casts is TestUnionOperatorReturnsHashSet.")]
         public void TestUnionOperator()
         {
             object o = ExpressionEvaluator.GetValue(null, "{1,2,3} + {3,4,5}");
@@ -2651,6 +2665,41 @@ namespace SpringExpressions
             Assert.AreEqual("five", result[5]);
         }
 
+                [Test]
+        public void TestUnionOperatorReturnsHashSet()
+        {
+            object o = ExpressionEvaluator.GetValue(null, "{1,2,3} + {3,4,5}");
+            Assert.IsInstanceOf(typeof(ISet<object>), o);
+            ISet<object> union = (ISet<object>)o;
+            Assert.AreEqual(5, union.Count);
+            Assert.IsTrue(union.Contains(1));
+            Assert.IsTrue(union.Contains(3));
+            Assert.IsTrue(union.Contains(5));
+
+            o = ExpressionEvaluator.GetValue(null, "{1,2,3} + {3,4,5} + {'ivan', 'gox', 'damjao', 5}");
+            Assert.IsInstanceOf(typeof(ISet<object>), o);
+            union = (ISet<object>)o;
+            Assert.AreEqual(8, union.Count);
+            Assert.IsTrue(union.Contains(1));
+            Assert.IsTrue(union.Contains("ivan"));
+
+            ISet testset = new HybridSet();
+            testset.AddAll(new int[] { 1, 2, 3, 5, 8 });
+            o = ExpressionEvaluator.GetValue(testset, "#this + {1, 2, 13, 15}");
+            Assert.IsInstanceOf(typeof(ISet<object>), o);
+            union = (ISet<object>)o;
+            Assert.AreEqual(7, union.Count);
+            Assert.IsTrue(union.Contains(1));
+            Assert.IsTrue(union.Contains(15));
+
+            o = ExpressionEvaluator.GetValue(null, "#{1:'one', 2:'two', 3:'three'} + #{1:'ivan', 5:'five'}");
+            Assert.IsInstanceOf(typeof(IDictionary), o);
+            IDictionary result = (IDictionary)o;
+            Assert.AreEqual(4, result.Count);
+            Assert.AreEqual("one", result[1]);
+            Assert.AreEqual("five", result[5]);
+        }
+
         [Test]
         [ExpectedException(typeof(ArgumentException))]
         public void TestUnionOperatorBad()
@@ -2660,6 +2709,7 @@ namespace SpringExpressions
         }
 
         [Test]
+        [Ignore("Deliberate breaking change: collection operators return HashSet<T>, not SpringCollections.ISet - kept verbatim as the record. Its 1:1 sibling with BCL-set casts is TestIntersectionOperatorReturnsHashSet.")]
         public void TestIntersectionOperator()
         {
             object o = ExpressionEvaluator.GetValue(null, "{111, 'ivan', 23, 24} * {111, 11, 'ivan'}");
@@ -2697,6 +2747,44 @@ namespace SpringExpressions
             Assert.AreEqual("two", result[2]);
         }
 
+                [Test]
+        public void TestIntersectionOperatorReturnsHashSet()
+        {
+            object o = ExpressionEvaluator.GetValue(null, "{111, 'ivan', 23, 24} * {111, 11, 'ivan'}");
+            Assert.IsInstanceOf(typeof(ISet<object>), o);
+            ISet<object> intersection = (ISet<object>)o;
+            Assert.AreEqual(2, intersection.Count);
+            Assert.IsTrue(intersection.Contains(111));
+            Assert.IsTrue(intersection.Contains("ivan"));
+
+            o = ExpressionEvaluator.GetValue(null, "{24, 25, 'aaa' + 'bb'} * {date('2007/2/5').day * 5, 24 - 1}");
+            Assert.IsInstanceOf(typeof(ISet<object>), o);
+            intersection = (ISet<object>)o;
+            Assert.AreEqual(1, intersection.Count);
+            Assert.IsTrue(intersection.Contains(25));
+
+            ISet testset = new HybridSet();
+            testset.AddAll(new int[] { 1, 2, 3, 5, 8 });
+            o = ExpressionEvaluator.GetValue(testset, "#this * #{1:'one', 10:'ten'}");
+            Assert.IsInstanceOf(typeof(ISet<object>), o);
+            intersection = (ISet<object>)o;
+            Assert.AreEqual(1, intersection.Count);
+            Assert.IsTrue(intersection.Contains(1));
+
+            o = ExpressionEvaluator.GetValue(null, "#{1:'one', 2:'two', 3:'three'} * #{1:'ivan', 5:'five'}");
+            Assert.IsInstanceOf(typeof(IDictionary), o);
+            IDictionary result = (IDictionary)o;
+            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual("one", result[1]);
+
+            o = ExpressionEvaluator.GetValue(null, "#{1:'one', 2:'two', 3:'three'} * {1, 2, 5, 7}");
+            Assert.IsInstanceOf(typeof(IDictionary), o);
+            result = (IDictionary)o;
+            Assert.AreEqual(2, result.Count);
+            Assert.AreEqual("one", result[1]);
+            Assert.AreEqual("two", result[2]);
+        }
+
         [Test]
         [ExpectedException(typeof(ArgumentException))]
         public void TestIntersectionOperatorBad()
@@ -2706,6 +2794,7 @@ namespace SpringExpressions
         }
 
         [Test]
+        [Ignore("Deliberate breaking change: collection operators return HashSet<T>, not SpringCollections.ISet - kept verbatim as the record. Its 1:1 sibling with BCL-set casts is TestDifferenceOperatorReturnsHashSet.")]
         public void TestDifferenceOperator()
         {
             object o = ExpressionEvaluator.GetValue(null, "{111, 11} - {14, 12, 11}");
@@ -2724,6 +2813,41 @@ namespace SpringExpressions
             o = ExpressionEvaluator.GetValue(testset, "#this - #{1:'one', 10:'ten'}");
             Assert.IsInstanceOf(typeof(ISet), o);
             diff = (ISet)o;
+            Assert.AreEqual(4, diff.Count);
+            Assert.IsFalse(diff.Contains(1));
+
+            o = ExpressionEvaluator.GetValue(null, "#{1:'one', 2:'two', 3:'three'} - #{1:'ivan', 5:'five'}");
+            Assert.IsInstanceOf(typeof(IDictionary), o);
+            IDictionary result = (IDictionary)o;
+            Assert.AreEqual(2, result.Count);
+            Assert.IsNull(result[1]);
+            Assert.AreEqual("three", result[3]);
+
+            o = ExpressionEvaluator.GetValue(null, "#{1:'one', 2:'two', 3:'three'} - {1, 2, 3, 5, 7}");
+            Assert.IsInstanceOf(typeof(IDictionary), o);
+            result = (IDictionary)o;
+            Assert.AreEqual(0, result.Count);
+        }
+
+                [Test]
+        public void TestDifferenceOperatorReturnsHashSet()
+        {
+            object o = ExpressionEvaluator.GetValue(null, "{111, 11} - {14, 12, 11}");
+            Assert.IsInstanceOf(typeof(ISet<object>), o);
+            ISet<object> diff = (ISet<object>)o;
+            Assert.AreEqual(1, diff.Count);
+            Assert.IsTrue(diff.Contains(111));
+
+            o = ExpressionEvaluator.GetValue(null, "{111, 11} - {14, 12, 11} - {111}");
+            Assert.IsInstanceOf(typeof(ISet<object>), o);
+            diff = (ISet<object>)o;
+            Assert.AreEqual(0, diff.Count);
+
+            ISet testset = new HybridSet();
+            testset.AddAll(new int[] { 1, 2, 3, 5, 8 });
+            o = ExpressionEvaluator.GetValue(testset, "#this - #{1:'one', 10:'ten'}");
+            Assert.IsInstanceOf(typeof(ISet<object>), o);
+            diff = (ISet<object>)o;
             Assert.AreEqual(4, diff.Count);
             Assert.IsFalse(diff.Contains(1));
 

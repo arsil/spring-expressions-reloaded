@@ -233,6 +233,16 @@ namespace SpringExpressions.Expressions
                 exp = NormalizeDictionaryResult(exp, typeof(TResult));
             }
 
+            // An object-typed body carries no compile-time information, so a typed request over it is
+            // decided at runtime - the same cast the interpreted getter performs on its result. Without
+            // this, the compiled path refused shapes the interpreter satisfies, e.g. convert(decimal)
+            // requested as List<decimal>: its emitted call is object-typed because the target type is
+            // an argument value.
+            if (exp.Type == typeof(object) && typeof(TResult) != typeof(object))
+            {
+                exp = LExpression.Convert(exp, typeof(TResult));
+            }
+
             Expression<Func<TContext, IDictionary<string, object>, TResult>> lambda
                 = BuildLambda<Func<TContext, IDictionary<string, object>, TResult>>(
                     exp, ctxParam, variablesParam);

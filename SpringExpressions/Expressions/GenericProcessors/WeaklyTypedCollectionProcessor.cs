@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using SpringExpressions.Processors;
 
 // ReSharper disable InconsistentNaming
@@ -36,6 +37,9 @@ namespace SpringExpressions.Expressions.GenericProcessors
 
         public static object nonNull(ICollection collection)
             => _nonNull.Process(collection, NoParams);
+
+        public static object convert(ICollection collection, Type targetType)
+            => _convert.Process(collection, new object[] { targetType });
 
 
         public static object reverse(ICollection collection)
