@@ -11,6 +11,22 @@ namespace SpringExpressions.Expressions.Compiling
 {
     internal static class BinaryNumericOperatorHelper
     {
+        /// <summary>
+        /// Wraps a custom real-valued operand - a type with an implicit conversion to a built-in real -
+        /// in that conversion, so the promotion and comparison rules below see the built-in real. Any
+        /// other operand passes through unchanged.
+        /// </summary>
+        internal static LExpression ConvertCustomReal([NotNull] LExpression operand)
+        {
+            if (Type.GetTypeCode(operand.Type) == TypeCode.Object
+                && SpringUtil.TypeCheckingUtils.TryGetImplicitRealConversion(operand.Type, out var conversion))
+            {
+                return LExpression.Convert(operand, conversion.ReturnType, conversion);
+            }
+
+            return operand;
+        }
+
         /*
         [ContractAnnotation(
             "=>true,resultExpression:notnull;=>false,resultExpression:null")]
@@ -90,6 +106,12 @@ namespace SpringExpressions.Expressions.Compiling
             [NotNull] Func<LExpression, LExpression, LBinaryExpression> binaryFunctionCreator,
             out LBinaryExpression resultExpression)
         {
+            // A custom real-valued operand converts through its own implicit operator before the
+            // promotion rules run, so a caller's decimal-like struct participates in arithmetic like
+            // the built-in real it converts to - on this backend and the interpreter alike.
+            left = ConvertCustomReal(left);
+            right = ConvertCustomReal(right);
+
             resultExpression = null;
 
             var leftExpressionType = left.Type;

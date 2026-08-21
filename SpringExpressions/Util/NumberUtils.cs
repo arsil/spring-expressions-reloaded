@@ -22,7 +22,9 @@
 
 using SpringExpressions.Util;
 using System;
+using System.Collections.Concurrent;
 using System.ComponentModel;
+using LExpression = System.Linq.Expressions.Expression;
 
 #endregion
 
@@ -40,82 +42,6 @@ namespace SpringUtil
     sealed class NumberUtils
     {
         /// <summary>
-        /// Determines whether the supplied <paramref name="number"/> is an integer.
-        /// </summary>
-        /// <param name="number">The object to check.</param>
-        /// <returns>
-        /// <see lang="true"/> if the supplied <paramref name="number"/> is an integer.
-        /// </returns>
-        public static bool IsInteger(object number)
-        {
-			return (number is Int32 || number is Int64 || number is UInt32 || number is UInt64 
-				|| number is Int16 || number is UInt16 || number is Byte || number is SByte);
-        }
-
-		/// <summary>
-		/// Determines whether the supplied <paramref name="number"/> is an integer.
-		/// </summary>
-		/// <param name="number">The object to check.</param>
-		/// <returns>
-		/// <see lang="true"/> if the supplied <paramref name="number"/> is an integer.
-		/// </returns>
-		public static bool IsInteger(Type number)
-		{
-			return (number == typeof(Int32))|| number == typeof(Int64) || number == typeof(UInt32) || number == typeof(UInt64)
-				|| number == typeof(Int16) || number == typeof(UInt16) || number == typeof(Byte) || number == typeof(SByte);
-		}
-
-		/// <summary>
-		/// Determines whether the supplied <paramref name="number"/> is of numeric type.
-		/// </summary>
-		/// <param name="number">The object to check.</param>
-		/// <returns>
-		/// 	<c>true</c> if the specified object is of numeric type; otherwise, <c>false</c>.
-		/// </returns>
-		public static bool IsNumber(object number)
-        {
-            var isNumber = (IsInteger(number) || IsNativeDecimal(number));
-            if (!isNumber && number != null)
-                isNumber = TypeDescriptor.GetConverter(number).CanConvertTo(typeof(Decimal));
-
-            return isNumber;
-        }
-
-        /// <summary>
-        /// Is the supplied <paramref name="number"/> equal to zero (0)?
-        /// </summary>
-        /// <param name="number">The number to check.</param>
-        /// <returns>
-        /// <see lang="true"/> id the supplied <paramref name="number"/> is equal to zero (0).
-        /// </returns>
-        public static bool IsZero(object number)
-        {
-            if (number is Int32)
-                return ((Int32)number) == 0;
-			else if (number is Decimal)
-				return ((Decimal)number) == 0m;
-            else if (number is Int64)
-                return ((Int64)number) == 0;
-            else if (number is UInt32)
-                return ((UInt32)number) == 0;
-            else if (number is UInt64)
-                return (Convert.ToDecimal(number) == 0);
-			else if (number is Int16)
-				return ((Int16)number) == 0;
-			else if (number is UInt16)
-				return ((UInt16)number) == 0;
-            else if (number is Byte)
-                return ((Byte)number) == 0;
-            else if (number is SByte)
-                return ((SByte)number) == 0;
-            else if (number is Single)
-                return ((Single)number) == 0f;
-            else if (number is Double)
-                return ((Double)number) == 0d;
-            return false;
-        }
-
-        /// <summary>
         /// Negates the supplied <paramref name="number"/>.
         /// </summary>
         /// <param name="number">The number to negate.</param>
@@ -125,6 +51,8 @@ namespace SpringUtil
         /// </exception>
         public static object Negate(object number)
         {
+            number = ToBuiltInRealIfPossible(number);
+
             switch (number)
             {
                 case Int32 int32Value:
@@ -168,6 +96,8 @@ namespace SpringUtil
 
         public static object UnaryPlus(object number)
         {
+            number = ToBuiltInRealIfPossible(number);
+
             switch (number)
             {
                 case Int32 int32Value:
@@ -378,30 +308,8 @@ namespace SpringUtil
 
             if (n is Int32)
                 return (Int32)m + (Int32)n;
-			else if (n is Decimal)
-				return (Decimal)m + (Decimal)n;
-            else if (n is Int64)
-                return (Int64)m + (Int64)n;
-            else if (n is UInt32)
-                return (UInt32)m + (UInt32)n;
-            else if (n is UInt64)
-                return (UInt64)m + (UInt64)n;
-			else if (n is Int16)
-				return (Int16)m + (Int16)n;
-			else if (n is UInt16)
-				return (UInt16)m + (UInt16)n;
-            else if (n is Byte)
-                return (Byte)m + (Byte)n;
-            else if (n is SByte)
-                return (SByte)m + (SByte)n;
-            else if (n is Single)
-                return (Single)m + (Single)n;
-            else if (n is Double)
-                return (Double)m + (Double)n;
-            else
-            {
-                throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported numeric types.", m, n));
-            }*/
+            cała drabinka
+            */
         }
 /*
 	    public static bool AddIfPossible(object m, object n, out object result)
@@ -441,33 +349,9 @@ namespace SpringUtil
             /*
             CoerceTypes(ref m, ref n);
 
-            if (n is Int32)
-                return (Int32)m - (Int32)n;
-			else if (n is Decimal)
-				return (Decimal)m - (Decimal)n;
-            else if (n is Int64)
-                return (Int64)m - (Int64)n;
-            else if (n is UInt32)
-                return (UInt32)m - (UInt32)n;
-            else if (n is UInt64)
-                return (UInt64)m - (UInt64)n;
-			else if (n is Int16)
-				return (Int16)m - (Int16)n;
-			else if (n is UInt16)
-				return (UInt16)m - (UInt16)n;
-            else if (n is Byte)
-                return (Byte)m - (Byte)n;
-            else if (n is SByte)
-                return (SByte)m - (SByte)n;
-            else if (n is Single)
-                return (Single)m - (Single)n;
-            else if (n is Double)
-                return (Double)m - (Double)n;
-            else
-            {
-                throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported numeric types.", m, n));
-            }
-            */
+             cała drabinka
+            * /
+
         }
 
         /// <summary>
@@ -483,30 +367,7 @@ namespace SpringUtil
 
             if (n is Int32)
                 return (Int32)m * (Int32)n;
-			else if (n is Decimal)
-				return (Decimal)m * (Decimal)n;
-            else if (n is Int64)
-                return (Int64)m * (Int64)n;
-            else if (n is UInt32)
-                return (UInt32)m * (UInt32)n;
-            else if (n is UInt64)
-                return (UInt64)m * (UInt64)n;
-			else if (n is Int16)
-				return (Int16)m * (Int16)n;
-			else if (n is UInt16)
-				return (UInt16)m * (UInt16)n;
-            else if (n is Byte)
-                return (Byte)m * (Byte)n;
-            else if (n is SByte)
-                return (SByte)m * (SByte)n;
-            else if (n is Single)
-                return (Single)m * (Single)n;
-            else if (n is Double)
-                return (Double)m * (Double)n;
-            else
-            {
-                throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported numeric types.", m, n));
-            }
+            cała drabinka
             */
         }
 
@@ -523,30 +384,7 @@ namespace SpringUtil
 
             if (n is Int32)
                 return (Int32)m / (Int32)n;
-			else if (n is Decimal)
-				return (Decimal)m / (Decimal)n;
-            else if (n is Int64)
-                return (Int64)m / (Int64)n;
-            else if (n is UInt32)
-                return (UInt32)m / (UInt32)n;
-            else if (n is UInt64)
-                return (UInt64)m / (UInt64)n;
-			else if (n is Int16)
-				return (Int16)m / (Int16)n;
-			else if (n is UInt16)
-				return (UInt16)m / (UInt16)n;
-            else if (n is Byte)
-                return (Byte)m / (Byte)n;
-            else if (n is SByte)
-                return (SByte)m / (SByte)n;
-            else if (n is Single)
-                return (Single)m / (Single)n;
-            else if (n is Double)
-                return (Double)m / (Double)n;
-            else
-            {
-                throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported numeric types.", m, n));
-            }
+            cała drabinka
             */
         }
 
@@ -563,30 +401,9 @@ namespace SpringUtil
 
             if (n is Int32)
                 return (Int32)m % (Int32)n;
-			else if (n is Decimal)
-				return (Decimal)m % (Decimal)n;
-            else if (n is Int64)
-                return (Int64)m % (Int64)n;
-            else if (n is UInt32)
-                return (UInt32)m % (UInt32)n;
-            else if (n is UInt64)
-                return (UInt64)m % (UInt64)n;
-			else if (n is Int16)
-				return (Int16)m % (Int16)n;
-			else if (n is UInt16)
-				return (UInt16)m % (UInt16)n;
-            else if (n is Byte)
-                return (Byte)m % (Byte)n;
-            else if (n is SByte)
-                return (SByte)m % (SByte)n;
-            else if (n is Single)
-                return (Single)m % (Single)n;
-            else if (n is Double)
-                return (Double)m % (Double)n;
-            else
-            {
-                throw new ArgumentException(string.Format("'{0}' and/or '{1}' are not one of the supported numeric types.", m, n));
-            }*/
+
+            cała drabinka
+            */
         }
 
         /// <summary>
@@ -596,6 +413,11 @@ namespace SpringUtil
         /// <param name="n">The second number.</param>
         public static object Power(object m, object n)
         {
+            // Custom real-valued operands convert through their implicit operator first:
+            // Convert.ToDouble only knows IConvertible.
+            m = ToBuiltInRealIfPossible(m);
+            n = ToBuiltInRealIfPossible(n);
+
             return Math.Pow(Convert.ToDouble(m), Convert.ToDouble(n));
         }
 
@@ -635,17 +457,40 @@ namespace SpringUtil
             }
         }
 
-		/// <summary>
-		/// Determines whether the supplied <paramref name="number"/> is a decimal number.
-		/// </summary>
-		/// <param name="number">The object to check.</param>
-		/// <returns>
-		/// <see lang="true"/> if the supplied <paramref name="number"/> is a decimal number.
-		/// </returns>
-		private static bool IsNativeDecimal(object number)
-		{
-			return (number is Single || number is Double || number is Decimal);
-		}
+        /// <summary>
+        /// Converts a value of a custom real-valued type into the built-in real its implicit operator
+        /// declares - decimal preferred over double over float - so it can participate in arithmetic
+        /// and comparison exactly like the built-in it converts to. Built-in values, and types with no
+        /// implicit real conversion, come back unchanged.
+        /// </summary>
+        internal static object ToBuiltInRealIfPossible(object value)
+        {
+            if (value == null)
+                return null;
+
+            var type = value.GetType();
+            if (Type.GetTypeCode(type) != TypeCode.Object)
+                return value;
+
+            var converter = CustomRealConverters.GetOrAdd(type, CreateCustomRealConverter);
+            return converter == null ? value : converter(value);
+        }
+
+        private static Func<object, object> CreateCustomRealConverter(Type type)
+        {
+            if (!TypeCheckingUtils.TryGetImplicitRealConversion(type, out var conversion))
+                return null;
+
+            var value = LExpression.Parameter(typeof(object), "value");
+            var body = LExpression.Convert(
+                LExpression.Call(conversion, LExpression.Convert(value, type)),
+                typeof(object));
+
+            return LExpression.Lambda<Func<object, object>>(body, value).Compile();
+        }
+
+        private static readonly ConcurrentDictionary<Type, Func<object, object>> CustomRealConverters
+            = new ConcurrentDictionary<Type, Func<object, object>>();
 
 		#region Constructor (s) / Destructor
 

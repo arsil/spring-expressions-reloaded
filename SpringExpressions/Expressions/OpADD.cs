@@ -235,8 +235,8 @@ namespace SpringExpressions
             object leftValue = GetLeftValue(context, evalContext);
             object rightValue = GetRightValue(context, evalContext);
 
-            var leftIsNumber = NumberUtils.IsNumber(leftValue);
-            var rightIsNumber = NumberUtils.IsNumber(rightValue);
+            var leftIsNumber = TypeCheckingUtils.IsNumber(leftValue);
+            var rightIsNumber = TypeCheckingUtils.IsNumber(rightValue);
 
             if (leftIsNumber && rightIsNumber)
             {

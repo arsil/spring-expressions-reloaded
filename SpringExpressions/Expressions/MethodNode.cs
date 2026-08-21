@@ -264,8 +264,7 @@ namespace SpringExpressions
 
         private static void ConvertParameters(MethodInfo mi, List<LExpression> arguments)
         {
-                  // todo: Implicit numeric conversions
-                        var methodParameters = mi.GetParameters();
+            var methodParameters = mi.GetParameters();
 
             // One argument per parameter is all this can emit. A params array gives more arguments than
             // parameters and used to walk off the end of methodParameters with IndexOutOfRangeException,
@@ -279,12 +278,55 @@ namespace SpringExpressions
                     + "optional parameters.");
             }
 
+            // An unconditional ConvertChecked used to sit here, and for one conversion class it
+            // invented answers: a real argument against an integral parameter compiled to a truncation
+            // - Echo(45.5) on Echo(int) gave 45 - where the interpreter's binder converts through
+            // Convert.ChangeType and rounds - 46 - so the same call silently answered differently per
+            // backend. That class is refused now and the interpreter serves it. Every other conversion
+            // ConvertChecked can emit agrees with the interpreter's - integral widening and narrowing
+            // (both sides throw on overflow), real to real, enum to integral, object downcasts checked
+            // at runtime - so those keep their compiled form.
             for (int i = 0; i < arguments.Count; i++)
             {
-                if (arguments[i].Type != methodParameters[i].ParameterType)
-                    arguments[i] = LExpression.ConvertChecked(arguments[i], methodParameters[i].ParameterType);
+                var parameterType = methodParameters[i].ParameterType;
+                var argument = arguments[i];
+
+                if (argument.Type == parameterType)
+                    continue;
+
+                // The null literal converts to any reference or nullable parameter type.
+                if (argument is ConstantExpression constant && constant.Value == null
+                    && (!parameterType.IsValueType || Nullable.GetUnderlyingType(parameterType) != null))
+                {
+                    arguments[i] = LExpression.Constant(null, parameterType);
+                    continue;
+                }
+
+                if (TypeCheckingUtils.IsRealType(argument.Type)
+                    && TypeCheckingUtils.IsIntegralKind(parameterType))
+                {
+                    throw new CompileErrorException(
+                        $"Method '{mi.Name}' parameter {i} is '{parameterType}' but the argument is "
+                        + $"'{argument.Type}': a real-to-integral argument conversion rounds in the "
+                        + "interpreter and would truncate compiled, so it has no compiled form.");
+                }
+
+                try
+                {
+                    arguments[i] = LExpression.ConvertChecked(argument, parameterType);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    // No such conversion exists - a string argument against an int parameter, say.
+                    // InvalidOperationException is not this codebase's "cannot compile" signal, so the
+                    // weakly typed path's fallback would never see it.
+                    throw new CompileErrorException(
+                        $"Method '{mi.Name}' parameter {i} is '{parameterType}' but the argument is "
+                        + $"'{argument.Type}': {ex.Message}");
+                }
             }
         }
+
 
         private LExpression TryCollectionProcessors(
             LExpression instance,

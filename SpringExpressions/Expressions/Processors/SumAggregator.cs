@@ -44,13 +44,19 @@ namespace SpringExpressions.Processors
         /// </returns>
         public object Process(ICollection source, object[] args)
         {
-            object total = 0d;
+            // The accumulator is seeded from the first item's family: decimals accumulate in decimal -
+            // 0d + 1.5m is exactly the decimal-double promotion the engine refuses - and everything
+            // else in double, as it always did.
+            object total = null;
             foreach (object item in source)
             {
                 if (item != null)
                 {
-                    if (NumberUtils.IsNumber(item))
+                    if (TypeCheckingUtils.IsNumber(item))
                     {
+                        if (total == null)
+                            total = NumberUtils.ToBuiltInRealIfPossible(item) is decimal ? (object)0m : (object)0d;
+
                         total = NumberUtils.Add(total, item);
                     }
                     else
@@ -59,8 +65,8 @@ namespace SpringExpressions.Processors
                     }
                 }
             }
-            
-            return total;
+
+            return total ?? 0d;
         }
     }
 }

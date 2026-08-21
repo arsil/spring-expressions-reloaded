@@ -73,7 +73,7 @@ namespace SpringExpressions
             if (n == null)
                 return null;
 
-            if (!NumberUtils.IsNumber(n))
+            if (!TypeCheckingUtils.IsNumber(n))
             {
                 throw new ArgumentException(
                     "Specified operand is not a number. Only numbers support unary plus operator.");

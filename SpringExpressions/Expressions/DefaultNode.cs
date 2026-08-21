@@ -81,8 +81,8 @@ namespace SpringExpressions
                  rightExpression);
          }
 
-         if (NumberUtils.IsInteger(leftExpression.Type)
-             && NumberUtils.IsInteger(rightExpression.Type))
+         if (TypeCheckingUtils.IsInteger(leftExpression.Type)
+             && TypeCheckingUtils.IsInteger(rightExpression.Type))
          {
              // bitwise AND for integer types
              return CreateBinaryExpressionForAllNumericTypesForNotNullChildren(

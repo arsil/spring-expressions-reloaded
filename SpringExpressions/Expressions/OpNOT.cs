@@ -94,7 +94,7 @@ namespace SpringExpressions
         protected override object Get(object context, EvaluationContext evalContext)
         {
             object operand = GetValue(Operand, context, evalContext);
-            if (NumberUtils.IsInteger(operand))
+            if (TypeCheckingUtils.IsInteger(operand))
             {
                 return NumberUtils.BitwiseNot(operand);
             }

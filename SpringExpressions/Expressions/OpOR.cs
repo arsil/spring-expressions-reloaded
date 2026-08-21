@@ -71,7 +71,7 @@ namespace SpringExpressions
             // The same two roles as "and", decided the same way: a left operand that is neither null, an
             // integer nor an enum rules out the bitwise role, so this is the logical operator, and the
             // logical operator short-circuits: "true or X" never evaluates X.
-            if (l != null && !NumberUtils.IsInteger(l) && !(l is Enum))
+            if (l != null && !TypeCheckingUtils.IsInteger(l) && !(l is Enum))
             {
                 return Convert.ToBoolean(l)
                     || Convert.ToBoolean(GetRightValue(context, evalContext));
@@ -79,8 +79,8 @@ namespace SpringExpressions
 
             object r = GetRightValue(context, evalContext);
 
-            var leftIsInteger = NumberUtils.IsInteger(l);
-            var rightIsInteger = NumberUtils.IsInteger(r);
+            var leftIsInteger = TypeCheckingUtils.IsInteger(l);
+            var rightIsInteger = TypeCheckingUtils.IsInteger(r);
 
             if (leftIsInteger && rightIsInteger)
             {

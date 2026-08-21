@@ -47,6 +47,12 @@ namespace SpringExpressions
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
+            // Custom real-valued operands convert through their own implicit operator first, the same
+            // normalization the other arithmetic operators get inside BinaryNumericOperatorHelper -
+            // power bypasses the promotion rules with its own to-double conversion below.
+            leftExpression = BinaryNumericOperatorHelper.ConvertCustomReal(leftExpression);
+            rightExpression = BinaryNumericOperatorHelper.ConvertCustomReal(rightExpression);
+
             if (ExpressionTypeHelper.IsNumericOrNullableNumericExpression(
                    leftExpression, out var leftIsNullable, out var leftTypeCode)
                 &&
@@ -104,8 +110,8 @@ namespace SpringExpressions
             object leftValue = GetLeftValue( context, evalContext );
             object rightValue = GetRightValue( context, evalContext );
 
-            var leftIsNumber = NumberUtils.IsNumber(leftValue);
-            var rightIsNumber = NumberUtils.IsNumber(rightValue);
+            var leftIsNumber = TypeCheckingUtils.IsNumber(leftValue);
+            var rightIsNumber = TypeCheckingUtils.IsNumber(rightValue);
 
             if (leftIsNumber && rightIsNumber)
             {

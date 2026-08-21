@@ -55,6 +55,12 @@ namespace SpringUtil
                 return 1;
             }
 
+            // Custom real-valued types convert through their implicit operator before anything else:
+            // the coercion below only knows TypeCodes and TypeConverters, and the same-type path would
+            // demand an IComparable the custom type need not have.
+            first = NumberUtils.ToBuiltInRealIfPossible(first);
+            second = NumberUtils.ToBuiltInRealIfPossible(second);
+
             var firstArgType = first.GetType();
             var secondArgType = second.GetType();
 
@@ -91,7 +97,7 @@ namespace SpringUtil
 
         private static bool CoerceTypes(ref object left, ref object right)
         {
-            if (NumberUtils.IsNumber(left) && NumberUtils.IsNumber(right))
+            if (TypeCheckingUtils.IsNumber(left) && TypeCheckingUtils.IsNumber(right))
             {
                 NumberUtils.CoerceTypes(ref right, ref left);
                 return true;

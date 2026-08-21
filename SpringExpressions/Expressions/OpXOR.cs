@@ -70,8 +70,8 @@ namespace SpringExpressions
             object l = GetLeftValue(context, evalContext);
             object r = GetRightValue(context, evalContext);
 
-            var leftIsInteger = NumberUtils.IsInteger(l);
-            var rightIsInteger = NumberUtils.IsInteger(r);
+            var leftIsInteger = TypeCheckingUtils.IsInteger(l);
+            var rightIsInteger = TypeCheckingUtils.IsInteger(r);
 
             if (leftIsInteger && rightIsInteger)
             {

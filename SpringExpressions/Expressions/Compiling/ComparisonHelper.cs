@@ -33,8 +33,14 @@ namespace SpringExpressions.Expressions.Compiling
                             LBinaryExpression> comparisonExpression,
             out LExpression resultExpression)
         {
+            // A custom real-valued operand converts through its own implicit operator before the
+            // comparison rules run, so a caller's decimal-like struct compares like the built-in real
+            // it converts to - on this backend and the interpreter alike.
+            leftExpression = BinaryNumericOperatorHelper.ConvertCustomReal(leftExpression);
+            rightExpression = BinaryNumericOperatorHelper.ConvertCustomReal(rightExpression);
+
             if (NullableValueTypesHelper.TryCreateForComparison(
-                    leftExpression, 
+                    leftExpression,
                     rightExpression,
                     LExpression.Constant(false, typeof(bool)),
                     LExpression.Constant(false, typeof(bool)),

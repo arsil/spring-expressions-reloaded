@@ -133,5 +133,6 @@ namespace SpringExpressions.Expressions.Compiling
             typeCode = expressionTypeCode;
             return false;
         }
+
     }
 }

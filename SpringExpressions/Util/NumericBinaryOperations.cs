@@ -2,6 +2,7 @@
 
 using JetBrains.Annotations;
 using SpringExpressions.Expressions.Compiling.Expressions;
+using SpringUtil;
 using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions.Util
@@ -37,10 +38,16 @@ namespace SpringExpressions.Util
 
 
         private static object PerformOp(
-            [NotNull] object arg1, 
+            [NotNull] object arg1,
             [NotNull] object arg2,
             [NotNull] Func<object, object, object>[,] funcTable)
         {
+            // A custom real-valued operand - a caller's own struct with an implicit conversion to
+            // decimal, say - has TypeCode.Object and would miss the table; converted through its own
+            // operator first, it participates like the built-in real it converts to.
+            arg1 = NumberUtils.ToBuiltInRealIfPossible(arg1);
+            arg2 = NumberUtils.ToBuiltInRealIfPossible(arg2);
+
             var func = funcTable[(int)Type.GetTypeCode(arg1.GetType()), (int)Type.GetTypeCode(arg2.GetType())];
 
             if (func == null)
