@@ -29,6 +29,9 @@ using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Security;
 using System.Security.Permissions;
+
+using JetBrains.Annotations;
+
 using SpringUtil;
 
 using NetDynamicMethod = System.Reflection.Emit.DynamicMethod;
@@ -816,7 +819,8 @@ namespace SpringReflection.Dynamic
         /// Note: <paramref name="targetType"/> is expected to be a value type! 
         /// </para>
         /// </remarks>
-        public static object ConvertValueTypeArgumentIfNecessary(object value, Type targetType, int argIndex)
+        [CanBeNull]
+        public static object ConvertValueTypeArgumentIfNecessary([CanBeNull] object value, [NotNull] Type targetType, int argIndex)
         {
             if (value == null)
             {
@@ -835,6 +839,19 @@ namespace SpringReflection.Dynamic
             }
 
             // no conversion necessary?
+            if (valueType == targetType)
+            {
+                return value;
+            }
+
+            // A custom real-valued type - struct or class - converts through its own implicit
+            // operator first: Convert.ChangeType below only knows IConvertible, and the
+            // reference-type guard would reject a class-typed custom real outright. This is the
+            // same normalization the interpreter's arithmetic, comparison and aggregators already
+            // perform; without it a MoneyLike argument against a decimal parameter invokes fine
+            // compiled (the emitter runs op_Implicit) but died here interpreted.
+            value = NumberUtils.ToBuiltInRealIfPossible(value);
+            valueType = value.GetType();
             if (valueType == targetType)
             {
                 return value;

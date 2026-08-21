@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Reflection;
 
 using NUnit.Framework;
 
@@ -11,6 +13,21 @@ namespace SpringExpressionsTests.Expressions
     {
         public string Foo(string stringArg) { return stringArg; }
         public int Foo(int intArg) { return intArg; }
+    }
+
+    public class AmbiguousOverloadCases
+    {
+        public string Pick(string s, IFormatProvider p) { return "s+fp"; }
+        public string Pick(string s, string t) { return "s+s"; }
+
+        public string Both(object a, string b) { return "o+s"; }
+        public string Both(string a, object b) { return "s+o"; }
+    }
+
+    public class AmbiguousStaticCases
+    {
+        public static string SBoth(object a, string b) { return "o+s"; }
+        public static string SBoth(string a, object b) { return "s+o"; }
     }
 
     /// <summary>
@@ -64,8 +81,8 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// A variable is typed object at compile time, so neither Foo(string) nor Foo(int) is
-        /// assignable from it and overload resolution finds no method. The interpreter picks the
+        /// A variable is typed object at compile time, so with two Foo overloads the choice depends
+        /// on the runtime value - the overload gate refuses the shape. The interpreter picks the
         /// overload from the variable's runtime value, per call.
         /// </summary>
         [Test]
@@ -143,20 +160,97 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// A null literal is typed object at compile time, and overload matching hands it to
-        /// decimal.ToString(string, IFormatProvider) without retyping it, which the expression tree
-        /// rejects. The interpreter passes the null through reflection, which accepts it.
+        /// A null literal against a single-candidate method is not a refusal: with one candidate
+        /// there is no choice the interpreter could make differently, so the null constant is
+        /// retyped to the parameter type and the call compiles. All three paths answer alike. The
+        /// refusal that used to live here belonged to the era when resolution typed the null as
+        /// object and missed the method; with several candidates a null literal still refuses (see
+        /// AmbiguousNullArgumentOverloadIsRefusedAndEvaluatesLikeTheInterpreter).
         /// </summary>
         [Test]
-        public void NullArgumentAgainstInterfaceParameterIsRefusedButStillEvaluates()
+        public void NullArgumentAgainstInterfaceParameterCompilesAndAgrees()
         {
-            Assert.Throws<CompileErrorException>(
-                () => Expression.ParseGetter<decimal, string>(
-                    "ToString('dummy', null)", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+            var compiled = Expression.ParseGetter<decimal, string>(
+                    "ToString('dummy', null)", CompileOptions.CompileOnParse | CompileOptions.MustCompile)
+                .GetValue(0m);
+            Assert.AreEqual("dummy", compiled);
+
+            var interpreted = Expression.ParseGetter<decimal, string>(
+                    "ToString('dummy', null)", CompileOptions.MustUseInterpreter)
+                .GetValue(0m);
+            Assert.AreEqual("dummy", interpreted);
 
             IExpression weak = Expression.Parse("ToString('dummy', null)");
-
             Assert.AreEqual("dummy", weak.GetValue(0m));
+        }
+
+        /// <summary>
+        /// A null literal matches both reference-typed second parameters, so the compiled candidate
+        /// scan ties. The tie must surface as CompileErrorException - it used to escape as
+        /// AmbiguousMatchException out of the emitter, which the fallback cannot catch, turning a
+        /// construction into a hard failure. After the refusal the weak path behaves exactly like the
+        /// interpreter, whose own resolver reports the same ambiguity at evaluation time, as upstream
+        /// always did.
+        /// </summary>
+        [Test]
+        public void AmbiguousNullArgumentOverloadIsRefusedAndEvaluatesLikeTheInterpreter()
+        {
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseGetter<AmbiguousOverloadCases, object>(
+                    "Pick('a', null)", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+
+            IExpression weak = Expression.Parse("Pick('a', null)");
+            Assert.Throws<AmbiguousMatchException>(
+                () => weak.GetValue(new AmbiguousOverloadCases()));
+
+            var interpreted = Expression.ParseGetter<AmbiguousOverloadCases, object>(
+                "Pick('a', null)", CompileOptions.MustUseInterpreter);
+            Assert.Throws<AmbiguousMatchException>(
+                () => interpreted.GetValue(new AmbiguousOverloadCases()));
+        }
+
+        /// <summary>
+        /// Two strings satisfy Both(object, string) and Both(string, object) equally, so the
+        /// candidate scan ties while the tree is being built - a compile-time event that must
+        /// surface as CompileErrorException, or the fallback never runs. (It used to escape as
+        /// AmbiguousMatchException, first from the DefaultBinder and then from the scan.) The
+        /// interpreter reports its own tie at evaluation.
+        /// </summary>
+        [Test]
+        public void AmbiguousExactTypeResolutionIsRefusedAndEvaluatesLikeTheInterpreter()
+        {
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseGetter<AmbiguousOverloadCases, object>(
+                    "Both('a', 'b')", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+
+            IExpression weak = Expression.Parse("Both('a', 'b')");
+            Assert.Throws<AmbiguousMatchException>(
+                () => weak.GetValue(new AmbiguousOverloadCases()));
+
+            var interpreted = Expression.ParseGetter<AmbiguousOverloadCases, object>(
+                "Both('a', 'b')", CompileOptions.MustUseInterpreter);
+            Assert.Throws<AmbiguousMatchException>(
+                () => interpreted.GetValue(new AmbiguousOverloadCases()));
+        }
+
+        /// <summary>
+        /// The same tie reached through a type-name context: the static-method probe against the
+        /// named type is a third exact-type GetMethod site, and its DefaultBinder ambiguity is a
+        /// compile-time event like the others.
+        /// </summary>
+        [Test]
+        public void AmbiguousStaticMethodOnTypeNameContextIsRefusedAndEvaluatesLikeTheInterpreter()
+        {
+            const string expr =
+                "T(SpringExpressionsTests.Expressions.AmbiguousStaticCases, SpringExpressionsTests).SBoth('a', 'b')";
+
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseGetter<object, object>(
+                    expr, CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+
+            IExpression weak = Expression.Parse(expr);
+            Assert.Throws<AmbiguousMatchException>(
+                () => weak.GetValue(new object()));
         }
     }
 }

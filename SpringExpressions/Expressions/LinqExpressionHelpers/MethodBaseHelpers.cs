@@ -4,6 +4,10 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 
+using JetBrains.Annotations;
+
+using SpringExpressions.Expressions.Compiling.Expressions;
+
 using LExpression = System.Linq.Expressions.Expression;
 
 
@@ -107,8 +111,9 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
                 yield return interfaceType;
         }
 
+        [CanBeNull]
         public static Tuple<MethodInfo, LExpression[]> GetMethodByArgumentValues(
-            IEnumerable<MethodInfo> methods, LExpression[] arguments)
+            [NotNull, ItemNotNull] IEnumerable<MethodInfo> methods, [CanBeNull, ItemNotNull] LExpression[] arguments)
         {
             // No overload accepting the arguments' static types is "no method", not a crash: the caller
             // treats null as unresolved and reports the miss as a CompileErrorException.
@@ -120,19 +125,22 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
             return new Tuple<MethodInfo, LExpression[]>((MethodInfo)result.Item1, result.Item2);
         }
 
+        [CanBeNull]
         private static Tuple<MethodBase, LExpression[]> GetMethodBaseByArgumentValues<T>(
-            string baseMethodNameForExceptionText, 
-            IEnumerable<T> methods,
-            LExpression[] arguments) where T : MethodBase
+            [NotNull] string baseMethodNameForExceptionText,
+            [NotNull, ItemNotNull] IEnumerable<T> methods,
+            [CanBeNull, ItemNotNull] LExpression[] arguments) where T : MethodBase
         {
-            Tuple<MethodBase, LExpression[]> match = null;
-            int matchCount = 0;
+            List<Tuple<MethodBase, LExpression[]>> matches = null;
+            List<Type[]> matchParameterSets = null;
+            var anyExpandedMatch = false;
 
             foreach (T m in methods)
             {
                 ParameterInfo[] methodParameterInfoArray = m.GetParameters();
                 bool isMatch = true;
                 bool isExactMatch = true;
+                bool isExpandedMatch = false;
                 LExpression[] argumentsForCurrentMethod = arguments ?? new LExpression[0];
 
                 try
@@ -152,6 +160,7 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
                                 arguments,
                                 methodParameterInfoArray.Length,
                                 lastMethodParameter.ParameterType.GetElementType());
+                            isExpandedMatch = true;
                         }
                     }
 
@@ -213,21 +222,47 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
                         return new Tuple<MethodBase, LExpression[]>(m, argumentsForCurrentMethod);
                     }
 
-                    matchCount++;
-                    if (matchCount == 1)
+                    if (matches == null)
                     {
-                        match = new Tuple<MethodBase, LExpression[]>(m, argumentsForCurrentMethod); 
+                        matches = new List<Tuple<MethodBase, LExpression[]>>();
+                        matchParameterSets = new List<Type[]>();
                     }
-                    else
-                    {
-                        throw new AmbiguousMatchException(
-                            $"Ambiguous match for {baseMethodNameForExceptionText} '{m.Name}' for " +
-                            $"the specified number and types of arguments.");
-                    }
+
+                    matches.Add(new Tuple<MethodBase, LExpression[]>(m, argumentsForCurrentMethod));
+                    matchParameterSets.Add(Array.ConvertAll(methodParameterInfoArray, p => p.ParameterType));
+                    anyExpandedMatch = anyExpandedMatch || isExpandedMatch;
                 }
             }
 
-            return match;
+            if (matches == null)
+            {
+                return null;
+            }
+
+            if (matches.Count == 1)
+            {
+                return matches[0];
+            }
+
+            // Ties break by C#'s betterness now, the same rule the interpreter's scan applies - a
+            // null literal against Show(object)/Show(string) picks the string overload on both
+            // backends, as C# would. Only genuinely incomparable sets - or params-expanded matches,
+            // which betterness does not rank - still refuse. A tie discovered while the tree is being
+            // BUILT is a compile refusal, not a runtime error: this used to throw
+            // AmbiguousMatchException, which escapes the weak path's catch (CompileErrorException)
+            // and turned a shape the interpreter serves into a hard failure at construction.
+            if (!anyExpandedMatch)
+            {
+                var best = SpringUtil.TypeCheckingUtils.IndexOfUniqueBestParameterSet(matchParameterSets);
+                if (best >= 0)
+                {
+                    return matches[best];
+                }
+            }
+
+            throw new CompileErrorException(
+                $"Ambiguous match for {baseMethodNameForExceptionText} '{matches[0].Item1.Name}' for " +
+                $"the specified number and static types of arguments.");
         }
 
         /// <summary>

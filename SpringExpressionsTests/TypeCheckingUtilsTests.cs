@@ -218,5 +218,110 @@ namespace SpringUtil
             // Pins the behavior this predicate has always had: it does not unwrap nullables.
             Assert.IsFalse(TypeCheckingUtils.IsInteger(typeof(int?)));
         }
+
+        /// <summary>
+        /// C#'s implicit numeric conversion table, spot-checked from every family: widening rows
+        /// answer true, every narrowing or lossy row answers false, and enums and nullables are not
+        /// numeric conversions at all.
+        /// </summary>
+        [Test]
+        public void CSharpImplicitNumericConversionFollowsTheSpecTable()
+        {
+            Assert.IsTrue(TypeCheckingUtils.IsCSharpImplicitNumericConversion(typeof(int), typeof(long)));
+            Assert.IsTrue(TypeCheckingUtils.IsCSharpImplicitNumericConversion(typeof(int), typeof(double)));
+            Assert.IsTrue(TypeCheckingUtils.IsCSharpImplicitNumericConversion(typeof(int), typeof(decimal)));
+            Assert.IsTrue(TypeCheckingUtils.IsCSharpImplicitNumericConversion(typeof(byte), typeof(ulong)));
+            Assert.IsTrue(TypeCheckingUtils.IsCSharpImplicitNumericConversion(typeof(char), typeof(int)));
+            Assert.IsTrue(TypeCheckingUtils.IsCSharpImplicitNumericConversion(typeof(float), typeof(double)));
+            Assert.IsTrue(TypeCheckingUtils.IsCSharpImplicitNumericConversion(typeof(ulong), typeof(decimal)));
+
+            Assert.IsFalse(TypeCheckingUtils.IsCSharpImplicitNumericConversion(typeof(long), typeof(int)));
+            Assert.IsFalse(TypeCheckingUtils.IsCSharpImplicitNumericConversion(typeof(double), typeof(float)));
+            Assert.IsFalse(TypeCheckingUtils.IsCSharpImplicitNumericConversion(typeof(double), typeof(decimal)));
+            Assert.IsFalse(TypeCheckingUtils.IsCSharpImplicitNumericConversion(typeof(decimal), typeof(double)));
+            Assert.IsFalse(TypeCheckingUtils.IsCSharpImplicitNumericConversion(typeof(int), typeof(uint)));
+            Assert.IsFalse(TypeCheckingUtils.IsCSharpImplicitNumericConversion(typeof(int), typeof(char)));
+            Assert.IsFalse(TypeCheckingUtils.IsCSharpImplicitNumericConversion(typeof(SomeEnum), typeof(int)));
+            Assert.IsFalse(TypeCheckingUtils.IsCSharpImplicitNumericConversion(typeof(int?), typeof(long)));
+            Assert.IsFalse(TypeCheckingUtils.IsCSharpImplicitNumericConversion(typeof(int), typeof(string)));
+            Assert.IsFalse(TypeCheckingUtils.IsCSharpImplicitNumericConversion(typeof(int), typeof(object)));
+        }
+
+        /// <summary>
+        /// The widening tier's applicability predicate: the numeric table, plus a custom real-valued
+        /// type reaching a target through its own implicit operator first - and nothing else.
+        /// Identity and reference assignability are deliberately excluded; those belong to the
+        /// legacy tier.
+        /// </summary>
+        [Test]
+        public void HasImplicitWideningConversionSeesCustomRealsThroughTheirOperator()
+        {
+            Assert.IsTrue(TypeCheckingUtils.HasImplicitWideningConversion(typeof(int), typeof(double)));
+
+            // ImplicitlyDecimal reaches decimal directly; double would need decimal-to-double, which
+            // is not implicit, so it stays out - exactly why DblOrDec(customReal) picks decimal.
+            Assert.IsTrue(TypeCheckingUtils.HasImplicitWideningConversion(typeof(ImplicitlyDecimal), typeof(decimal)));
+            Assert.IsFalse(TypeCheckingUtils.HasImplicitWideningConversion(typeof(ImplicitlyDecimal), typeof(double)));
+
+            // ImplicitlyDouble reaches double directly and float never (double-to-float narrows).
+            Assert.IsTrue(TypeCheckingUtils.HasImplicitWideningConversion(typeof(ImplicitlyDouble), typeof(double)));
+            Assert.IsFalse(TypeCheckingUtils.HasImplicitWideningConversion(typeof(ImplicitlyDouble), typeof(float)));
+
+            Assert.IsFalse(TypeCheckingUtils.HasImplicitWideningConversion(typeof(ExplicitlyDecimal), typeof(decimal)));
+            Assert.IsFalse(TypeCheckingUtils.HasImplicitWideningConversion(typeof(int), typeof(int)));
+            Assert.IsFalse(TypeCheckingUtils.HasImplicitWideningConversion(typeof(string), typeof(object)));
+            Assert.IsFalse(TypeCheckingUtils.HasImplicitWideningConversion(typeof(int?), typeof(long)));
+            Assert.IsFalse(TypeCheckingUtils.HasImplicitWideningConversion(typeof(int), typeof(long?)));
+        }
+
+        /// <summary>
+        /// C#'s betterness over conversion targets: a target that converts implicitly into its rival
+        /// wins - by the numeric table or by reference/boxing assignability, so a derived class beats
+        /// its base and any class beats object. Where neither direction converts - double against
+        /// decimal, string against Uri - neither is better, which is the CS0121 ambiguity the
+        /// resolution tiers refuse.
+        /// </summary>
+        [Test]
+        public void BetternessRanksTargetsExactlyWhereCSharpDoes()
+        {
+            Assert.IsTrue(TypeCheckingUtils.IsBetterConversionTarget(typeof(long), typeof(double)));
+            Assert.IsFalse(TypeCheckingUtils.IsBetterConversionTarget(typeof(double), typeof(long)));
+
+            Assert.IsFalse(TypeCheckingUtils.IsBetterConversionTarget(typeof(double), typeof(decimal)));
+            Assert.IsFalse(TypeCheckingUtils.IsBetterConversionTarget(typeof(decimal), typeof(double)));
+
+            // reference targets: more specific wins, unrelated ties, equal is never better
+            Assert.IsTrue(TypeCheckingUtils.IsBetterConversionTarget(typeof(string), typeof(object)));
+            Assert.IsFalse(TypeCheckingUtils.IsBetterConversionTarget(typeof(object), typeof(string)));
+            Assert.IsTrue(TypeCheckingUtils.IsBetterConversionTarget(typeof(ArgumentException), typeof(Exception)));
+            Assert.IsFalse(TypeCheckingUtils.IsBetterConversionTarget(typeof(string), typeof(Uri)));
+            Assert.IsFalse(TypeCheckingUtils.IsBetterConversionTarget(typeof(Uri), typeof(string)));
+            Assert.IsFalse(TypeCheckingUtils.IsBetterConversionTarget(typeof(string), typeof(string)));
+
+            // boxing counts as an implicit conversion: a value type beats object
+            Assert.IsTrue(TypeCheckingUtils.IsBetterConversionTarget(typeof(int), typeof(object)));
+
+            Assert.AreEqual(0, TypeCheckingUtils.IndexOfUniqueBestParameterSet(
+                new[] { new[] { typeof(long) }, new[] { typeof(double) } }));
+
+            Assert.AreEqual(-1, TypeCheckingUtils.IndexOfUniqueBestParameterSet(
+                new[] { new[] { typeof(double) }, new[] { typeof(decimal) } }));
+
+            // Multi-argument betterness: every position at least as good, one strictly better.
+            Assert.AreEqual(1, TypeCheckingUtils.IndexOfUniqueBestParameterSet(
+                new[]
+                {
+                    new[] { typeof(double), typeof(string) },
+                    new[] { typeof(long), typeof(string) },
+                }));
+
+            // Split verdicts across positions: neither candidate beats the other.
+            Assert.AreEqual(-1, TypeCheckingUtils.IndexOfUniqueBestParameterSet(
+                new[]
+                {
+                    new[] { typeof(long), typeof(double) },
+                    new[] { typeof(double), typeof(long) },
+                }));
+        }
     }
 }

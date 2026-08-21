@@ -135,10 +135,9 @@ namespace SpringExpressions
 
 
             // todo: obsługiwać inne typy?
-			// todo: statyczne metody! -------------- statyczne metody! -----------------------------------------------------------------------------------------------
-			   // todo: teoretycznie statyczne metody działają:)
 
 		    MethodInfo methodInfo = null;
+            LExpression[] resolvedArguments = null;
 
 
 			var contextExpressionType = contextExpression.Type;
@@ -152,11 +151,15 @@ namespace SpringExpressions
 				instance = null;
 
 				// try inner type (e.g. Int32)
-				methodInfo = contextExpressionType.GetMethod(methodName,
-					BINDING_FLAGS | BindingFlags.FlattenHierarchy,
-					null, argumentTypesArray, null);
+				var innerResolved = ResolveMethod(
+					contextExpressionType, methodName, arguments, argumentTypesArray);
 
-				if (methodInfo == null)
+				if (innerResolved != null)
+				{
+					methodInfo = innerResolved.Item1;
+					resolvedArguments = innerResolved.Item2;
+				}
+				else
 				{
 					// not found - going back to System.Type
 					contextExpressionType = contextExpression.Type;
@@ -165,71 +168,16 @@ namespace SpringExpressions
 
 			}
 
-              // todo: error:
-			   // todo: statyczne metody! tej!
-			   // todO: teoretycznie działają... 
-            // todo: error:
-			// todo: to co nie działa, to null-owe parametry (np. ToString('dummy', null))...
-			// todo: bo null jest u nas zawsze typu Object, a metoda oczekuje np. IFormatProvider!
-			// todo: musielibyśmy typy weryfikować i null-e zawsze castować na poprawny typ!
-			// todo: czyli wyszukiwać metod po liczbie paramametrów i odpowiednio odsiewać po
-			// todo: znanych typach argumentow (nie-nullowych)!
-
 		    if (methodInfo == null)
 		    {
-			    methodInfo
-                    = !contextExpressionType.IsInterface 
-                        ? contextExpressionType.GetMethod(
-                            methodName,
-                            BINDING_FLAGS | BindingFlags.FlattenHierarchy,
-                            null,
-                            argumentTypesArray,
-                            null)
-                        : contextExpressionType.GetInterfaces()
-                            .Union(new[] { contextExpressionType }).Select(i => i.GetMethod(
-                                methodName,
-                                BINDING_FLAGS | BindingFlags.FlattenHierarchy,
-                                null,
-                                argumentTypesArray,
-                                null))
-                            .Distinct().SingleOrDefault(mi => mi != null)
-                        ;
+			    var resolved = ResolveMethod(
+				    contextExpressionType, methodName, arguments, argumentTypesArray);
 
-            }
-
-            if (methodInfo == null)
-            {
-                try
-                {
-                    // todo: error: try by name... but if there is only one method why previous GetMethod 
-                    // todo: error: didn't find it? wrong types? wrong number of arguments?
-                    // todo: error: !!!! test it !!!!
-                    methodInfo = contextExpressionType
-                        .GetMethod(methodName, BINDING_FLAGS | BindingFlags.FlattenHierarchy);
-                }
-                catch (AmbiguousMatchException)
-                {
-
-                    var overloadsMi = GetCandidateMethods(
-                        contextExpressionType, methodName, BINDING_FLAGS, argumentTypesArray.Length);
-
-                    if (overloadsMi.Count > 0)
-                    {
-                        var miAndArguments = MethodBaseHelpers.GetMethodByArgumentValues(overloadsMi, arguments.ToArray());
-
-                        if (miAndArguments != null)
-                        {
-                            return BuildCall(instance, miAndArguments.Item1, miAndArguments.Item2);
-                        }
-
-                        /*
-                            throw new NotImplementedException(
-                                $"Wybór metody {methodName} z listy kurwa mać! Overloads:{overloadsMi.Count}");
-                        */
-
- //                        mi = ReflectionUtils.GetMethodByArgumentValues(overloads, argValues);
-                    }
-                }
+			    if (resolved != null)
+			    {
+				    methodInfo = resolved.Item1;
+				    resolvedArguments = resolved.Item2;
+			    }
             }
 
                       // todo: error: extensionMethodProcessorMap
@@ -257,10 +205,242 @@ namespace SpringExpressions
                     $"Method '{methodName}' with the specified number and types of arguments does not exist.");
             }
 
-            ConvertParameters(methodInfo, arguments);
-			return BuildCall(instance, methodInfo, arguments);
+            // The candidate scan may have retyped null literals or packed a params array; the
+            // conversion gate always runs on whatever argument list is actually emitted.
+            var finalArguments = resolvedArguments != null
+                ? new List<LExpression>(resolvedArguments)
+                : arguments;
+
+            ConvertParameters(methodInfo, finalArguments);
+			return BuildCall(instance, methodInfo, finalArguments);
 	    }
 
+
+        /// <summary>
+        /// Resolution for the compiled backend, mirroring the interpreter tier for tier so the two
+        /// backends can only ever pick the same method:
+        /// - a single candidate needs no choosing - the interpreter can only pick it too - so it goes
+        ///   straight to the conversion gate (which is also where a params-array arity mismatch keeps
+        ///   its refusal);
+        /// - with several candidates, every argument must be statically determinate: a literal, a
+        ///   non-nullable value type, a sealed reference type, or a reference type no runtime subtype
+        ///   of which could reach a candidate the static type does not match (see
+        ///   IsStaticallyDeterminate). Anything else - an object-typed property, a variable - means
+        ///   the interpreter would choose from runtime values this backend cannot see, so the shape
+        ///   is refused and the interpreter serves it;
+        /// - determinate arguments run the legacy tier (the same assignability scan the interpreter
+        ///   runs, with the same C#-betterness tie-break), then the widening tier (the same C#
+        ///   implicit-conversion rules the interpreter runs, ties refusing exactly where C# reports
+        ///   CS0121).
+        /// </summary>
+        [CanBeNull]
+        private static Tuple<MethodInfo, LExpression[]> ResolveMethod(
+            [NotNull] Type contextType,
+            [NotNull] string methodName,
+            [NotNull, ItemNotNull] List<LExpression> arguments,
+            [NotNull, ItemNotNull] Type[] argumentTypes)
+        {
+            var candidates = GetCompiledCandidateMethods(contextType, methodName, argumentTypes.Length);
+
+            if (candidates.Count == 0)
+                return null;
+
+            if (candidates.Count == 1)
+                return Tuple.Create(candidates[0], arguments.ToArray());
+
+            for (var position = 0; position < arguments.Count; position++)
+            {
+                if (IsStaticallyDeterminate(arguments[position], candidates, position, arguments.Count))
+                    continue;
+
+                throw new CompileErrorException(
+                    $"Overload choice for method '{methodName}' depends on the runtime type of an "
+                    + $"argument statically typed '{arguments[position].Type}'; there is no compiled form - the "
+                    + "interpreter chooses from the runtime values. Add a cast to pick an overload.");
+            }
+
+            var scanned = MethodBaseHelpers.GetMethodByArgumentValues(candidates, arguments.ToArray());
+            if (scanned != null)
+                return scanned;
+
+            var widened = ResolveByWidening(candidates, argumentTypes, out var ambiguous);
+            if (ambiguous)
+            {
+                throw new CompileErrorException(
+                    $"Ambiguous match for method '{methodName}': the arguments convert implicitly to "
+                    + "more than one overload and neither is better - C# refuses this call too. Add a "
+                    + "cast to pick one.");
+            }
+
+            return widened != null ? Tuple.Create(widened, arguments.ToArray()) : null;
+        }
+
+        // A value that could make the interpreter's runtime-value resolution choose differently from
+        // this backend's static resolution. Fully known here: literals (null included - the scans
+        // break null ties by C#'s betterness now, on both backends alike), non-nullable value types
+        // (exactly one possible runtime type), and sealed non-array reference types (arrays excluded
+        // because covariance lets a string[] live in an object[]-typed slot). A non-sealed reference
+        // type is determinate too when no candidate parameter is reachable by a runtime subtype that
+        // the static type does not already match: then every possible runtime value matches exactly
+        // the same candidate set, the interpreter's exact-or-betterness pick lands on the same method
+        // this backend picks, and the call may compile - Method(object)/Method(B) with a B-typed
+        // argument binds Method(B) whatever B subtype arrives. A candidate parameter below the static
+        // type, or an interface the static type does not implement, or any candidate with a different
+        // arity (params arrays), keeps the shape refused. The residual edge is deliberate: an
+        // argument holding null at runtime meets the interpreter's null matching, which can tie on an
+        // incomparable candidate set where this pick called one overload with null - a null-only edge,
+        // accepted because refusing it would decompile every string-argument call against overloads
+        // (CompareTo(string) versus CompareTo(object) is everywhere); comparable sets no longer have
+        // the edge at all, betterness resolving both backends to the same overload.
+        private static bool IsStaticallyDeterminate(
+            [NotNull] LExpression argument,
+            [NotNull, ItemNotNull] IList<MethodInfo> candidates,
+            int position,
+            int argumentCount)
+        {
+            if (argument is ConstantExpression)
+                return true;
+
+            var type = argument.Type;
+
+            if (type.IsValueType)
+                return Nullable.GetUnderlyingType(type) == null;
+
+            if (type.IsSealed && !type.IsArray)
+                return true;
+
+            foreach (var candidate in candidates)
+            {
+                var parameters = candidate.GetParameters();
+
+                if (parameters.Length != argumentCount)
+                    return false;
+
+                var parameterType = parameters[position].ParameterType;
+
+                if (parameterType.IsAssignableFrom(type))
+                    continue;
+
+                if (type.IsAssignableFrom(parameterType) || parameterType.IsInterface)
+                    return false;
+            }
+
+            return true;
+        }
+
+        // The compiled twin of GetCandidateMethods: name matched case-insensitively (BINDING_FLAGS
+        // declares IgnoreCase, which the old exact-type GetMethod honoured), interfaces searched with
+        // their inherited interfaces (GetMethods on an interface does not flatten them), and
+        // hide-by-signature duplicates resolved toward the most derived declarer - which is what
+        // Type.GetMethod did silently. The interpreter's GetCandidateMethods stays untouched: its
+        // quirks are legacy behaviour.
+        [NotNull, ItemNotNull]
+        private static IList<MethodInfo> GetCompiledCandidateMethods(
+            [NotNull] Type type, [NotNull] string methodName, int argCount)
+        {
+            var searchTypes = !type.IsInterface
+                ? new[] { type }
+                : type.GetInterfaces().Union(new[] { type }).ToArray();
+
+            var bySignature = new Dictionary<string, MethodInfo>();
+
+            foreach (var searchType in searchTypes)
+            {
+                foreach (var method in searchType.GetMethods(BINDING_FLAGS | BindingFlags.FlattenHierarchy))
+                {
+                    if (!string.Equals(method.Name, methodName, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    var parameters = method.GetParameters();
+
+                    var countCompatible = parameters.Length == argCount
+                        || (parameters.Length > 0
+                            && parameters[parameters.Length - 1]
+                                .GetCustomAttributes(typeof(ParamArrayAttribute), false).Length > 0);
+
+                    if (!countCompatible)
+                        continue;
+
+                    var signature = method.Name.ToUpperInvariant() + "("
+                        + string.Join(",", parameters.Select(p => p.ParameterType.AssemblyQualifiedName ?? p.ParameterType.Name).ToArray())
+                        + ")";
+
+                    if (bySignature.TryGetValue(signature, out var existing))
+                    {
+                        if (existing.DeclaringType != method.DeclaringType
+                            && existing.DeclaringType != null
+                            && existing.DeclaringType.IsAssignableFrom(method.DeclaringType))
+                        {
+                            // same signature declared lower in the hierarchy hides the one above
+                            bySignature[signature] = method;
+                        }
+                    }
+                    else
+                    {
+                        bySignature[signature] = method;
+                    }
+                }
+            }
+
+            return bySignature.Values.ToList();
+        }
+
+        /// <summary>
+        /// The widening tier, shared by both backends: among candidates applicable to the argument
+        /// types through assignability or C#'s implicit numeric conversions (a custom real-valued
+        /// type going through its own operator first), the unique best per C#'s betterness rule. It
+        /// runs only after the legacy tier found nothing, so no pick that resolved before this tier
+        /// existed ever changes; params arrays stay the legacy tier's business. A null argument type
+        /// (a null value at runtime) widens to nothing.
+        /// </summary>
+        [CanBeNull]
+        private static MethodInfo ResolveByWidening(
+            [NotNull, ItemNotNull] IList<MethodInfo> candidates,
+            [NotNull, ItemCanBeNull] Type[] argumentTypes,
+            out bool ambiguous)
+        {
+            ambiguous = false;
+
+            var applicable = new List<MethodInfo>();
+            var parameterSets = new List<Type[]>();
+
+            foreach (var candidate in candidates)
+            {
+                var parameters = candidate.GetParameters();
+                if (parameters.Length != argumentTypes.Length)
+                    continue;
+
+                var isApplicable = true;
+                var parameterSet = new Type[parameters.Length];
+
+                for (var i = 0; i < parameters.Length && isApplicable; i++)
+                {
+                    parameterSet[i] = parameters[i].ParameterType;
+                    isApplicable = argumentTypes[i] != null
+                        && (parameterSet[i].IsAssignableFrom(argumentTypes[i])
+                            || TypeCheckingUtils.HasImplicitWideningConversion(argumentTypes[i], parameterSet[i]));
+                }
+
+                if (isApplicable)
+                {
+                    applicable.Add(candidate);
+                    parameterSets.Add(parameterSet);
+                }
+            }
+
+            if (applicable.Count == 0)
+                return null;
+
+            if (applicable.Count == 1)
+                return applicable[0];
+
+            var best = TypeCheckingUtils.IndexOfUniqueBestParameterSet(parameterSets);
+            if (best >= 0)
+                return applicable[best];
+
+            ambiguous = true;
+            return null;
+        }
 
         private static void ConvertParameters(MethodInfo mi, List<LExpression> arguments)
         {
@@ -549,6 +729,27 @@ namespace SpringExpressions
                 if (overloads.Count > 0)
                 {
                     mi = ReflectionUtils.GetMethodByArgumentValues(overloads, argValues);
+
+                    // The widening tier: the legacy scan above knows assignability but not numeric
+                    // widening, so IntAgainstLong-style overload sets found nothing here since
+                    // upstream. Where it finds nothing, the C# implicit-conversion rules get a turn -
+                    // the same shared rules the compiled backend resolves by, so a widened call
+                    // answers alike on both. Legacy picks never change: this runs only on "no match".
+                    // A tie is reported the way this resolver has always reported ties, at evaluation.
+                    if (mi == null)
+                    {
+                        mi = ResolveByWidening(
+                            overloads,
+                            Array.ConvertAll(argValues, v => v?.GetType()),
+                            out var ambiguous);
+
+                        if (ambiguous)
+                        {
+                            throw new AmbiguousMatchException(
+                                $"Ambiguous match for method '{methodName}': the argument values "
+                                + "convert implicitly to more than one overload and neither is better.");
+                        }
+                    }
                 }
             }
             return mi;

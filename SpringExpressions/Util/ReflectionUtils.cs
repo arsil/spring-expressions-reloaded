@@ -31,6 +31,8 @@ using System.Security.Permissions;
 using System.Text;
 using System.Runtime.CompilerServices;
 
+using JetBrains.Annotations;
+
 #endregion
 
 namespace SpringUtil
@@ -409,16 +411,22 @@ namespace SpringUtil
         /// <exception cref="AmbiguousMatchException">
         /// If more than 1 matching methods are found in the <paramref name="methods"/> list.
         /// </exception>
-        private static MethodBase GetMethodBaseByArgumentValues<T>(string methodTypeName, IEnumerable<T> methods, object[] argValues) where T : MethodBase
+        [CanBeNull]
+        private static MethodBase GetMethodBaseByArgumentValues<T>(
+            [NotNull] string methodTypeName,
+            [NotNull, ItemNotNull] IEnumerable<T> methods,
+            [CanBeNull, ItemCanBeNull] object[] argValues) where T : MethodBase
         {
-            MethodBase match = null;
-            int matchCount = 0;
+            List<MethodBase> matches = null;
+            List<Type[]> matchParameterSets = null;
+            bool anyExpandedMatch = false;
 
             foreach (MethodBase m in methods)
             {
                 ParameterInfo[] parameters = m.GetParameters();
                 bool isMatch = true;
                 bool isExactMatch = true;
+                bool isExpandedMatch = false;
                 object[] paramValues = (argValues == null) ? new object[0] : argValues;
 
                 try
@@ -431,6 +439,7 @@ namespace SpringUtil
                             paramValues =
                                 PackageParamArray(argValues, parameters.Length,
                                                   lastParameter.ParameterType.GetElementType());
+                            isExpandedMatch = true;
                         }
                     }
 
@@ -471,21 +480,47 @@ namespace SpringUtil
                         return m;
                     }
 
-                    matchCount++;
-                    if (matchCount == 1)
+                    if (matches == null)
                     {
-                        match = m;
+                        matches = new List<MethodBase>();
+                        matchParameterSets = new List<Type[]>();
                     }
-                    else
-                    {
-                        throw new AmbiguousMatchException(
-                            string.Format("Ambiguous match for {0} '{1}' for the specified number and types of arguments.", methodTypeName,
-                                          m.Name));
-                    }
+
+                    matches.Add(m);
+                    matchParameterSets.Add(Array.ConvertAll(parameters, p => p.ParameterType));
+                    anyExpandedMatch = anyExpandedMatch || isExpandedMatch;
                 }
             }
 
-            return match;
+            if (matches == null)
+            {
+                return null;
+            }
+
+            if (matches.Count == 1)
+            {
+                return matches[0];
+            }
+
+            // Ties used to throw unconditionally - upstream had no betterness for inexact matches, so
+            // a most-derived value against Method(object)/Method(B) crashed with this very exception.
+            // C#'s betterness now picks the unique most specific candidate where one exists; only
+            // genuinely incomparable sets - or params-expanded matches, which betterness does not
+            // rank - still report the ambiguity this resolver has always reported, at evaluation.
+            // (Collecting before deciding also means a later exact match wins instead of a premature
+            // tie: two inexact candidates scanned ahead of the exact one no longer preempt it.)
+            if (!anyExpandedMatch)
+            {
+                int best = TypeCheckingUtils.IndexOfUniqueBestParameterSet(matchParameterSets);
+                if (best >= 0)
+                {
+                    return matches[best];
+                }
+            }
+
+            throw new AmbiguousMatchException(
+                string.Format("Ambiguous match for {0} '{1}' for the specified number and types of arguments.", methodTypeName,
+                              matches[0].Name));
         }
 
         /// <summary>

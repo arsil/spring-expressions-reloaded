@@ -19,8 +19,11 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Reflection;
+
+using JetBrains.Annotations;
 
 namespace SpringUtil
 {
@@ -143,6 +146,159 @@ namespace SpringUtil
 
             var code = (int)Type.GetTypeCode(type);
             return code >= (int)TypeCode.SByte && code <= (int)TypeCode.UInt64;
+        }
+
+        /// <summary>
+        /// C#'s implicit numeric conversion table (spec §10.2.3), transcribed verbatim - the "CSharp"
+        /// in the name marks the closed rulebook: built-in numeric types only, always widening, never
+        /// lossy toward integrals; enums and nullables are not numeric conversions and answer false.
+        /// Both backends' overload resolution widens by exactly this table, which is what keeps a
+        /// widened call answering alike compiled and interpreted.
+        ///
+        /// Deliberately NOT here, though the engine converts them elsewhere:
+        /// - double/float to decimal. C# has no implicit conversion in either direction; the fork's
+        ///   decimal-meets-real cell is an ARITHMETIC ruling (PromoteNumericType) and an argument
+        ///   CONVERSION for already-resolved methods (ConvertParameters), never a resolution rule.
+        ///   Admitting it here would flip the betterness math - double would beat decimal, so
+        ///   DblOrDec(45) would resolve to the double overload instead of failing like C#'s CS0121 -
+        ///   silently re-deciding the ruled tie behavior.
+        /// - custom real-valued types' op_Implicit. That is the widening tier's business:
+        ///   HasImplicitWideningConversion layers it on top of this table.
+        /// </summary>
+        public static bool IsCSharpImplicitNumericConversion([CanBeNull] Type from, [CanBeNull] Type to)
+        {
+            if (from == null || to == null || from.IsEnum || to.IsEnum)
+                return false;
+
+            var target = Type.GetTypeCode(to);
+            if (target == TypeCode.Object)
+                return false;
+
+            switch (Type.GetTypeCode(from))
+            {
+                case TypeCode.SByte:
+                    return target == TypeCode.Int16 || target == TypeCode.Int32 || target == TypeCode.Int64
+                        || target == TypeCode.Single || target == TypeCode.Double || target == TypeCode.Decimal;
+                case TypeCode.Byte:
+                    return target == TypeCode.Int16 || target == TypeCode.UInt16
+                        || target == TypeCode.Int32 || target == TypeCode.UInt32
+                        || target == TypeCode.Int64 || target == TypeCode.UInt64
+                        || target == TypeCode.Single || target == TypeCode.Double || target == TypeCode.Decimal;
+                case TypeCode.Int16:
+                    return target == TypeCode.Int32 || target == TypeCode.Int64
+                        || target == TypeCode.Single || target == TypeCode.Double || target == TypeCode.Decimal;
+                case TypeCode.UInt16:
+                    return target == TypeCode.Int32 || target == TypeCode.UInt32
+                        || target == TypeCode.Int64 || target == TypeCode.UInt64
+                        || target == TypeCode.Single || target == TypeCode.Double || target == TypeCode.Decimal;
+                case TypeCode.Int32:
+                    return target == TypeCode.Int64
+                        || target == TypeCode.Single || target == TypeCode.Double || target == TypeCode.Decimal;
+                case TypeCode.UInt32:
+                    return target == TypeCode.Int64 || target == TypeCode.UInt64
+                        || target == TypeCode.Single || target == TypeCode.Double || target == TypeCode.Decimal;
+                case TypeCode.Int64:
+                case TypeCode.UInt64:
+                    return target == TypeCode.Single || target == TypeCode.Double || target == TypeCode.Decimal;
+                case TypeCode.Char:
+                    return target == TypeCode.UInt16
+                        || target == TypeCode.Int32 || target == TypeCode.UInt32
+                        || target == TypeCode.Int64 || target == TypeCode.UInt64
+                        || target == TypeCode.Single || target == TypeCode.Double || target == TypeCode.Decimal;
+                case TypeCode.Single:
+                    return target == TypeCode.Double;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// The widening tier's applicability question: does <paramref name="from"/> reach
+        /// <paramref name="to"/> through C#'s implicit numeric conversions - going through a custom
+        /// real's own implicit operator first when <paramref name="from"/> declares one? Identity and
+        /// reference assignability are deliberately NOT included: those are the legacy tier's
+        /// business, and the widening tier only runs where the legacy tier found nothing. Nullables
+        /// answer false - the interpreter never sees a boxed Nullable, and a lifted conversion is not
+        /// something Convert.ChangeType could perform at invoke time.
+        /// </summary>
+        public static bool HasImplicitWideningConversion([CanBeNull] Type from, [CanBeNull] Type to)
+        {
+            if (from == null || to == null
+                || Nullable.GetUnderlyingType(from) != null
+                || Nullable.GetUnderlyingType(to) != null)
+                return false;
+
+            if (IsCSharpImplicitNumericConversion(from, to))
+                return true;
+
+            if (TryGetImplicitRealConversion(from, out var conversion))
+            {
+                var target = conversion.ReturnType;
+                return target == to || IsCSharpImplicitNumericConversion(target, to);
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// C#'s better-conversion-target rule: <paramref name="first"/> beats
+        /// <paramref name="second"/> when an implicit conversion runs first-to-second but not back -
+        /// by reference or boxing assignability (Derived beats object, string beats object) or by the
+        /// implicit numeric table (long beats double, from an int). Where neither direction converts -
+        /// double against decimal, string against IFormatProvider - neither target is better, and the
+        /// call is ambiguous exactly where C# says CS0121.
+        /// </summary>
+        public static bool IsBetterConversionTarget([NotNull] Type first, [NotNull] Type second)
+        {
+            return ConvertsImplicitly(first, second) && !ConvertsImplicitly(second, first);
+        }
+
+        private static bool ConvertsImplicitly([NotNull] Type from, [NotNull] Type to)
+        {
+            return to.IsAssignableFrom(from) || IsCSharpImplicitNumericConversion(from, to);
+        }
+
+        /// <summary>
+        /// From same-arity parameter-type lists that are all applicable to the same arguments, the
+        /// index of the unique best per C#'s betterness - each position at least as good, at least one
+        /// strictly better, against every rival - or -1 when the race ties, which callers surface as
+        /// an ambiguity.
+        /// </summary>
+        public static int IndexOfUniqueBestParameterSet([NotNull, ItemNotNull] IList<Type[]> candidates)
+        {
+            for (var i = 0; i < candidates.Count; i++)
+            {
+                var beatsEveryRival = true;
+
+                for (var j = 0; j < candidates.Count && beatsEveryRival; j++)
+                {
+                    if (j != i && !IsBetterParameterSet(candidates[i], candidates[j]))
+                        beatsEveryRival = false;
+                }
+
+                if (beatsEveryRival)
+                    return i;
+            }
+
+            return -1;
+        }
+
+        private static bool IsBetterParameterSet([NotNull] Type[] first, [NotNull] Type[] second)
+        {
+            var strictlyBetter = false;
+
+            for (var i = 0; i < first.Length; i++)
+            {
+                if (first[i] == second[i])
+                    continue;
+
+                if (!IsBetterConversionTarget(first[i], second[i]))
+                    return false;
+
+                strictlyBetter = true;
+            }
+
+            return strictlyBetter;
         }
     }
 }
