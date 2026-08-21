@@ -2,6 +2,8 @@
 
 using NUnit.Framework;
 
+using SpringExpressions.Expressions.Compiling.Expressions;
+
 namespace SpringExpressionsTests.Expressions
 {
     using CtxUIntInt=Tuple<uint, int>;
@@ -74,9 +76,12 @@ namespace SpringExpressionsTests.Expressions
         public void IllegalPromotions()
         {
             {
-                // int + ulong
+                // int + ulong stays a C# binding-time error. The refusal signal is
+                // CompileErrorException (here its derived BinaryNumericPromotionException, an internal
+                // type this assembly cannot name) - the one exception the weak path's fallback catches,
+                // so Catch rather than Throws.
                 var ctx = new Tuple<int, ulong>(3, 3ul);
-                Assert.Throws<Exception>(() => CompileGetter<Tuple<int, ulong>, object >("Item1 + Item2").GetValue(ctx));
+                Assert.Catch<CompileErrorException>(() => CompileGetter<Tuple<int, ulong>, object >("Item1 + Item2").GetValue(ctx));
                 //Assert.Throws<Exception>(() => InterpretGetter<Tuple<int, ulong>, object>("Item1 + Item2").GetValue(ctx));
 
                 //TestCompiledVsInterpreted<ulong>("3 and 3UL").ResultEqualsTo(3 & 3ul);

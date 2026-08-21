@@ -37,6 +37,31 @@ namespace SpringExpressions.Util
 
 
 
+        /// <summary>
+        /// Compares two boxed numbers under the same binary numeric promotion the operations above
+        /// and the compiled comparison run on, so the backends answer alike by construction. Pairs
+        /// the promotion refuses (int against ulong) throw, exactly as arithmetic on the same
+        /// operands does.
+        /// </summary>
+        public static int Compare([NotNull] object arg1, [NotNull] object arg2)
+        {
+            arg1 = NumberUtils.ToBuiltInRealIfPossible(arg1);
+            arg2 = NumberUtils.ToBuiltInRealIfPossible(arg2);
+
+            var func = CompareTable[(int)Type.GetTypeCode(arg1.GetType()), (int)Type.GetTypeCode(arg2.GetType())];
+
+            if (func == null)
+            {
+                throw new BinaryNumericPromotionException(
+                    left: arg1.GetType(),
+                    right: arg2.GetType());
+            }
+
+            return func(arg1, arg2);
+        }
+
+
+
         private static object PerformOp(
             [NotNull] object arg1,
             [NotNull] object arg2,
@@ -89,6 +114,11 @@ namespace SpringExpressions.Util
 
         private static readonly Func<object, object, object>[,] XorTable
             = NumericBinaryOperatorGenerator.CreateFunctionTable(LExpression.ExclusiveOr);
+
+
+
+        private static readonly Func<object, object, int>[,] CompareTable
+            = NumericBinaryOperatorGenerator.CreateCompareFunctionTable();
 
     }
 }

@@ -25,6 +25,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Reflection;
 
+using SpringExpressions.Util;
+
 #endregion
 
 namespace SpringUtil
@@ -66,16 +68,22 @@ namespace SpringUtil
 
             if (firstArgType != secondArgType)
             {
-                if (!CoerceTypes(ref first, ref second))
+                // Mixed numeric types compare under the same binary numeric promotion the
+                // arithmetic operations and the compiled comparison run on, so the backends agree
+                // by construction, and pairs the promotion refuses (int against ulong) refuse here
+                // too, exactly as they do in arithmetic. The legacy highest-TypeCode coercion is
+                // gone: it disagreed with the compiled comparison on signed/unsigned mixes
+                // (-1 < uint compared true compiled but threw OverflowException here).
+                if (TypeCheckingUtils.IsNumber(first) && TypeCheckingUtils.IsNumber(second))
                 {
-                    throw new ArgumentException("Cannot compare instances of ["
-                        + firstArgType.FullName
-                        + "] and ["
-                        + secondArgType.FullName
-                        + "] because they cannot be coerced to the same type.");
+                    return NumericBinaryOperations.Compare(first, second);
                 }
 
-                firstArgType = first.GetType();
+                throw new ArgumentException("Cannot compare instances of ["
+                    + firstArgType.FullName
+                    + "] and ["
+                    + secondArgType.FullName
+                    + "] because they cannot be coerced to the same type.");
             }
 
             // here types must be equal
@@ -93,16 +101,6 @@ namespace SpringUtil
                 + firstArgType.FullName
                 + "] because it doesn't implement IComparable");
             */
-        }
-
-        private static bool CoerceTypes(ref object left, ref object right)
-        {
-            if (TypeCheckingUtils.IsNumber(left) && TypeCheckingUtils.IsNumber(right))
-            {
-                NumberUtils.CoerceTypes(ref right, ref left);
-                return true;
-            }
-            return false;
         }
 
 

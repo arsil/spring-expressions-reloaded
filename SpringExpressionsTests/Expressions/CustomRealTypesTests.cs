@@ -123,6 +123,84 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
+        /// The tests above all normalize to decimal against decimal - the same-type comparison path.
+        /// From here down the operand types differ after normalization, so the comparison runs the
+        /// shared binary numeric promotion (the mixed-type branch of CompareUtils).
+        /// </summary>
+        [Test]
+        public void CustomDecimalComparesWithIntegers()
+        {
+            var holder = new CustomRealHolder();
+
+            TestCompiledVsInterpreted<CustomRealHolder, bool>("Amount > 45", holder)
+                .ResultEqualsTo(true);
+            TestCompiledVsInterpreted<CustomRealHolder, bool>("Amount <= 45", holder)
+                .ResultEqualsTo(false);
+            TestCompiledVsInterpreted<CustomRealHolder, bool>("Amount != 45", holder)
+                .ResultEqualsTo(true);
+        }
+
+        [Test]
+        public void CustomDecimalComparesWithDoubles()
+        {
+            var holder = new CustomRealHolder();
+
+            TestCompiledVsInterpreted<CustomRealHolder, bool>("Amount > 45.4", holder)
+                .ResultEqualsTo(true);
+            TestCompiledVsInterpreted<CustomRealHolder, bool>("Amount < 45.6", holder)
+                .ResultEqualsTo(true);
+
+            // The double converts through Decimal(double), which recovers the intended 45.5m
+            // exactly - so equality across the custom decimal and a plain double literal holds.
+            TestCompiledVsInterpreted<CustomRealHolder, bool>("Amount == 45.5", holder)
+                .ResultEqualsTo(true);
+        }
+
+        [Test]
+        public void CustomDoubleComparesWithIntegers()
+        {
+            var holder = new CustomRealHolder();
+
+            TestCompiledVsInterpreted<CustomRealHolder, bool>("Speed > 2", holder)
+                .ResultEqualsTo(true);
+            TestCompiledVsInterpreted<CustomRealHolder, bool>("Speed < 3", holder)
+                .ResultEqualsTo(true);
+        }
+
+        [Test]
+        public void CustomDecimalComputesWithDoubles()
+        {
+            var holder = new CustomRealHolder();
+
+            var result = TestCompiledVsInterpreted<CustomRealHolder, object>("Amount + 0.5", holder)
+                .Result;
+
+            Assert.AreEqual(typeof(decimal), result.GetType());
+            Assert.AreEqual(46.0m, result);
+        }
+
+        /// <summary>
+        /// Two custom reals with different built-in targets: MoneyLike converts to decimal, SpeedLike
+        /// to double, so the decimal-meets-real promotion cell is reached entirely through implicit
+        /// conversions on both operands, in arithmetic and comparison alike.
+        /// </summary>
+        [Test]
+        public void TwoCustomRealsWithDifferentTargetsMeet()
+        {
+            var holder = new CustomRealHolder();
+
+            var sum = TestCompiledVsInterpreted<CustomRealHolder, object>("Amount + Speed", holder)
+                .Result;
+            Assert.AreEqual(typeof(decimal), sum.GetType());
+            Assert.AreEqual(48.0m, sum);
+
+            TestCompiledVsInterpreted<CustomRealHolder, bool>("Amount > Speed", holder)
+                .ResultEqualsTo(true);
+            TestCompiledVsInterpreted<CustomRealHolder, bool>("Speed < Amount", holder)
+                .ResultEqualsTo(true);
+        }
+
+        /// <summary>
         /// Unary minus normalizes on the interpreter; the compiled path has no form for it yet and the
         /// weakly typed path falls back, so the weak result is pinned here.
         /// </summary>

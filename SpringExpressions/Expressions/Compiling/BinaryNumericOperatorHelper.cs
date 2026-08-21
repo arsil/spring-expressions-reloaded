@@ -238,19 +238,29 @@ namespace SpringExpressions.Expressions.Compiling
             return false;
         }
 
+        /// <summary>
+        /// The promoted operand type for a pair of numeric TypeCodes, or null where binary numeric
+        /// promotion refuses the pair. Exposed for the interpreter's generated tables, so comparison
+        /// answers from the same rules as arithmetic and the compiled emit.
+        /// </summary>
+        internal static Type GetPromotedTypeOrNull(TypeCode left, TypeCode right)
+        {
+            return NumericPromotionTable[(int)left, (int)right];
+        }
+
         private static Type PromoteNumericType(TypeCode left, TypeCode right)
         {
-            // If either operand is of type decimal, the other operand is converted to type decimal,
-            // or a binding-time error occurs if the other operand is of type float or double.
+            // If either operand is of type decimal, the other operand is converted to type decimal.
+            // C# makes decimal meeting float or double a binding-time error; this engine rules
+            // otherwise, as pre-fork Spring.NET did: the real operand converts to decimal, so a double
+            // that strays into decimal arithmetic participates instead of failing. The conversion is
+            // the Decimal(double) constructor - the single implementation under both Convert.ChangeType
+            // and op_Explicit, hence identical on both backends - and its semantics are the accepted
+            // cost: 15 significant digits, values below 1e-28 become zero, and NaN, infinities and
+            // values beyond decimal's range throw OverflowException at evaluation.
+            // DecimalDoublePromotionTests pins the rule and those edges.
             if (left == TypeCode.Decimal || right == TypeCode.Decimal)
             {
-                if (left == TypeCode.Single || left == TypeCode.Double
-                    || right == TypeCode.Single || right == TypeCode.Double)
-                {
-                    // Invalid
-                    return null;
-                }
-
                 return typeof(decimal);
             }
 

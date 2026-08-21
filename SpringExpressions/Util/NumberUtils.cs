@@ -350,7 +350,7 @@ namespace SpringUtil
             CoerceTypes(ref m, ref n);
 
              cała drabinka
-            * /
+            */
 
         }
 

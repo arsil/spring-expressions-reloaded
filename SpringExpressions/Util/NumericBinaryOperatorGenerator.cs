@@ -1,6 +1,7 @@
 ﻿using SpringExpressions.Expressions.Compiling;
 
 using System;
+using System.Collections.Generic;
 using System.Linq.Expressions;
 
 using JetBrains.Annotations;
@@ -35,6 +36,46 @@ namespace SpringExpressions.Util
             }
 
             return result;
+        }
+
+        [NotNull]
+        public static Func<object, object, int>[,] CreateCompareFunctionTable()
+        {
+            var result = new Func<object, object, int>[32, 32];
+
+            for (var i = TypeCode.SByte; i <= TypeCode.Decimal; ++i)
+            {
+                for (var j = TypeCode.SByte; j <= TypeCode.Decimal; ++j)
+                {
+                    result[(int)i, (int)j] = CreateCompareFunction(i, j);
+                }
+            }
+
+            return result;
+        }
+
+        [CanBeNull]
+        private static Func<object, object, int> CreateCompareFunction(TypeCode left, TypeCode right)
+        {
+            // The same promotion the arithmetic cells run on: null where the pair is refused.
+            var promotedType = BinaryNumericOperatorHelper.GetPromotedTypeOrNull(left, right);
+            if (promotedType == null)
+                return null;
+
+            var argLeft = LExpression.Parameter(typeof(object), "left");
+            var argRight = LExpression.Parameter(typeof(object), "right");
+
+            var comparerType = typeof(Comparer<>).MakeGenericType(promotedType);
+            var defaultComparer = comparerType.GetProperty("Default");
+            var compareMethod = comparerType.GetMethod("Compare", new[] { promotedType, promotedType });
+
+            var body = LExpression.Call(
+                LExpression.Property(null, defaultComparer),
+                compareMethod,
+                LExpression.Convert(LExpression.Convert(argLeft, GetTypeForCode(left)), promotedType),
+                LExpression.Convert(LExpression.Convert(argRight, GetTypeForCode(right)), promotedType));
+
+            return LExpression.Lambda<Func<object, object, int>>(body, argLeft, argRight).Compile();
         }
 
         [CanBeNull]
