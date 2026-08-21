@@ -292,11 +292,11 @@ namespace SpringExpressions
         // accepted because refusing it would decompile every string-argument call against overloads
         // (CompareTo(string) versus CompareTo(object) is everywhere); comparable sets no longer have
         // the edge at all, betterness resolving both backends to the same overload.
-        private static bool IsStaticallyDeterminate(
+        internal static bool IsStaticallyDeterminate<T>(
             [NotNull] LExpression argument,
-            [NotNull, ItemNotNull] IList<MethodInfo> candidates,
+            [NotNull, ItemNotNull] IList<T> candidates,
             int position,
-            int argumentCount)
+            int argumentCount) where T : MethodBase
         {
             if (argument is ConstantExpression)
                 return true;
@@ -394,14 +394,14 @@ namespace SpringExpressions
         /// (a null value at runtime) widens to nothing.
         /// </summary>
         [CanBeNull]
-        private static MethodInfo ResolveByWidening(
-            [NotNull, ItemNotNull] IList<MethodInfo> candidates,
+        internal static T ResolveByWidening<T>(
+            [NotNull, ItemNotNull] IList<T> candidates,
             [NotNull, ItemCanBeNull] Type[] argumentTypes,
-            out bool ambiguous)
+            out bool ambiguous) where T : MethodBase
         {
             ambiguous = false;
 
-            var applicable = new List<MethodInfo>();
+            var applicable = new List<T>();
             var parameterSets = new List<Type[]>();
 
             foreach (var candidate in candidates)
@@ -442,9 +442,15 @@ namespace SpringExpressions
             return null;
         }
 
-        private static void ConvertParameters(MethodInfo mi, List<LExpression> arguments)
+        // Shared with ConstructorNode: the conversion gate is identical for method and constructor
+        // arguments, so it takes MethodBase and labels its messages accordingly.
+        internal static void ConvertParameters([NotNull] MethodBase method, [NotNull, ItemNotNull] List<LExpression> arguments)
         {
-            var methodParameters = mi.GetParameters();
+            var methodParameters = method.GetParameters();
+
+            var label = method is ConstructorInfo
+                ? $"Constructor of '{method.DeclaringType?.Name}'"
+                : $"Method '{method.Name}'";
 
             // One argument per parameter is all this can emit. A params array gives more arguments than
             // parameters and used to walk off the end of methodParameters with IndexOutOfRangeException,
@@ -453,7 +459,7 @@ namespace SpringExpressions
             if (arguments.Count != methodParameters.Length)
             {
                 throw new CompileErrorException(
-                    $"Method '{mi.Name}' takes {methodParameters.Length} parameter(s) but was given "
+                    $"{label} takes {methodParameters.Length} parameter(s) but was given "
                     + $"{arguments.Count} argument(s); no compiled form for a params array or for omitted "
                     + "optional parameters.");
             }
@@ -486,7 +492,7 @@ namespace SpringExpressions
                     && TypeCheckingUtils.IsIntegralKind(parameterType))
                 {
                     throw new CompileErrorException(
-                        $"Method '{mi.Name}' parameter {i} is '{parameterType}' but the argument is "
+                        $"{label} parameter {i} is '{parameterType}' but the argument is "
                         + $"'{argument.Type}': a real-to-integral argument conversion rounds in the "
                         + "interpreter and would truncate compiled, so it has no compiled form.");
                 }
@@ -501,7 +507,7 @@ namespace SpringExpressions
                     // InvalidOperationException is not this codebase's "cannot compile" signal, so the
                     // weakly typed path's fallback would never see it.
                     throw new CompileErrorException(
-                        $"Method '{mi.Name}' parameter {i} is '{parameterType}' but the argument is "
+                        $"{label} parameter {i} is '{parameterType}' but the argument is "
                         + $"'{argument.Type}': {ex.Message}");
                 }
             }

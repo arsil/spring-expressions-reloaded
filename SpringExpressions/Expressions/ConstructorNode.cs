@@ -23,7 +23,11 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 
+using JetBrains.Annotations;
+
 using SpringCore.TypeResolution;
+using SpringExpressions.Expressions.Compiling.Expressions;
+using SpringExpressions.Expressions.LinqExpressionHelpers;
 using SpringUtil;
 using SpringReflection.Dynamic;
 
@@ -87,20 +91,84 @@ namespace SpringExpressions
                 node = node.getNextSibling();
             }
 
-            Type objectType = GetObjectType(getText().Trim());
+            Type objectType;
+            try
+            {
+                objectType = GetObjectType(getText().Trim());
+            }
+            catch (TypeLoadException)
+            {
+                // ResolveType throws rather than returning null. While a tree is being built that is
+                // a compile refusal - letting the TypeLoadException escape would blind the weak
+                // path's fallback - and the interpreter then reports the unresolvable type name at
+                // evaluation, as upstream always did.
+                throw CannotCompile("the type name does not resolve");
+            }
+
             if (objectType == null)
                 throw CannotCompile("no compiled constructor matching these arguments");
 
-            var constructorInfo = objectType.GetConstructor(
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                null,
-                argumentsTypes.ToArray(),
-                null);
+            // The same tiers and the same overload gate as MethodNode - see ResolveMethod there. The
+            // old exact-type GetConstructor ran the DefaultBinder, whose AmbiguousMatchException
+            // escaped compilation and whose primitive widening the interpreter never had.
+            var resolved = ResolveConstructor(objectType, arguments, argumentsTypes.ToArray());
 
-            if (constructorInfo == null)
+            if (resolved == null)
                 throw CannotCompile("no compiled constructor matching these arguments");
 
-            return LExpression.New(constructorInfo, arguments);
+            var finalArguments = new List<LExpression>(resolved.Item2);
+            MethodNode.ConvertParameters(resolved.Item1, finalArguments);
+
+            return LExpression.New(resolved.Item1, finalArguments);
+        }
+
+        /// <summary>
+        /// Constructor resolution for the compiled backend, mirroring MethodNode.ResolveMethod tier
+        /// for tier: a single candidate goes straight to the conversion gate; several candidates
+        /// require statically determinate arguments (the overload gate), then run the legacy
+        /// assignability scan and the widening tier - the same rules the interpreter resolves by, so
+        /// a constructor call that compiles can only pick the constructor the interpreter would pick.
+        /// </summary>
+        [CanBeNull]
+        private static Tuple<ConstructorInfo, LExpression[]> ResolveConstructor(
+            [NotNull] Type objectType,
+            [NotNull, ItemNotNull] List<LExpression> arguments,
+            [NotNull, ItemNotNull] Type[] argumentTypes)
+        {
+            var candidates = GetCandidateConstructors(objectType, argumentTypes.Length);
+
+            if (candidates.Count == 0)
+                return null;
+
+            if (candidates.Count == 1)
+                return Tuple.Create(candidates[0], arguments.ToArray());
+
+            for (var position = 0; position < arguments.Count; position++)
+            {
+                if (MethodNode.IsStaticallyDeterminate(arguments[position], candidates, position, arguments.Count))
+                    continue;
+
+                throw new CompileErrorException(
+                    $"Overload choice for the constructor of '{objectType.Name}' depends on the "
+                    + $"runtime type of an argument statically typed '{arguments[position].Type}'; "
+                    + "there is no compiled form - the interpreter chooses from the runtime values. "
+                    + "Add a cast to pick an overload.");
+            }
+
+            var scanned = MethodBaseHelpers.GetConstructorByArgumentValues(candidates, arguments.ToArray());
+            if (scanned != null)
+                return scanned;
+
+            var widened = MethodNode.ResolveByWidening(candidates, argumentTypes, out var ambiguous);
+            if (ambiguous)
+            {
+                throw new CompileErrorException(
+                    $"Ambiguous match for the constructor of '{objectType.Name}': the arguments "
+                    + "convert implicitly to more than one overload and neither is better - C# "
+                    + "refuses this call too. Add a cast to pick one.");
+            }
+
+            return widened != null ? Tuple.Create(widened, arguments.ToArray()) : null;
         }
 
         /// <summary>
@@ -214,12 +282,36 @@ namespace SpringExpressions
             }
         }
 
-        private static ConstructorInfo GetBestConstructor(Type type, object[] argValues)
+        [CanBeNull]
+        private static ConstructorInfo GetBestConstructor([NotNull] Type type, [NotNull, ItemCanBeNull] object[] argValues)
         {
             IList<ConstructorInfo> candidates = GetCandidateConstructors(type, argValues.Length);
             if (candidates.Count > 0)
             {
-                return ReflectionUtils.GetConstructorByArgumentValues(candidates, argValues);
+                var ci = ReflectionUtils.GetConstructorByArgumentValues(candidates, argValues);
+
+                // The widening tier, as for methods: the legacy scan above knows assignability but
+                // not numeric widening, so new Thing(45) against Thing(long) found nothing here since
+                // upstream - while the compiled path's DefaultBinder widened and succeeded, a
+                // succeeds-versus-throws divergence. Legacy picks never change (this runs only on
+                // "no match"), the invoker's argument converter performs the conversion, and a tie is
+                // reported the way this resolver has always reported ties - at evaluation.
+                if (ci == null)
+                {
+                    ci = MethodNode.ResolveByWidening(
+                        candidates,
+                        Array.ConvertAll(argValues, v => v?.GetType()),
+                        out var ambiguous);
+
+                    if (ambiguous)
+                    {
+                        throw new AmbiguousMatchException(
+                            $"Ambiguous match for the constructor of '{type.Name}': the argument "
+                            + "values convert implicitly to more than one overload and neither is better.");
+                    }
+                }
+
+                return ci;
             }
             return null;
         }

@@ -126,6 +126,18 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
         }
 
         [CanBeNull]
+        public static Tuple<ConstructorInfo, LExpression[]> GetConstructorByArgumentValues(
+            [NotNull, ItemNotNull] IEnumerable<ConstructorInfo> constructors, [CanBeNull, ItemNotNull] LExpression[] arguments)
+        {
+            var result = GetMethodBaseByArgumentValues("constructor", constructors, arguments);
+
+            if (result == null)
+                return null;
+
+            return new Tuple<ConstructorInfo, LExpression[]>((ConstructorInfo)result.Item1, result.Item2);
+        }
+
+        [CanBeNull]
         private static Tuple<MethodBase, LExpression[]> GetMethodBaseByArgumentValues<T>(
             [NotNull] string baseMethodNameForExceptionText,
             [NotNull, ItemNotNull] IEnumerable<T> methods,
