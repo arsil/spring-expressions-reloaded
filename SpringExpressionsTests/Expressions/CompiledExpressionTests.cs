@@ -558,13 +558,23 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// Tests indexer access with invalid number of indices
+        /// Tests indexer access with invalid number of indices. A wrong index count has no compiled
+        /// form - LExpression.ArrayIndex used to throw ArgumentException while the tree was being
+        /// built, which the weak path's fallback cannot catch - so compilation refuses with
+        /// CompileErrorException, and the interpreter reports the InvalidPropertyException at
+        /// evaluation, as upstream always did.
         /// </summary>
         [Test]
         public void TestIndexedPropertyAccessWithInvalidNumberOfIndices()
         {
-            Assert.Throws<InvalidPropertyException>(
+            Assert.Throws<SpringExpressions.Expressions.Compiling.Expressions.CompileErrorException>(
                 () => CompileGetter<Inventor, object>("Inventions[3, 2]"));
+
+            var tesla = new Inventor("Nikola Tesla", new DateTime(1856, 7, 9), "Serbian");
+            tesla.Inventions = new[] { "One", "Two" };
+
+            IExpression weak = Expression.Parse("Inventions[3, 2]");
+            Assert.Throws<InvalidPropertyException>(() => weak.GetValue(tesla));
         }
 
         /// <summary>

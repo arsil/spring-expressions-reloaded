@@ -22,6 +22,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+
+using JetBrains.Annotations;
+
 using SpringCore;
 using SpringUtil;
 using SpringReflection.Dynamic;
@@ -64,26 +67,43 @@ namespace SpringExpressions
                // TODO: error: może pobranie arraya? tylko trzeba przetestować, czy nie stracimy typu!.. .bo jak przez object, to syf!
 	        if (contextExpression.Type.IsArray)
 	        {
-		        return LExpression.ArrayIndex(
-			        contextExpression,
-			        arguments);
+		        try
+		        {
+			        return LExpression.ArrayIndex(
+				        contextExpression,
+				        arguments);
+		        }
+		        catch (ArgumentException)
+		        {
+			        // A wrong index count or a non-int index throws while the tree is being built -
+			        // a compile-time event the fallback cannot see. The interpreter reports its own
+			        // InvalidPropertyException at evaluation, as upstream always did.
+			        throw CannotCompile("the array index count or type does not match");
+		        }
 	        }
 
 	        var indexerPropertyName = GetIndexerPropertyName(contextExpression.Type);
-            var methodName = "get_" + indexerPropertyName;
 
-            var methodInfo
-                = contextExpression.Type.GetMethod(
-                    methodName,
-                    BINDING_FLAGS | BindingFlags.FlattenHierarchy,
-                    null,
-                    argumentsTypes.ToArray(),
-                    null);
+            // An indexer's accessor is an ordinary method, so the compiled resolution is
+            // MethodNode's - the same tiers, the same overload gate and the same betterness that
+            // methods and constructors resolve by. The old exact-type GetMethod ran the
+            // DefaultBinder, whose AmbiguousMatchException escaped compilation.
+            var resolved =
+                TryExactAccessorForNullLiterals(
+                    contextExpression.Type, "get_" + indexerPropertyName, arguments, argumentsTypes)
+                ?? MethodNode.ResolveMethod(
+                    contextExpression.Type,
+                    "get_" + indexerPropertyName,
+                    arguments,
+                    argumentsTypes.ToArray());
 
-            if (methodInfo == null)
+            if (resolved == null)
                 throw CannotCompile("no compiled indexer for this container and index type");
 
-            return LExpression.Call(contextExpression, methodInfo, arguments);
+            var finalArguments = new List<LExpression>(resolved.Item2);
+            MethodNode.ConvertParameters(resolved.Item1, finalArguments);
+
+            return LExpression.Call(contextExpression, resolved.Item1, finalArguments);
         }
 
         protected override LExpression GetExpressionTreeForSetterIfPossible(
@@ -100,32 +120,86 @@ namespace SpringExpressions
                 // TODO: error: ??? nie rozumiem komentarza:) może pobranie arraya? tylko trzeba przetestować, czy nie stracimy typu!.. .bo jak przez object, to syf!
             if (contextExpression.Type.IsArray)
             {
-                return BuildAssign(
-                    LExpression.ArrayIndex(contextExpression, arguments),
-                    newValueExpression);
+                try
+                {
+                    return BuildAssign(
+                        LExpression.ArrayIndex(contextExpression, arguments),
+                        newValueExpression);
+                }
+                catch (ArgumentException)
+                {
+                    // Same compile-time event as the getter's array branch: a wrong index count or a
+                    // non-int index must refuse, not leak.
+                    throw CannotCompile("the array index count or type does not match");
+                }
             }
 
-               // todo: what the fuck?
             var indexerPropertyName = GetIndexerPropertyName(contextExpression.Type);
-            var methodName = "set_" + indexerPropertyName;
 
             arguments.Add(newValueExpression);
             argumentsTypes.Add(newValueExpression.Type);
 
-            var methodInfo
-                = contextExpression.Type.GetMethod(
-                    methodName,
-                    BINDING_FLAGS | BindingFlags.FlattenHierarchy,
-                    null,
-                    argumentsTypes.ToArray(),
-                    null);
+            // The set accessor resolves like the get accessor - MethodNode's tiers and gate - with
+            // the new value taking part in the signature as its last argument.
+            var resolved =
+                TryExactAccessorForNullLiterals(
+                    contextExpression.Type, "set_" + indexerPropertyName, arguments, argumentsTypes)
+                ?? MethodNode.ResolveMethod(
+                    contextExpression.Type,
+                    "set_" + indexerPropertyName,
+                    arguments,
+                    argumentsTypes.ToArray());
 
-            if (methodInfo == null)
+            if (resolved == null)
                 throw CannotCompile("no compiled indexer for this container and index type");
 
-            return LExpression.Call(contextExpression, methodInfo, arguments);
+            var finalArguments = new List<LExpression>(resolved.Item2);
+            MethodNode.ConvertParameters(resolved.Item1, finalArguments);
 
+            return LExpression.Call(contextExpression, resolved.Item1, finalArguments);
+        }
 
+        /// <summary>
+        /// The interpreter's indexer lookup has a tier the method lookup does not: an exact
+        /// GetProperty over the value types with nulls mapped to typeof(object)
+        /// (ReflectionUtils.GetTypes). A null index therefore picks this[object] there - not the
+        /// betterness winner the candidate scan would choose - so when null literals are present and
+        /// every other argument's static type is its exact runtime type, this backend replays that
+        /// tier first, or the two would disagree on '[null]'. Legacy behaviour preserved verbatim;
+        /// anything this pre-pass does not match falls through to the shared tiers.
+        /// </summary>
+        [CanBeNull]
+        private static Tuple<MethodInfo, LExpression[]> TryExactAccessorForNullLiterals(
+            [NotNull] Type contextType,
+            [NotNull] string accessorName,
+            [NotNull, ItemNotNull] List<LExpression> arguments,
+            [NotNull, ItemNotNull] List<Type> argumentsTypes)
+        {
+            var anyNullLiteral = false;
+            foreach (var argument in arguments)
+            {
+                if (argument is System.Linq.Expressions.ConstantExpression constant && constant.Value == null)
+                    anyNullLiteral = true;
+            }
+
+            if (!anyNullLiteral)
+                return null;
+
+            foreach (var candidate in MethodNode.GetCompiledCandidateMethods(contextType, accessorName, arguments.Count))
+            {
+                var parameters = candidate.GetParameters();
+                if (parameters.Length != arguments.Count)
+                    continue;
+
+                var exact = true;
+                for (var i = 0; i < parameters.Length && exact; i++)
+                    exact = parameters[i].ParameterType == argumentsTypes[i];
+
+                if (exact)
+                    return Tuple.Create(candidate, arguments.ToArray());
+            }
+
+            return null;
         }
 
         private bool TryGetArguments(
@@ -382,8 +456,7 @@ namespace SpringExpressions
                     if (indexer == null)
                     {
                         Type contextType = context.GetType();
-                        Type[] argTypes = ReflectionUtils.GetTypes(indices);
-                        var indexerProperty = GetIndexerPropertyInfo(contextType, argTypes);
+                        var indexerProperty = GetIndexerPropertyInfo(contextType, indices);
 
                         indexer = new SafeProperty(indexerProperty);
                     }
@@ -393,23 +466,68 @@ namespace SpringExpressions
             return indices;
         }
 
-        private static PropertyInfo GetIndexerPropertyInfo(Type contextType, Type[] argTypes)
+        [NotNull]
+        private static PropertyInfo GetIndexerPropertyInfo([NotNull] Type contextType, [NotNull, ItemCanBeNull] object[] indices)
         {
             var defaultMember = GetIndexerPropertyName(contextType);
 
+            // The legacy lookup first, preserved verbatim: whatever it resolved before, it still
+            // resolves.
             PropertyInfo indexerProperty = contextType.GetProperty(defaultMember,
                 BINDING_FLAGS,
                 null,
                 null,
-                argTypes,
+                ReflectionUtils.GetTypes(indices),
                 null);
 
-            if (indexerProperty == null)
+            if (indexerProperty != null)
+                return indexerProperty;
+
+            // Then the same tiers methods and constructors resolve by: the assignability scan with
+            // its betterness tie-break, and the widening tier where it finds nothing - so an
+            // indexer taking long serves an int index on this backend exactly as it does compiled,
+            // the invoker's argument converter performing the conversion.
+            var candidateProperties = new List<PropertyInfo>();
+            var candidateGetters = new List<MethodInfo>();
+
+            foreach (var property in contextType.GetProperties(BINDING_FLAGS | BindingFlags.FlattenHierarchy))
             {
-                throw new ArgumentException(
-                    "Indexer property with specified number and types of arguments does not exist.");
+                if (!string.Equals(property.Name, defaultMember, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var getter = property.GetGetMethod(true);
+                if (getter == null || getter.GetParameters().Length != indices.Length)
+                    continue;
+
+                candidateProperties.Add(property);
+                candidateGetters.Add(getter);
             }
-            return indexerProperty;
+
+            if (candidateGetters.Count > 0)
+            {
+                var mi = ReflectionUtils.GetMethodByArgumentValues(candidateGetters, indices);
+
+                if (mi == null)
+                {
+                    mi = MethodNode.ResolveByWidening(
+                        candidateGetters,
+                        Array.ConvertAll(indices, v => v?.GetType()),
+                        out var ambiguous);
+
+                    if (ambiguous)
+                    {
+                        throw new AmbiguousMatchException(
+                            $"Ambiguous match for the indexer of '{contextType.Name}': the index "
+                            + "values convert implicitly to more than one overload and neither is better.");
+                    }
+                }
+
+                if (mi != null)
+                    return candidateProperties[candidateGetters.IndexOf(mi)];
+            }
+
+            throw new ArgumentException(
+                "Indexer property with specified number and types of arguments does not exist.");
         }
 
         private static string GetIndexerPropertyName(Type contextType)

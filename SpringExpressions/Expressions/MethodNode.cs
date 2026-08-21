@@ -234,7 +234,7 @@ namespace SpringExpressions
         ///   CS0121).
         /// </summary>
         [CanBeNull]
-        private static Tuple<MethodInfo, LExpression[]> ResolveMethod(
+        internal static Tuple<MethodInfo, LExpression[]> ResolveMethod(
             [NotNull] Type contextType,
             [NotNull] string methodName,
             [NotNull, ItemNotNull] List<LExpression> arguments,
@@ -335,7 +335,7 @@ namespace SpringExpressions
         // Type.GetMethod did silently. The interpreter's GetCandidateMethods stays untouched: its
         // quirks are legacy behaviour.
         [NotNull, ItemNotNull]
-        private static IList<MethodInfo> GetCompiledCandidateMethods(
+        internal static IList<MethodInfo> GetCompiledCandidateMethods(
             [NotNull] Type type, [NotNull] string methodName, int argCount)
         {
             var searchTypes = !type.IsInterface
