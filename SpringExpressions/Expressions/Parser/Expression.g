@@ -111,8 +111,47 @@ prodExpr : powExpr (
 
 powExpr  : postCastUnaryExpression (POWER^ <AST = SpringExpressions.OpPOWER> postCastUnaryExpression)? ;
 
-postCastUnaryExpression : unaryExpression (AS! TYPE! pcn:name! RPAREN!
-	{ #postCastUnaryExpression = #([EXPR, pcn_AST.getText(), "SpringExpressions.CastNode"], #postCastUnaryExpression); })?
+postCastUnaryExpression : unaryExpression (AS! pts:asTypeSlot!
+	{ #postCastUnaryExpression = #([EXPR, pts_AST.getText(), "SpringExpressions.CastNode"], #postCastUnaryExpression); })?
+	;
+
+// "as<int>(x)" - the prefix spelling of the same cast, same CastNode. AS is a reserved token,
+// so an expression-initial 'as' was error space and the alternative decides on k=1 with no
+// predicate. It lives in startNode only (chain-head): "as<T>(x).Member" chains through
+// primaryExpression's (node)?, while "x.as<T>(y)" stays a syntax error by construction.
+asPrefixCast
+	:	AS! LESS_THAN! ats:asTypeSlot! GREATER_THAN! LPAREN! expression RPAREN!
+		{ #asPrefixCast = #([EXPR, ats_AST.getText(), "SpringExpressions.CastNode"], #asPrefixCast); }
+	;
+
+// One type vocabulary serving both cast positions: the structural rule for common names, or
+// the T(...) escape whose 'name' slurp reaches everything ResolveType accepts (backtick arity,
+// assembly-qualified names) - the alternatives split deterministically on TYPE vs ID.
+asTypeSlot
+	:	TYPE! name RPAREN!
+	|	asTypeName
+	;
+
+// Structural type name: dotted identifier, optional generic arguments, optional empty array
+// ranks. The syntactic predicate is the generics-vs-comparison decision: after "x as List" a
+// '<' opens generic arguments only if a complete argument list parses - otherwise the '<' is
+// left to relationalExpression. This is C#'s own disambiguation rule, greedy toward generics.
+asTypeName
+	:	ID^ <AST = SpringExpressions.QualifiedIdentifier> (DOT ID)*
+		(	(LESS_THAN bareTypeNameList GREATER_THAN) =>
+			LESS_THAN bareTypeNameList GREATER_THAN
+		)?
+		(LBRACKET (COMMA)* RBRACKET)*
+	;
+
+bareTypeNameList
+	:	bareTypeName (COMMA bareTypeName)*
+	;
+
+// Inside a committed generic argument list '<' is unambiguous (the follow set is COMMA and
+// GREATER_THAN), so the recursion needs no predicate.
+bareTypeName
+	:	ID (DOT ID)* (LESS_THAN bareTypeNameList GREATER_THAN)? (LBRACKET (COMMA)* RBRACKET)*
 	;
 
 
@@ -135,9 +174,10 @@ primaryExpression : startNode (node)?
 
 startNode 
     : 
-    (   (LPAREN expression SEMI) => exprList 
+    (   (LPAREN expression SEMI) => exprList
     |   parenExpr
-    |   methodOrProperty 
+    |   asPrefixCast
+    |   methodOrProperty
     |   functionOrVar 
     |   localFunctionOrVar
     |   reference
