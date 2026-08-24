@@ -89,16 +89,15 @@ namespace SpringExpressions
                 //return left.Equals(right);
             }
 
-            // todo: error; to nie ma sensu (te enumy)...  bo not eq tego nie robi!!!!!
-            if (leftType.IsEnum && rightValue is string)
-            {
-                return leftValue.Equals(Enum.Parse(leftType, (string)rightValue));
-            }
-            
-            if (rightType.IsEnum && leftValue is string)
-            {
-                return rightValue.Equals(Enum.Parse(rightType, (string)leftValue));
-            }
+            // An enum compares to a string by member name - see EqualityUtils.EnumEqualsName, which
+            // OpNotEqual runs too. It used to be spelled out here and nowhere else, so "Type == 'One'"
+            // answered true while "Type != 'One'" threw; that is the author's own note on this branch,
+            // "to nie ma sensu (te enumy)... bo not eq tego nie robi".
+            if (leftType.IsEnum && rightValue is string rightName)
+                return EqualityUtils.EnumEqualsName(leftValue, rightName);
+
+            if (rightType.IsEnum && leftValue is string leftName)
+                return EqualityUtils.EnumEqualsName(rightValue, leftName);
 
             return CompareUtils.Compare(leftValue, rightValue) == 0;
         }

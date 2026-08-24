@@ -111,6 +111,14 @@ namespace SpringExpressions
                 //return !leftVal.Equals(rightVal);
             }
 
+            // The exact negation of OpEqual's enum-against-string rule, which this node never had: the
+            // pair answered "Type == 'One'" true and threw on "Type != 'One'".
+            if (leftVal.GetType().IsEnum && rightVal is string rightName)
+                return !EqualityUtils.EnumEqualsName(leftVal, rightName);
+
+            if (rightVal.GetType().IsEnum && leftVal is string leftName)
+                return !EqualityUtils.EnumEqualsName(rightVal, leftName);
+
             return CompareUtils.Compare(leftVal, rightVal) != 0;
         }
     }

@@ -33,8 +33,43 @@ namespace SpringExpressions.Expressions.Compiling
             if (leftExpression.Type == typeof(bool) && rightExpression.Type == typeof(bool))
                 return LExpression.Equal(leftExpression, rightExpression);
 
+            // An enum against a string compares by member name, through the very method the interpreter
+            // runs - so the two backends cannot drift, exception included.
+            if (TryCreateEnumAgainstName(leftExpression, rightExpression, out var byName))
+                return byName;
+
+            // An enum against anything else - "Type == 1" - has no compiled form: the interpreter
+            // refuses the pair (CompareUtils cannot coerce them), while the boxing tail below would
+            // silently answer false, which is not an answer anybody chose.
+            if (leftExpression.Type.IsEnum ^ rightExpression.Type.IsEnum)
+            {
+                var enumType = leftExpression.Type.IsEnum ? leftExpression.Type : rightExpression.Type;
+                var otherType = leftExpression.Type.IsEnum ? rightExpression.Type : leftExpression.Type;
+
+                if (Nullable.GetUnderlyingType(otherType) != enumType)
+                {
+                    throw new Expressions.CompileErrorException(
+                        $"no compiled equality between the enum [{enumType.FullName}] and "
+                        + $"[{otherType.FullName}]; an enum compares to the same enum or to a member name.");
+                }
+            }
+
+            // Both sides string-comparable. This used to accept *either* side being a string and hand
+            // the pair to LExpression.Equal, which throws InvalidOperationException out of the emitter
+            // for a pair it has no operator for - past the compile-refusal convention, so the weak path
+            // could not fall back and a shape the interpreter serves became a hard failure.
             if (leftExpression.Type == typeof(string) || rightExpression.Type == typeof(string))
+            {
+                if (!leftExpression.Type.IsAssignableFrom(rightExpression.Type)
+                    && !rightExpression.Type.IsAssignableFrom(leftExpression.Type))
+                {
+                    throw new Expressions.CompileErrorException(
+                        $"no compiled equality between [{leftExpression.Type.FullName}] and "
+                        + $"[{rightExpression.Type.FullName}].");
+                }
+
                 return LExpression.Equal(leftExpression, rightExpression);
+            }
 
             if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(DateTime))
                 return LExpression.Equal(leftExpression, rightExpression);
@@ -88,6 +123,48 @@ namespace SpringExpressions.Expressions.Compiling
 
                return LExpression.Not(CreateEqualExpression(leftExpression, rightExpression));
         }
+
+        /// <summary>
+        /// "enumValue == 'MemberName'", in either order, emitted as a call to the interpreter's own
+        /// <see cref="Util.EqualityUtils.EnumEqualsName"/> - so the rule, and the ArgumentException a
+        /// string that names no member raises, are the same on both backends by construction.
+        /// </summary>
+        private static bool TryCreateEnumAgainstName(
+            [NotNull] LExpression leftExpression,
+            [NotNull] LExpression rightExpression,
+            out LExpression result)
+        {
+            LExpression enumExpression = null;
+            LExpression nameExpression = null;
+
+            if (leftExpression.Type.IsEnum && rightExpression.Type == typeof(string))
+            {
+                enumExpression = leftExpression;
+                nameExpression = rightExpression;
+            }
+            else if (rightExpression.Type.IsEnum && leftExpression.Type == typeof(string))
+            {
+                enumExpression = rightExpression;
+                nameExpression = leftExpression;
+            }
+
+            if (enumExpression == null)
+            {
+                result = null;
+                return false;
+            }
+
+            result = LExpression.Call(
+                MiEnumEqualsName,
+                LExpression.Convert(enumExpression, typeof(object)),
+                nameExpression);
+
+            return true;
+        }
+
+        [NotNull]
+        private static readonly MethodInfo MiEnumEqualsName = typeof(Util.EqualityUtils)
+            .GetMethod(nameof(Util.EqualityUtils.EnumEqualsName));
 
         private static bool EqualityComparerEquals<T>(T t1, T t2)
         {

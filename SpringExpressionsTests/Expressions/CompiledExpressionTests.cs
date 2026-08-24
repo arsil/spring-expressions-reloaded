@@ -735,15 +735,22 @@ namespace SpringExpressionsTests.Expressions
             Assert.AreEqual(12, compiledAsInt.GetValue(testContext, args));
         }
 
-          // todo: error fixme! wrong exception!
         /// <summary>
-        /// Tests missing method accessors
+        /// Tests missing method accessors. A method that does not exist has no compiled form like any
+        /// other unbindable shape - the compiled path cannot tell "misspelled" from "not on the declared
+        /// type but there at runtime", which is a shape it must fall back on - so it refuses, and the
+        /// interpreter reports the ArgumentException at evaluation exactly as it always did. This test
+        /// asserted that ArgumentException against the *compile* call, which predates the refusal
+        /// convention (the author's own "todo: error fixme! wrong exception!").
         /// </summary>
         [Test]
         public void TestMissingMethodAccess()
         {
-            Assert.Throws<ArgumentException>(
+            Assert.Throws<SpringExpressions.Expressions.Compiling.Expressions.CompileErrorException>(
                 () => CompileGetter<string, string>("ToStringilyLingily()"));
+
+            Assert.Throws<ArgumentException>(
+                () => Expression.Parse("ToStringilyLingily()").GetValue("some string"));
         }
 
         /// <summary>
@@ -1037,12 +1044,17 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// Tests missing constructor
+        /// Tests missing constructor - the constructor twin of TestMissingMethodAccess, and the same
+        /// pairing: no compiled form, so the compiled path refuses and the interpreter reports its
+        /// ArgumentException at evaluation.
         /// </summary>
         [Test]
         public void TestMissingConstructor()
         {
-            Assert.Throws<ArgumentException>(() => CompileGetter<decimal>("new Decimal('xyz')"));
+            Assert.Throws<SpringExpressions.Expressions.Compiling.Expressions.CompileErrorException>(
+                () => CompileGetter<decimal>("new Decimal('xyz')"));
+
+            Assert.Throws<ArgumentException>(() => Expression.Parse("new Decimal('xyz')").GetValue());
         }
 
         /// <summary>
@@ -1379,10 +1391,12 @@ namespace SpringExpressionsTests.Expressions
                         "TestEnumFlags.TwoAndFourCombined * TestEnumFlags.Four", CompileOptions.MustUseInterpreter)
                     .GetValue());
 
-            // todo: error:       compiler - should throw compile exception
-            Assert.Throws<ArgumentException>(() =>
+            // compiler - a refusal, as the author's own note here asked for ("should throw compile
+            // exception"): multiplying two enums has no compiled form, so the weak path falls back and
+            // the interpreter reports the ArgumentException above
+            Assert.Throws<SpringExpressions.Expressions.Compiling.Expressions.CompileErrorException>(() =>
                 Expression.ParseGetter<object>(
-                    "TestEnumFlags.TwoAndFourCombined * TestEnumFlags.Four", 
+                    "TestEnumFlags.TwoAndFourCombined * TestEnumFlags.Four",
                     CompileOptions.CompileOnParse | CompileOptions.MustCompile));
         }
 
