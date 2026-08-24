@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 using NUnit.Framework;
 
@@ -91,6 +92,172 @@ namespace SpringExpressionsTests.Expressions
 
             TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Ints.?{#this > 99}", holder)
                 .ResultEqualsTo(new List<object>());
+        }
+
+        /// <summary>
+        /// ^{} and ${} had no compiled form at all - both nodes' emitters were an unconditional refusal -
+        /// so every use fell back to the interpreter and a strongly typed request for one was a hard
+        /// failure. They compile now, mirroring SelectionNode: the predicate is compiled to a delegate
+        /// over the item type and handed to a static helper as a constant.
+        /// </summary>
+        [Test]
+        public void SelectionOfTheFirstAndLastMatch()
+        {
+            var holder = new ProjectionSourceHolder();
+
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Ints.^{#this > 1}", holder)
+                .ResultEqualsTo(2);
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Ints.${#this > 1}", holder)
+                .ResultEqualsTo(3);
+
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("IntArray.^{#this > 4}", holder)
+                .ResultEqualsTo(5);
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("IntArray.${#this > 4}", holder)
+                .ResultEqualsTo(6);
+
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Names.^{#this == 'Ola'}", holder)
+                .ResultEqualsTo("Ola");
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Names.${Length == 3}", holder)
+                .ResultEqualsTo("Ola");
+        }
+
+        /// <summary>
+        /// The nullable-result ruling, pinned. "Nothing matched" is null from both backends for a value
+        /// item type as much as for a reference one: the compiled path returns Nullable&lt;T&gt; when the
+        /// item type is a non-nullable value type, and boxing a nullable that holds no value produces the
+        /// null reference itself - so the weakly typed path, which always asks for object, cannot tell the
+        /// backends apart by construction. A helper returning plain T would have answered default(T)
+        /// here, which is 0 for an int source and a silent disagreement.
+        /// </summary>
+        [Test]
+        public void SelectionOfTheFirstAndLastMatchThatMatchesNothingIsNull()
+        {
+            var holder = new ProjectionSourceHolder();
+
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Ints.^{#this > 99}", holder)
+                .ResultEqualsTo(null);
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Ints.${#this > 99}", holder)
+                .ResultEqualsTo(null);
+
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("IntArray.^{#this > 99}", holder)
+                .ResultEqualsTo(null);
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("IntArray.${#this > 99}", holder)
+                .ResultEqualsTo(null);
+
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Names.^{#this == 'zzz'}", holder)
+                .ResultEqualsTo(null);
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Names.${#this == 'zzz'}", holder)
+                .ResultEqualsTo(null);
+        }
+
+        /// <summary>
+        /// No value on the heap ever reports Nullable&lt;int&gt; as its type - boxing collapses a nullable
+        /// to either null or a plain boxed T - which is the reason the nullable result is invisible to a
+        /// caller and the two backends stay indistinguishable.
+        /// </summary>
+        [Test]
+        public void AMatchedValueItemComesBackAsThePlainItemType()
+        {
+            var holder = new ProjectionSourceHolder();
+
+            var compiled = CompileGetter<ProjectionSourceHolder, object>("Ints.^{#this > 1}").GetValue(holder);
+            var interpreted = InterpretGetter<ProjectionSourceHolder, object>("Ints.^{#this > 1}").GetValue(holder);
+
+            Assert.AreEqual(typeof(int), compiled.GetType());
+            Assert.AreEqual(typeof(int), interpreted.GetType());
+        }
+
+        /// <summary>
+        /// A nullable request is satisfied by both backends: the compiled path returns the nullable it
+        /// already holds, and the interpreted getter's "value is TResult" test passes for a boxed int.
+        /// </summary>
+        [Test]
+        public void ANullableRequestIsSatisfiedByBothBackends()
+        {
+            var holder = new ProjectionSourceHolder();
+
+            Assert.AreEqual(2, CompileGetter<ProjectionSourceHolder, int?>("Ints.^{#this > 1}").GetValue(holder));
+            Assert.AreEqual(2, InterpretGetter<ProjectionSourceHolder, int?>("Ints.^{#this > 1}").GetValue(holder));
+
+            Assert.IsNull(CompileGetter<ProjectionSourceHolder, int?>("Ints.^{#this > 99}").GetValue(holder));
+            Assert.IsNull(InterpretGetter<ProjectionSourceHolder, int?>("Ints.^{#this > 99}").GetValue(holder));
+        }
+
+        /// <summary>
+        /// The one cell where the backends differ, recorded rather than repaired: "nothing matched" cannot
+        /// be delivered as a non-nullable int, and both backends fail - the compiled one inside the
+        /// nullable-to-int conversion Compiler emits for the request, the interpreter while unboxing null.
+        /// Only the exception type differs. Do not "fix" one side: agreement here means either refusing
+        /// the request at parse or inventing a value for "no match", and both are rulings.
+        /// </summary>
+        [Test]
+        public void ANonNullableRequestFailsOnBothBackendsWhenNothingMatched()
+        {
+            var holder = new ProjectionSourceHolder();
+
+            Assert.AreEqual(2, CompileGetter<ProjectionSourceHolder, int>("Ints.^{#this > 1}").GetValue(holder));
+            Assert.AreEqual(2, InterpretGetter<ProjectionSourceHolder, int>("Ints.^{#this > 1}").GetValue(holder));
+
+            Assert.Throws<InvalidOperationException>(
+                () => CompileGetter<ProjectionSourceHolder, int>("Ints.^{#this > 99}").GetValue(holder));
+            Assert.Throws<NullReferenceException>(
+                () => InterpretGetter<ProjectionSourceHolder, int>("Ints.^{#this > 99}").GetValue(holder));
+        }
+
+        /// <summary>
+        /// ${} needs an IList: the interpreter walks the source backwards through its indexer, and the
+        /// compiled helper does the same so that the predicate runs over the same items, in the same
+        /// order, the same number of times (LINQ's LastOrDefault would give the same answer while
+        /// evaluating the predicate for every item, which a side-effecting predicate can tell apart). A
+        /// source that is only enumerable is therefore refused rather than compiled, and the weak path's
+        /// fallback hands it to the interpreter, which reports the ArgumentException it always did. ^{}
+        /// asks only for IEnumerable and compiles the same source.
+        /// </summary>
+        [Test]
+        public void SelectionOfTheLastMatchNeedsAListWhileTheFirstDoesNot()
+        {
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<object>("({1,2} + {3}).${#this == 3}"));
+
+            var holder = new ProjectionSourceHolder();
+            Assert.Throws<ArgumentException>(
+                () => ExpressionEvaluator.GetValue(holder, "({1,2} + {3}).${#this == 3}"));
+
+            TestCompiledVsInterpreted<object>("({1,2} + {3}).^{#this == 3}").ResultEqualsTo(3);
+        }
+
+        /// <summary>
+        /// A member access chained onto a no-match result diverges - and that is pre-existing, not these
+        /// nodes' doing: a plain int? property behaves identically, because the compiled path holds a
+        /// nullable static type where the interpreter holds a type-less null. Recorded with the NullInt
+        /// twin as the proof that ^{} merely reaches the same edge. Do not "fix" one side without ruling
+        /// on nullable member access in general. Everything that is not an error path agrees, including
+        /// lifted arithmetic in both directions.
+        /// </summary>
+        [Test]
+        public void AChainOntoAFirstMatchAgreesExceptOnTheNoMatchErrorPath()
+        {
+            var holder = new ProjectionSourceHolder();
+
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Ints.^{#this > 1}.ToString()", holder)
+                .ResultEqualsTo("2");
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Ints.^{#this > 1} + 1", holder)
+                .ResultEqualsTo(3);
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Ints.^{#this > 99} + 1", holder)
+                .ResultEqualsTo(null);
+
+            // the divergence: Nullable<int>.ToString() answers an empty string, where the interpreter
+            // cannot resolve ToString against a null at all
+            Assert.AreEqual(string.Empty,
+                CompileGetter<ProjectionSourceHolder, object>("Ints.^{#this > 99}.ToString()").GetValue(holder));
+            Assert.Throws<ArgumentException>(
+                () => InterpretGetter<ProjectionSourceHolder, object>("Ints.^{#this > 99}.ToString()").GetValue(holder));
+
+            // and the same two answers for a nullable property, which no selection node touches
+            Assert.AreEqual(string.Empty,
+                CompileGetter<ProjectionSourceHolder, object>("NullInt.ToString()").GetValue(holder));
+            Assert.Throws<ArgumentException>(
+                () => InterpretGetter<ProjectionSourceHolder, object>("NullInt.ToString()").GetValue(holder));
         }
 
         /// <summary>

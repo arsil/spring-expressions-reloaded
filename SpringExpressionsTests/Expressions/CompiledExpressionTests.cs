@@ -97,6 +97,10 @@ namespace SpringExpressionsTests.Expressions
             vars["date"] = "2008-05-15";
             var expr = CompileGetter<string>("#date as T(string)");
             Assert.That(expr.GetValue(vars), Is.EqualTo("2008-05-15"));
+
+            // the same cast in the bare type spelling
+            var bareExpr = CompileGetter<string>("#date as string");
+            Assert.That(bareExpr.GetValue(vars), Is.EqualTo("2008-05-15"));
         }
 
         // https://github.com/spring-projects/spring-net/blob/main/changelog.txt
@@ -107,6 +111,10 @@ namespace SpringExpressionsTests.Expressions
             vars["Date"] = "2008-05-15";
             var expr = CompileGetter<string>("#Date as T(string)");
             Assert.That(expr.GetValue(vars), Is.EqualTo("2008-05-15"));
+
+            // the same cast in the bare type spelling
+            var bareExpr = CompileGetter<string>("#Date as string");
+            Assert.That(bareExpr.GetValue(vars), Is.EqualTo("2008-05-15"));
         }
 
         [Test]
@@ -312,6 +320,9 @@ namespace SpringExpressionsTests.Expressions
             //TestCompiledVsInterpreted<decimal>("to{decimal}(1e2)").ResultEqualsTo(100m);
             //TestCompiledVsInterpreted<decimal>("cast(1e2, T(decimal))").ResultEqualsTo(100m);
             TestCompiledVsInterpreted<decimal>("1e2 as T(decimal)").ResultEqualsTo(100m);
+            TestCompiledVsInterpreted<decimal>("1e2 as decimal").ResultEqualsTo(100m);
+            // the prefix position of the same cast - the "to<decimal>(1e2)" wish above, granted under 'as'
+            TestCompiledVsInterpreted<decimal>("as<decimal>(1e2)").ResultEqualsTo(100m);
             //TestCompiledVsInterpreted<decimal>("{decimal}1e2").ResultEqualsTo(100m);
             //TestCompiledVsInterpreted<decimal>("{decimal, 1e2}").ResultEqualsTo(100m);
 
@@ -502,38 +513,52 @@ namespace SpringExpressionsTests.Expressions
             // maps
             Assert.AreEqual(pupin, CompileGetter<Society, object>("Officers['president']").GetValue(ieee));
             Assert.AreEqual(pupin, CompileGetter<Society, Inventor>("Officers['president'] as T(Inventor)").GetValue(ieee));
-            
 
-            Assert.AreEqual("Idvor", 
+            // every cast above and below also has a bare type spelling; both are shown
+            Assert.AreEqual(pupin, CompileGetter<Society, Inventor>("Officers['president'] as Inventor").GetValue(ieee));
+
+
+            Assert.AreEqual("Idvor",
                 CompileGetter<Society, string>("(Officers['president'] as T(Inventor)).PlaceOfBirth.City").GetValue(ieee));
+            Assert.AreEqual("Idvor",
+                CompileGetter<Society, string>("(Officers['president'] as Inventor).PlaceOfBirth.City").GetValue(ieee));
 
             Assert.AreEqual(tesla, CompileGetter<Society, Inventor>("(Officers['advisors'] as T(SpringExpressions.Inventor[]))[0]").GetValue(ieee));
+            Assert.AreEqual(tesla, CompileGetter<Society, Inventor>("(Officers['advisors'] as SpringExpressions.Inventor[])[0]").GetValue(ieee));
 
             Assert.AreEqual("Polyphase alternating-current system",
                 CompileGetter<Society, string>("(Officers['advisors'] as T(SpringExpressions.Inventor[]))[0].Inventions[2]").GetValue(ieee));
+            Assert.AreEqual("Polyphase alternating-current system",
+                CompileGetter<Society, string>("(Officers['advisors'] as SpringExpressions.Inventor[])[0].Inventions[2]").GetValue(ieee));
 
             // maps with non-literal parameters
             Dictionary<string, object> vars = new Dictionary<string, object>();
             vars["prez"] = "president";
             Assert.AreEqual(pupin, CompileGetter<Society, Inventor>("Officers[#prez as T(string)] as T(Inventor)").GetValue(ieee, vars));
+            Assert.AreEqual(pupin, CompileGetter<Society, Inventor>("Officers[#prez as string] as Inventor").GetValue(ieee, vars));
 
             Assert.AreEqual(pupin, CompileGetter<Society, Inventor>("Officers[Society.President] as T(Inventor)").GetValue(ieee));
+            Assert.AreEqual(pupin, CompileGetter<Society, Inventor>("Officers[Society.President] as Inventor").GetValue(ieee));
+            // Officers is a non-generic IDictionary, so every value read out of it is statically
+            // 'object' and the next link has nothing to bind against. The cast is what gives the
+            // compiled path a type to continue from; the uncast forms are pinned as refusals in
+            // TestIndexedPropertyAccessWithoutCastIsRefusedButStillEvaluates.
             Assert.AreEqual("Idvor",
-                CompileGetter<Society, string>("Officers[Society.President].PlaceOfBirth.City").GetValue(ieee));
-            Assert.AreEqual(tesla, CompileGetter<Society, Inventor>("Officers[Society.Advisors][0]").GetValue(ieee));
+                CompileGetter<Society, string>("(Officers[Society.President] as Inventor).PlaceOfBirth.City").GetValue(ieee));
+            Assert.AreEqual(tesla, CompileGetter<Society, Inventor>("(Officers[Society.Advisors] as Inventor[])[0]").GetValue(ieee));
             Assert.AreEqual("Polyphase alternating-current system",
-                CompileGetter<Society, string>("Officers[Society.Advisors][0].Inventions[2]").GetValue(ieee));
+                CompileGetter<Society, string>("(Officers[Society.Advisors] as Inventor[])[0].Inventions[2]").GetValue(ieee));
 
 
             // try to set some values
             // setter for: ExpressionEvaluator.SetValue(ieee, "Officers['advisors'][0].PlaceOfBirth.Country", "Croatia");
-            Expression.ParseSetter<Society, string>("Officers['advisors'][0].PlaceOfBirth.Country",
+            Expression.ParseSetter<Society, string>("(Officers['advisors'] as Inventor[])[0].PlaceOfBirth.Country",
                     CompileOptions.CompileOnParse | CompileOptions.MustCompile)
                 .SetValue(ieee, "Croatia");
             Assert.AreEqual("Croatia", CompileGetter<Inventor, string>("PlaceOfBirth.Country").GetValue(tesla));
 
             // setter for: ExpressionEvaluator.SetValue(ieee, "Officers['president'].Name", "Michael Pupin");
-            Expression.ParseSetter<Society, string>("Officers['president'].Name", 
+            Expression.ParseSetter<Society, string>("(Officers['president'] as Inventor).Name",
                     CompileOptions.CompileOnParse | CompileOptions.MustCompile)
                 .SetValue(ieee, "Michael Pupin");
 
@@ -544,8 +569,8 @@ namespace SpringExpressionsTests.Expressions
                     CompileOptions.CompileOnParse | CompileOptions.MustCompile)
                 .SetValue(ieee, new[] { pupin, tesla });
 
-            Assert.AreEqual(pupin, CompileGetter<Society, Inventor>("Officers['advisors'][0]").GetValue(ieee));
-            Assert.AreEqual(tesla, CompileGetter<Society, Inventor>("Officers['advisors'][1]").GetValue(ieee));
+            Assert.AreEqual(pupin, CompileGetter<Society, Inventor>("(Officers['advisors'] as Inventor[])[0]").GetValue(ieee));
+            Assert.AreEqual(tesla, CompileGetter<Society, Inventor>("(Officers['advisors'] as Inventor[])[1]").GetValue(ieee));
 
             // generic indexer
             var bar = new Bar();
@@ -555,6 +580,55 @@ namespace SpringExpressionsTests.Expressions
 
             var foo = new Foo();
             Assert.AreEqual("test_1", CompileGetter<Foo, object>("[1, 'test']").GetValue(foo));
+        }
+
+        /// <summary>
+        /// The uncast counterparts of the casts in <see cref="TestIndexedPropertyAccess"/>. Society.Officers
+        /// is a non-generic IDictionary, so every value read out of it is statically 'object' - the compiled
+        /// backend binds members and indexers against static types, and 'object' declares neither
+        /// PlaceOfBirth nor an indexer, so there is nothing to emit. Only the runtime value knows what it is,
+        /// which is the interpreter's job. So the strongly typed path must refuse with CompileErrorException,
+        /// and the weakly typed path must still answer, through its interpreter fallback. Do not "fix" one
+        /// side of a pair: adding a cast is what makes these shapes compilable, and that is what
+        /// TestIndexedPropertyAccess shows.
+        /// </summary>
+        [Test]
+        public void TestIndexedPropertyAccessWithoutCastIsRefusedButStillEvaluates()
+        {
+            TypeRegistry.RegisterType("Society", typeof(Society));
+            TypeRegistry.RegisterType("Inventor", typeof(Inventor));
+
+            var ieee = GetIEEE(tesla: out var tesla, pupin: out _);
+
+            // a member on a dictionary value
+            Assert.Throws<SpringExpressions.Expressions.Compiling.Expressions.CompileErrorException>(
+                () => CompileGetter<Society, string>("Officers[Society.President].PlaceOfBirth.City"));
+            Assert.AreEqual("Idvor",
+                Expression.Parse("Officers[Society.President].PlaceOfBirth.City").GetValue(ieee));
+
+            // an indexer on a dictionary value
+            Assert.Throws<SpringExpressions.Expressions.Compiling.Expressions.CompileErrorException>(
+                () => CompileGetter<Society, Inventor>("Officers[Society.Advisors][0]"));
+            Assert.AreEqual(tesla, Expression.Parse("Officers[Society.Advisors][0]").GetValue(ieee));
+
+            // and the same, one link deeper
+            Assert.Throws<SpringExpressions.Expressions.Compiling.Expressions.CompileErrorException>(
+                () => CompileGetter<Society, string>("Officers[Society.Advisors][0].Inventions[2]"));
+            Assert.AreEqual("Polyphase alternating-current system",
+                Expression.Parse("Officers[Society.Advisors][0].Inventions[2]").GetValue(ieee));
+
+            // setters refuse for the same reason, and the weak path sets the value anyway
+            Assert.Throws<SpringExpressions.Expressions.Compiling.Expressions.CompileErrorException>(
+                () => Expression.ParseSetter<Society, string>("Officers['advisors'][0].PlaceOfBirth.Country",
+                    CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+            Expression.Parse("Officers['advisors'][0].PlaceOfBirth.Country").SetValue(ieee, "Croatia");
+            Assert.AreEqual("Croatia", CompileGetter<Inventor, string>("PlaceOfBirth.Country").GetValue(tesla));
+
+            Assert.Throws<SpringExpressions.Expressions.Compiling.Expressions.CompileErrorException>(
+                () => Expression.ParseSetter<Society, string>("Officers['president'].Name",
+                    CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+            Expression.Parse("Officers['president'].Name").SetValue(ieee, "Michael Pupin");
+            Assert.AreEqual("Michael Pupin", Expression.Parse("Officers[Society.President].Name").GetValue(ieee));
         }
 
         /// <summary>
@@ -653,6 +727,12 @@ namespace SpringExpressionsTests.Expressions
             Assert.AreEqual(2, names.Count);
             Assert.AreEqual("Nikola Tesla", names[0]);
             Assert.AreEqual("Mihajlo Pupin", names[1]);
+
+            // the same cast in the bare type spelling
+            var bareNames = CompileGetter<Society, IList>("(Officers['advisors'] as Inventor[]).!{Name}").GetValue(ieee);
+            Assert.AreEqual(2, bareNames.Count);
+            Assert.AreEqual("Nikola Tesla", bareNames[0]);
+            Assert.AreEqual("Mihajlo Pupin", bareNames[1]);
         }
 
         /// <summary>
@@ -676,14 +756,29 @@ namespace SpringExpressionsTests.Expressions
             Assert.AreEqual("Nikola Tesla", ((Inventor)serbianOfficers[0]).Name);
             Assert.AreEqual("Mihajlo Pupin", ((Inventor)serbianOfficers[1]).Name);
 
+            // the same cast in the bare type spelling
+            var bareSerbianOfficers =
+                CompileGetter<Society, IList>("(Officers['advisors'] as Inventor[]).?{Nationality == 'Serbian'}").GetValue(ieee);
+            Assert.AreEqual(2, bareSerbianOfficers.Count);
+            Assert.AreEqual("Nikola Tesla", ((Inventor)bareSerbianOfficers[0]).Name);
+            Assert.AreEqual("Mihajlo Pupin", ((Inventor)bareSerbianOfficers[1]).Name);
+
                   // todo: error? implement or not!!!!!
             var first =
                 CompileGetter<Society, Inventor>("(Officers['advisors'] as T(Inventor[])).^{Nationality == 'Serbian'}").GetValue(ieee);
             Assert.AreEqual("Nikola Tesla", first.Name);
 
+            var bareFirst =
+                CompileGetter<Society, Inventor>("(Officers['advisors'] as Inventor[]).^{Nationality == 'Serbian'}").GetValue(ieee);
+            Assert.AreEqual("Nikola Tesla", bareFirst.Name);
+
             var last =
                 CompileGetter<Society, Inventor>("(Officers['advisors'] as T(Inventor[])).${Nationality == 'Serbian'}").GetValue(ieee);
             Assert.AreEqual("Mihajlo Pupin", last.Name);
+
+            var bareLast =
+                CompileGetter<Society, Inventor>("(Officers['advisors'] as Inventor[]).${Nationality == 'Serbian'}").GetValue(ieee);
+            Assert.AreEqual("Mihajlo Pupin", bareLast.Name);
         }
 
         /// <summary>
