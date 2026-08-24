@@ -672,29 +672,67 @@ namespace SpringExpressionsTests.Expressions
                 CompileGetter<Society, int>("Members[0].GetAge(date('2005-01-01'))").GetValue(ieee));
         }
 
-             // todo: error: fixme!
+        /// <summary>
+        /// One compiled expression, then two roots of different types - a decimal and an int, each of
+        /// which has ToString(string, IFormatProvider) while the declared root type, object, has no
+        /// two-argument ToString at all. Which method to call is knowable only from the value in hand, so
+        /// there is nothing to emit: the strongly typed path refuses, and the weakly typed path answers
+        /// through its interpreter fallback, binding afresh per evaluation.
+        /// <p>
+        /// This test used to demand the compiled answer (the author's own "todo: error: fixme!") and was
+        /// red for as long as it existed. Making it pass means per-call late binding inside compiled
+        /// code, which is a ruling nobody has made; until then the boundary is what gets recorded. Do not
+        /// "fix" the refusal half without that ruling.
+        /// </p>
+        /// </summary>
         [Test]
         public void TestMethodEvaluationOnDifferentContextType()
         {
-            var expression = CompileGetter<object, object>("ToString('dummy', null)");
-            Assert.AreEqual("dummy", expression.GetValue(0m));
-            Assert.AreEqual("dummy", expression.GetValue(0));
+            Assert.Throws<SpringExpressions.Expressions.Compiling.Expressions.CompileErrorException>(
+                () => CompileGetter<object, object>("ToString('dummy', null)"));
+
+            IExpression weak = Expression.Parse("ToString('dummy', null)");
+            Assert.AreEqual("dummy", weak.GetValue(0m));
+            Assert.AreEqual("dummy", weak.GetValue(0));
         }
 
-              // todo: error; won't run!!!!! not fixable????
+        /// <summary>
+        /// The same boundary one level down, on an argument rather than the root: Foo(string) and
+        /// Foo(int) are both candidates, and #var1 is a dictionary lookup - statically object - so the
+        /// overload is decided by whatever the caller put in the variable, evaluation by evaluation. The
+        /// compiled path says so in as many words ("Add a cast to pick an overload") and refuses; the
+        /// interpreter chooses from the runtime value, which is what the weak path serves.
+        /// <p>
+        /// The author's note on this one was "todo: error; won't run!!!!! not fixable????" - correct, as
+        /// written. A cast makes it compilable again, which the third block shows. Do not "fix" the
+        /// refusal half without a late-binding ruling.
+        /// </p>
+        /// </summary>
         [Test]
         public void TestMethodEvaluationOnDifferentArgumentTypes()
         {
-            var expression = CompileGetter<MethodInvocationCases, object>("Foo(#var1)");
+            Assert.Throws<SpringExpressions.Expressions.Compiling.Expressions.CompileErrorException>(
+                () => CompileGetter<MethodInvocationCases, object>("Foo(#var1)"));
 
             var testContext = new MethodInvocationCases();
             var args = new Dictionary<string, object>();
 
+            IExpression weak = Expression.Parse("Foo(#var1)");
+
             args["var1"] = "myString";
-            Assert.AreEqual("myString", expression.GetValue(testContext, args));
+            Assert.AreEqual("myString", weak.GetValue(testContext, args));
 
             args["var1"] = 12;
-            Assert.AreEqual(12, expression.GetValue(testContext, args));
+            Assert.AreEqual(12, weak.GetValue(testContext, args));
+
+            // naming the type restores the compiled form, which is what the refusal message promises
+            var compiledAsString = CompileGetter<MethodInvocationCases, object>("Foo(#var1 as string)");
+            args["var1"] = "myString";
+            Assert.AreEqual("myString", compiledAsString.GetValue(testContext, args));
+
+            var compiledAsInt = CompileGetter<MethodInvocationCases, object>("Foo(#var1 as int)");
+            args["var1"] = 12;
+            Assert.AreEqual(12, compiledAsInt.GetValue(testContext, args));
         }
 
           // todo: error fixme! wrong exception!
@@ -907,8 +945,10 @@ namespace SpringExpressionsTests.Expressions
         {
             TypeRegistry.RegisterType(typeof(Inventor));
 
-                  // todo: error: FIXME works incidentally!!!!
-            // test named arguments
+            // A named argument is a member assigned after construction, not a constructor parameter.
+            // This block used to pass by accident: every child was emitted as a positional argument with
+            // its name discarded, and these three values happen to line up with
+            // Inventor(string, DateTime, string) in this order. They are MemberInit bindings now.
             var ana = CompileGetter<Inventor>(
                     "new Inventor(Name = 'Ana Maria Seovic', DOB = date('2004-08-14'), Nationality = 'American')")
                 .GetValue();
@@ -916,15 +956,84 @@ namespace SpringExpressionsTests.Expressions
             Assert.AreEqual(new DateTime(2004, 8, 14), ana.DOB);
             Assert.AreEqual("American", ana.Nationality);
 
-                   // todo: error: FIXME no constructor! constructor node searches for 4 param node or something like that. NamedArguments are not part of the constructor!!!
+            // Positional and named together - "constructor node searches for 4 param node", as the
+            // author's note put it, so this refused to compile at all. Only the three positional
+            // arguments reach the constructor now.
             var aleks = CompileGetter<Inventor>(
-                    "new Inventor('Aleksandar Seovic', date('1974-08-24'), 'Serbian', Inventions = {'SPELL'})")
+                    "new Inventor('Aleksandar Seovic', date('1974-08-24'), 'Serbian', Nationality = 'Serbian-American')")
                 .GetValue();
+            Assert.AreEqual("Aleksandar Seovic", aleks.Name);
+            Assert.AreEqual(new DateTime(1974, 8, 24), aleks.DOB);
+            Assert.AreEqual("Serbian-American", aleks.Nationality);
+        }
+
+        /// <summary>
+        /// The order the names are written in must not matter, which is the whole point of naming them.
+        /// It used to: with the names discarded and the values passed positionally, this expression built
+        /// an Inventor named "American" of nationality "Ana" - silently, because those two values are
+        /// both strings and the accident type-checks. The interpreter always got it right.
+        /// </summary>
+        [Test]
+        public void TestConstructorNamedArgumentsAreOrderIndependent()
+        {
+            TypeRegistry.RegisterType(typeof(Inventor));
+
+            // Inventor has no value equality, so TestCompiledVsInterpreted's Assert.AreEqual would fail
+            // on two freshly built instances however right they both are: the backends are compared
+            // member by member here instead.
+            const string reordered = "new Inventor(Nationality = 'American', DOB = date('2004-08-14'), Name = 'Ana')";
+
+            var compiled = CompileGetter<Inventor>(reordered).GetValue();
+            Assert.AreEqual("Ana", compiled.Name);
+            Assert.AreEqual("American", compiled.Nationality);
+            Assert.AreEqual(new DateTime(2004, 8, 14), compiled.DOB);
+
+            var interpreted = InterpretGetter<Inventor>(reordered).GetValue();
+            Assert.AreEqual("Ana", interpreted.Name);
+            Assert.AreEqual("American", interpreted.Nationality);
+            Assert.AreEqual(new DateTime(2004, 8, 14), interpreted.DOB);
+
+            // the name is matched case-insensitively, as the interpreter's Expression.ParseProperty does
+            const string lowercased = "new Inventor('Aleks', date('1974-08-24'), 'Serbian', nationality = 'lower')";
+
+            Assert.AreEqual("lower", CompileGetter<Inventor>(lowercased).GetValue().Nationality);
+            Assert.AreEqual("lower", InterpretGetter<Inventor>(lowercased).GetValue().Nationality);
+        }
+
+        /// <summary>
+        /// What a compiled named argument cannot express, refused so the interpreter serves it.
+        /// <p>
+        /// The value case is not a gap to close casually: the interpreter assigns through the property
+        /// setter's own coercion, which converts shapes LINQ has no conversion for - a list literal into
+        /// a string[] here - and reproducing that is the weakly typed setter's job. Do not "fix" the
+        /// refusal half without it.
+        /// </p>
+        /// </summary>
+        [Test]
+        public void TestConstructorNamedArgumentsRefusedWhenTheyCannotBeEmitted()
+        {
+            TypeRegistry.RegisterType(typeof(Inventor));
+
+            const string listIntoArray =
+                "new Inventor('Aleksandar Seovic', date('1974-08-24'), 'Serbian', Inventions = {'SPELL'})";
+
+            Assert.Throws<SpringExpressions.Expressions.Compiling.Expressions.CompileErrorException>(
+                () => CompileGetter<Inventor>(listIntoArray));
+
+            var aleks = (Inventor)Expression.Parse(listIntoArray).GetValue();
             Assert.AreEqual("Aleksandar Seovic", aleks.Name);
             Assert.AreEqual(new DateTime(1974, 8, 24), aleks.DOB);
             Assert.AreEqual("Serbian", aleks.Nationality);
             Assert.AreEqual(1, aleks.Inventions.Length);
             Assert.AreEqual("SPELL", aleks.Inventions[0]);
+
+            // a name that is no member at all: a refusal compiled, the interpreter's own error weakly
+            const string noSuchMember = "new Inventor('Aleks', date('1974-08-24'), 'Serbian', Nope = 'x')";
+
+            Assert.Throws<SpringExpressions.Expressions.Compiling.Expressions.CompileErrorException>(
+                () => CompileGetter<Inventor>(noSuchMember));
+            Assert.Throws<InvalidPropertyException>(
+                () => Expression.Parse(noSuchMember).GetValue());
         }
 
         /// <summary>

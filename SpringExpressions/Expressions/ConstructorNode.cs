@@ -21,6 +21,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Reflection;
 
 using JetBrains.Annotations;
@@ -63,25 +64,32 @@ namespace SpringExpressions
         }
 
         
+        /// <summary>
+        /// A named argument is not a constructor parameter: it is a property or field assigned on the
+        /// new instance afterwards, which is what <see cref="Get"/> does through SetNamedArguments.
+        /// Every child used to be emitted as a positional argument instead, names discarded - so
+        /// "new Inventor(Nationality = 'American', DOB = ..., Name = 'Ana')" *compiled*, matching
+        /// Inventor(string, DateTime, string) on the accident that the value types lined up, and
+        /// silently produced Name = 'American'. The interpreter got it right. Named arguments are split
+        /// out and emitted as MemberInit bindings now, so the two backends build the same object.
+        /// </summary>
         protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
             CompilationContext compilationContext)
         {
             var arguments = new List<LExpression>();
             var argumentsTypes = new List<Type>();
+            var namedArguments = new List<NamedArgumentNode>();
 
             var node = getFirstChild();
 
             while (node != null)
             {
-                //if (node.getFirstChild() is LambdaExpressionNode)
-                //{
-                //	argList.Add((BaseNode)node.getFirstChild());
-                //}
-                //else if (node is NamedArgumentNode)
-                //{
-                //	namedArgs.Add(node.getText(), node);
-                //}
-                //else
+                if (node is NamedArgumentNode namedArgument)
+                {
+                    namedArguments.Add(namedArgument);
+                    node = node.getNextSibling();
+                    continue;
+                }
 
                 var arg = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
 
@@ -119,7 +127,80 @@ namespace SpringExpressions
             var finalArguments = new List<LExpression>(resolved.Item2);
             MethodNode.ConvertParameters(resolved.Item1, finalArguments);
 
-            return LExpression.New(resolved.Item1, finalArguments);
+            var newExpression = LExpression.New(resolved.Item1, finalArguments);
+
+            if (namedArguments.Count == 0)
+                return newExpression;
+
+            return LExpression.MemberInit(
+                newExpression,
+                BuildNamedArgumentBindings(objectType, namedArguments, compilationContext));
+        }
+
+        /// <summary>
+        /// One MemberInit binding per named argument. The member is looked up case-insensitively, as the
+        /// interpreter's Expression.ParseProperty does, and the value is emitted against the *root*
+        /// context - again matching the interpreter, whose NamedArgumentNode.Get evaluates against
+        /// evalContext.RootContext rather than the new instance.
+        /// </summary>
+        /// <remarks>
+        /// Anything this cannot express is a refusal, so the interpreter serves it: a name that is not a
+        /// settable property or field of the type, and a value whose type the member cannot hold. The
+        /// latter is not a gap to close casually - the interpreter assigns through the property setter's
+        /// own coercion, which converts shapes LINQ has no conversion for ("Inventions = {'SPELL'}"
+        /// assigns a list to a string[]), and reproducing that is the weakly typed setter's job.
+        /// </remarks>
+        [NotNull, ItemNotNull]
+        private IList<MemberBinding> BuildNamedArgumentBindings(
+            [NotNull] Type objectType,
+            [NotNull, ItemNotNull] IList<NamedArgumentNode> namedArguments,
+            [NotNull] CompilationContext compilationContext)
+        {
+            const BindingFlags memberFlags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase;
+
+            var bindings = new List<MemberBinding>();
+
+            foreach (var namedArgument in namedArguments)
+            {
+                var name = namedArgument.getText();
+
+                MemberInfo member = objectType.GetProperty(name, memberFlags);
+                var memberType = (member as PropertyInfo)?.PropertyType;
+
+                if (member != null && !((PropertyInfo)member).CanWrite)
+                    throw CannotCompile($"the named argument '{name}' is a property without a setter");
+
+                if (member == null)
+                {
+                    var field = objectType.GetField(name, memberFlags);
+
+                    if (field == null)
+                        throw CannotCompile($"'{name}' is not a property or field of '{objectType.Name}'");
+
+                    if (field.IsInitOnly || field.IsLiteral)
+                        throw CannotCompile($"the named argument '{name}' is a read-only field");
+
+                    member = field;
+                    memberType = field.FieldType;
+                }
+
+                var value = GetExpressionTreeIfPossible(
+                    (BaseNode)namedArgument.getFirstChild(),
+                    compilationContext.RootContextExpression,
+                    compilationContext);
+
+                if (!memberType.IsAssignableFrom(value.Type))
+                {
+                    throw CannotCompile(
+                        $"the named argument '{name}' is a '{memberType.Name}' and the value is a "
+                        + $"'{value.Type.Name}'; the interpreter assigns it through the property setter's "
+                        + "own conversion, which has no compiled form");
+                }
+
+                bindings.Add(LExpression.Bind(member, value));
+            }
+
+            return bindings;
         }
 
         /// <summary>
