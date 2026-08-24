@@ -22,6 +22,7 @@ using System;
 
 using System.Collections.Generic;
 using System.ComponentModel;
+using JetBrains.Annotations;
 
 namespace SpringExpressions
 {
@@ -87,17 +88,17 @@ namespace SpringExpressions
           // todo: serio? jak się mamy dowiedzieć, czy jest kompilowalne
     public interface IGetterExpression<in TRoot, out TResult> : IStronglyTypedExpression
     {
-        TResult GetValue(TRoot context, IDictionary<string, object> variables = null);
+        TResult GetValue(TRoot context, [CanBeNull] IDictionary<string, object> variables = null);
     }
 
     public interface IGetterExpression<out TResult> : IStronglyTypedExpression
     {
-        TResult GetValue(IDictionary<string, object> variables = null);
+        TResult GetValue([CanBeNull] IDictionary<string, object> variables = null);
     }
 
     public interface ISetterExpression<in TRoot, in TValue> : IStronglyTypedExpression
     {
-        void SetValue(TRoot context, TValue newValue, IDictionary<string, object> variables = null);
+        void SetValue(TRoot context, TValue newValue, [CanBeNull] IDictionary<string, object> variables = null);
     }
 
     public interface ISetterExpression<in TValue> : IStronglyTypedExpression
@@ -107,12 +108,12 @@ namespace SpringExpressions
 
     public interface IVoidExpression : IStronglyTypedExpression
     {
-        void Execute(IDictionary<string, object> variables = null);
+        void Execute([CanBeNull] IDictionary<string, object> variables = null);
     }
 
     public interface IVoidExpression<in TRoot> : IStronglyTypedExpression
     {
-        void Execute(TRoot context, IDictionary<string, object> variables = null);
+        void Execute(TRoot context, [CanBeNull] IDictionary<string, object> variables = null);
     }
 
         // todo: error: SwitchOnCompileFailure SwitchOnExecutionFailure?
@@ -123,6 +124,8 @@ namespace SpringExpressions
         None,
 
         CompileOnParse = 1,
+
+        // todo: error: to działa? czy to nie rozwala wielowątkowość?--------------- moim zdaniem to jest kaszana -----------------------------------
         CompileOnFirstExecution = 2,
 
         MustCompile = 16,

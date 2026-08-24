@@ -2,7 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
-
+using JetBrains.Annotations;
 using static SpringExpressions.BaseNode;
 
 namespace SpringExpressions.Expressions.Compiling.Expressions
@@ -10,8 +10,7 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
     abstract class BaseGetterExpression<TRoot, TResult> : BaseStronglyTypedExpression
     {
         protected BaseGetterExpression(
-                BaseNode expressionNode,
-                CompileOptions compileOptions)
+            [NotNull] BaseNode expressionNode, CompileOptions compileOptions)
             : base(expressionNode, compileOptions)
         {
             // todo: error handling!!!!
@@ -50,25 +49,40 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
             }
 
             // todo: error handling!!!!
-            var compiled = _compiledExpression
-                ?? (_compiledExpression = Compiler.CompileGetter<TResult, TRoot>(_expressionNode));
+            var compiled = _compiledExpression ??= Compiler.CompileGetter<TResult, TRoot>(_expressionNode);
 
             // Root and variables are parameters of the compiled delegate, so nothing is shared
             // between concurrent evaluations and nothing is allocated per evaluation.
             return compiled(context, variables);
         }
 
+        [CanBeNull]
+        private Func<TRoot, IDictionary<string, object>, TResult> _compiledExpression;
+
+
+
+
         /// <summary>
         /// Copies an interpreter-built List&lt;object&gt; into the requested item type, or null when
         /// TResult is not a type a List&lt;T&gt; can satisfy. Built once per closed generic type - the
         /// CLR's instantiation is the cache.
         /// </summary>
+        [CanBeNull]
         private static readonly Func<object, TResult> ListReprojection
             = BuildReprojection(typeof(List<>), nameof(CopyToTypedList));
 
+        [CanBeNull]
         private static readonly Func<object, TResult> SetReprojection
             = BuildReprojection(typeof(HashSet<>), nameof(CopyToTypedSet));
 
+        /// <summary>
+        /// The dictionary counterpart of <see cref="ListReprojection"/>: requires exactly two generic
+        /// arguments on TResult, satisfiable by a Dictionary of them.
+        /// </summary>
+        [CanBeNull]
+        private static readonly Func<object, TResult> DictionaryReprojection = BuildDictionaryReprojection();
+
+        [CanBeNull]
         private static Func<object, TResult> BuildReprojection(Type containerDefinition, string copyMethodName)
         {
             var resultType = typeof(TResult);
@@ -90,18 +104,13 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
                 return null;
 
             var copyMethod = typeof(BaseGetterExpression<TRoot, TResult>)
-                .GetMethod(copyMethodName, BindingFlags.Static | BindingFlags.NonPublic)
+                .GetMethod(copyMethodName, BindingFlags.Static | BindingFlags.NonPublic)!
                 .MakeGenericMethod(itemType);
 
             return (Func<object, TResult>)Delegate.CreateDelegate(typeof(Func<object, TResult>), copyMethod);
         }
 
-        /// <summary>
-        /// The dictionary counterpart of <see cref="ListReprojection"/>: requires exactly two generic
-        /// arguments on TResult, satisfiable by a Dictionary of them.
-        /// </summary>
-        private static readonly Func<object, TResult> DictionaryReprojection = BuildDictionaryReprojection();
-
+        [CanBeNull]
         private static Func<object, TResult> BuildDictionaryReprojection()
         {
             var resultType = typeof(TResult);
@@ -122,13 +131,14 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
                 return null;
 
             var copyMethod = typeof(BaseGetterExpression<TRoot, TResult>)
-                .GetMethod(nameof(CopyToTypedDictionary), BindingFlags.Static | BindingFlags.NonPublic)
+                .GetMethod(nameof(CopyToTypedDictionary), BindingFlags.Static | BindingFlags.NonPublic)!
                 .MakeGenericMethod(keyType, valueType);
 
             return (Func<object, TResult>)Delegate.CreateDelegate(typeof(Func<object, TResult>), copyMethod);
         }
 
-        private static Dictionary<TKey, TValue> CopyToTypedDictionary<TKey, TValue>(object source)
+        [NotNull]
+        private static Dictionary<TKey, TValue> CopyToTypedDictionary<TKey, TValue>([NotNull] object source)
         {
             var result = new Dictionary<TKey, TValue>();
             foreach (DictionaryEntry entry in (IDictionary)source)
@@ -137,7 +147,8 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
             return result;
         }
 
-        private static List<T> CopyToTypedList<T>(object source)
+        [NotNull]
+        private static List<T> CopyToTypedList<T>([NotNull] object source)
         {
             var result = new List<T>();
             foreach (object item in (IEnumerable)source)
@@ -146,7 +157,8 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
             return result;
         }
 
-        private static HashSet<T> CopyToTypedSet<T>(object source)
+        [NotNull]
+        private static HashSet<T> CopyToTypedSet<T>([NotNull] object source)
         {
             var result = new HashSet<T>();
             foreach (object item in (IEnumerable)source)
@@ -154,15 +166,13 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
 
             return result;
         }
-
-        private Func<TRoot, IDictionary<string, object>, TResult> _compiledExpression;
     }
 
     class GetterExpression<TRoot, TResult>
         : BaseGetterExpression<TRoot, TResult>
         , IGetterExpression<TRoot, TResult>
     {
-        public GetterExpression(BaseNode expressionNode, CompileOptions compileOptions)
+        public GetterExpression([NotNull] BaseNode expressionNode, CompileOptions compileOptions)
             : base(expressionNode, compileOptions)
         { }
 
@@ -174,7 +184,7 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         : BaseGetterExpression<object, TResult>
         , IGetterExpression<TResult>
     {
-        public GetterExpression(BaseNode expressionNode, CompileOptions compileOptions)
+        public GetterExpression([NotNull] BaseNode expressionNode, CompileOptions compileOptions)
             : base(expressionNode, compileOptions)
         { }
 

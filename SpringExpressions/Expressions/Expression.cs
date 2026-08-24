@@ -24,6 +24,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Runtime.Serialization;
+using JetBrains.Annotations;
 using SpringExpressions.Parser;
 using SpringExpressions.Parser.antlr;
 using SpringExpressions.Parser.antlr.collections;
@@ -197,7 +198,8 @@ namespace SpringExpressions
         /// getting its own compiled form.
         /// </remarks>
         /// <param name="expressionNode">The node to evaluate; must not be null.</param>
-        public static IExpression Wrap(BaseNode expressionNode)
+        [NotNull]
+        public static IExpression Wrap([NotNull] BaseNode expressionNode)
         {
             AssertUtils.ArgumentNotNull(expressionNode, "expressionNode");
 
@@ -206,8 +208,9 @@ namespace SpringExpressions
 
             // todo: error: a możę ParseAndCompile()
             // todo: error: compile options!
+        [NotNull]
         public static IGetterExpression<TRoot, TResult> ParseGetter<TRoot, TResult>(
-            string expression, 
+            [NotNull] string expression,
             CompileOptions compileOptions = CompileOptions.Default)
         {
             AssertUtils.ArgumentHasText(expression, "expression");
@@ -215,8 +218,9 @@ namespace SpringExpressions
             return new GetterExpression<TRoot, TResult>(ParseAst(expression), compileOptions);
         }
 
+        [NotNull]
         public static IGetterExpression<TResult> ParseGetter<TResult>(
-            string expression, 
+            [NotNull] string expression,
             CompileOptions compileOptions = CompileOptions.Default)
         {
             AssertUtils.ArgumentHasText(expression, "expression");
@@ -224,8 +228,9 @@ namespace SpringExpressions
             return new GetterExpression<TResult>(ParseAst(expression), compileOptions);
         }
 
+        [NotNull]
         public static ISetterExpression<TRoot, TArgument> ParseSetter<TRoot, TArgument>(
-            string expression,
+            [NotNull] string expression,
             CompileOptions compileOptions = CompileOptions.Default)
         {
             AssertUtils.ArgumentHasText(expression, "expression");
@@ -233,8 +238,9 @@ namespace SpringExpressions
             return new SetterExpression<TRoot, TArgument>(ParseAst(expression), compileOptions);
         }
 
+        [NotNull]
         public static ISetterExpression<TArgument> ParseSetter<TArgument>(
-            string expression,
+            [NotNull] string expression,
             CompileOptions compileOptions = CompileOptions.Default)
         {
             AssertUtils.ArgumentHasText(expression, "expression");
@@ -242,8 +248,9 @@ namespace SpringExpressions
             return new SetterExpression<TArgument>(ParseAst(expression), compileOptions);
         }
 
+        [NotNull]
         public static IVoidExpression<TRoot> ParseVoidExpression<TRoot>(
-            string expression,
+            [NotNull] string expression,
             CompileOptions compileOptions = CompileOptions.Default)
         {
             AssertUtils.ArgumentHasText(expression, "expression");
@@ -251,8 +258,9 @@ namespace SpringExpressions
             return new VoidExpression<TRoot>(ParseAst(expression), compileOptions);
         }
 
+        [NotNull]
         public static IVoidExpression ParseVoidExpression(
-            string expression,
+            [NotNull] string expression,
             CompileOptions compileOptions = CompileOptions.Default)
         {
             AssertUtils.ArgumentHasText(expression, "expression");
@@ -267,7 +275,9 @@ namespace SpringExpressions
         /// <param name="functionName">Function name to register expression as.</param>
         /// <param name="lambdaExpression">Lambda expression to register.</param>
         /// <param name="variables">Variables dictionary that the function will be registered in.</param>
-        public static void RegisterFunction( string functionName, string lambdaExpression, IDictionary variables )
+        public static void RegisterFunction(
+            [NotNull] string functionName,
+            [NotNull] string lambdaExpression, IDictionary variables )
         {
             AssertUtils.ArgumentHasText( functionName, "functionName" );
             AssertUtils.ArgumentHasText( lambdaExpression, "lambdaExpression" );

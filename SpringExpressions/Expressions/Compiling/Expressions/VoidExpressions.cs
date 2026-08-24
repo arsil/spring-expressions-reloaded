@@ -29,8 +29,7 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
             }
 
             // todo: error handling!!!!
-            var compiled = _compiledExpression
-                ?? (_compiledExpression = Compiler.CompileExecuteWithVoidReturnType<TRoot>(_expressionNode));
+            var compiled = _compiledExpression ??= Compiler.CompileExecuteWithVoidReturnType<TRoot>(_expressionNode);
 
             // Root and variables are parameters of the compiled delegate, so nothing is shared
             // between concurrent evaluations and nothing is allocated per evaluation.
