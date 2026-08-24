@@ -26,6 +26,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 
 using JetBrains.Annotations;
+using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -68,19 +69,13 @@ namespace SpringExpressions
             if (!typeof(IEnumerable).IsAssignableFrom(contextExpression.Type))
                 throw CannotCompile("selection requires a source that implements IEnumerable");
 
-            var collectionIsGenericType = contextExpression.Type.IsGenericType;
-            var collectionIsArray = contextExpression.Type.IsArray;
+            // The item type is the T of the IEnumerable<T> the source implements, not its first generic
+            // argument - a dictionary's first argument is its key type while it enumerates as
+            // KeyValuePair<K, V>. Null means it enumerates only untyped, or ambiguously; the interpreter
+            // serves those.
+            var itemType = CollectionOperandUtils.GetEnumerableItemType(contextExpression.Type);
 
-            if (!collectionIsGenericType && !collectionIsArray)
-                throw CannotCompile("no compiled selection for this source type");
-
-            var itemType = collectionIsGenericType
-                ? contextExpression.Type.GetGenericArguments()[0]
-                : contextExpression.Type.GetElementType();
-
-            // The first generic argument is not always the item type - a dictionary's is its key type -
-            // and the helper call would not bind. Asking the question keeps that out of the emitter.
-            if (!typeof(IEnumerable<>).MakeGenericType(itemType).IsAssignableFrom(contextExpression.Type))
+            if (itemType == null)
                 throw CannotCompile("no compiled selection for this source type");
 
             BaseNode expressionNode = (BaseNode)getFirstChild();

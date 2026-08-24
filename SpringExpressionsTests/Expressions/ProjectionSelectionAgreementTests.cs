@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 
 using NUnit.Framework;
 
+using SpringCore;
 using SpringExpressions;
 using SpringExpressions.Expressions.Compiling.Expressions;
 
@@ -18,6 +20,8 @@ namespace SpringExpressionsTests.Expressions
         public int[] IntArray { get; } = { 4, 5, 6 };
         public List<string> Names { get; } = new List<string> { "Ala", "Ola", "Basia" };
         public int? NullInt { get; } = null;
+        public Dictionary<string, int> Dict { get; } = new Dictionary<string, int> { { "a", 1 }, { "b", 2 } };
+        public int Age { get; } = 45;
     }
 
     /// <summary>
@@ -100,6 +104,77 @@ namespace SpringExpressionsTests.Expressions
         /// failure. They compile now, mirroring SelectionNode: the predicate is compiled to a delegate
         /// over the item type and handed to a static helper as a constant.
         /// </summary>
+        [Test]
+        public void ANonEnumerableSourceIsRefusedRatherThanThrownAt()
+        {
+            var holder = new ProjectionSourceHolder();
+
+            // SelectionNode and ProjectionNode used to throw ArgumentException here themselves, which the
+            // weakly typed path's catch (CompileErrorException) cannot see. Note the typed weak root
+            // below: ExpressionEvaluator.GetValue binds at object, where the property does not resolve at
+            // all and compilation fails earlier for an unrelated reason - which is what hid this.
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<ProjectionSourceHolder, object>("Age.?{#this > 1}"));
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<ProjectionSourceHolder, object>("Age.!{#this}"));
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<ProjectionSourceHolder, object>("Age.^{#this > 1}"));
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<ProjectionSourceHolder, object>("Age.${#this > 1}"));
+
+            // the interpreter reports the bad source at evaluation, as it always did
+            Assert.Throws<ArgumentException>(
+                () => Expression.Parse("Age.?{#this > 1}").GetValue<ProjectionSourceHolder>(holder));
+            Assert.Throws<ArgumentException>(
+                () => Expression.Parse("Age.!{#this}").GetValue<ProjectionSourceHolder>(holder));
+        }
+
+        /// <summary>
+        /// A dictionary source compiles, and its item type is KeyValuePair&lt;K, V&gt; on both backends.
+        /// <p>
+        /// The emitters used to take the first generic argument as the item type - a dictionary's key
+        /// type - so a predicate valid for the key got as far as the emitted call and threw
+        /// ArgumentException out of LINQ, which the weak path's fallback cannot catch, while everything
+        /// else refused with a message blaming the wrong thing. The item type is read from the
+        /// IEnumerable&lt;T&gt; the source actually implements now, which both fixes the leak and lets these
+        /// shapes emit.
+        /// </p>
+        /// </summary>
+        [Test]
+        public void ADictionarySourceCompilesWithKeyValuePairAsItsItemType()
+        {
+            var holder = new ProjectionSourceHolder();
+
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Dict.?{Value > 1}", holder)
+                .ResultEqualsTo(new List<object> { new KeyValuePair<string, int>("b", 2) });
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Dict.!{Key}", holder)
+                .ResultEqualsTo(new List<object> { "a", "b" });
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Dict.!{Value}", holder)
+                .ResultEqualsTo(new List<object> { 1, 2 });
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Dict.^{Value > 1}", holder)
+                .ResultEqualsTo(new KeyValuePair<string, int>("b", 2));
+            TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Dict.^{Value > 99}", holder)
+                .ResultEqualsTo(null);
+
+            // ${} still refuses one: it walks the source backwards through an indexer, and a dictionary
+            // is not an IList - which is exactly what the interpreter demands too.
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<ProjectionSourceHolder, object>("Dict.${Value > 1}"));
+            Assert.Throws<ArgumentException>(
+                () => Expression.Parse("Dict.${Value > 1}").GetValue<ProjectionSourceHolder>(holder));
+
+            // The shape that used to leak: 'Length' is valid for the key type but not for the real item.
+            // It must fail as a refusal compiled, and as the interpreter's own error weakly.
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<ProjectionSourceHolder, object>("Dict.?{Length > 0}"));
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<ProjectionSourceHolder, object>("Dict.!{Length}"));
+            Assert.Throws<InvalidPropertyException>(
+                () => Expression.Parse("Dict.?{Length > 0}").GetValue<ProjectionSourceHolder>(holder));
+            Assert.Throws<InvalidPropertyException>(
+                () => Expression.Parse("Dict.!{Length}").GetValue<ProjectionSourceHolder>(holder));
+        }
+
         [Test]
         public void SelectionOfTheFirstAndLastMatch()
         {

@@ -73,6 +73,41 @@ namespace SpringUtil
         }
 
         /// <summary>
+        /// The item type a source actually enumerates as - the T of the <see cref="IEnumerable{T}"/> it
+        /// implements, or an array's element type - or null when it enumerates only untyped.
+        /// </summary>
+        /// <remarks>
+        /// The projection and selection emitters used to take <c>GetGenericArguments()[0]</c> as the item
+        /// type, which is right for a List&lt;T&gt; and wrong for anything whose first generic argument is
+        /// not what it yields: a Dictionary&lt;K, V&gt; enumerates as KeyValuePair&lt;K, V&gt;, not as K, and
+        /// a caller's own Cache&lt;TKey, TValue&gt; : IEnumerable&lt;TValue&gt; yields the value type. Asking
+        /// the implemented interface answers all of them, and is what those emitters build their item
+        /// parameter and their generic helper call from.
+        /// <p>
+        /// Ambiguity is refused rather than guessed: a type implementing IEnumerable&lt;T&gt; more than once
+        /// (IEnumerable&lt;int&gt; and IEnumerable&lt;string&gt; both) has no single item type, so the emitters
+        /// see null and refuse the shape - the interpreter, which reads runtime values, still serves it.
+        /// </p>
+        /// </remarks>
+        [CanBeNull]
+        internal static Type GetEnumerableItemType([NotNull] Type type)
+        {
+            if (type.IsArray)
+                return type.GetElementType();
+
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+                return type.GetGenericArguments()[0];
+
+            var itemTypes = type.GetInterfaces()
+                .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+                .Select(i => i.GetGenericArguments()[0])
+                .Distinct()
+                .ToList();
+
+            return itemTypes.Count == 1 ? itemTypes[0] : null;
+        }
+
+        /// <summary>
         /// The item type of a <see cref="List{T}"/>, or of anything deriving from one, or null.
         /// </summary>
         /// <remarks>

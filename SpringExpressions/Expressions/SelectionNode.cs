@@ -25,6 +25,8 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 
+using SpringUtil;
+
 using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
@@ -46,25 +48,22 @@ namespace SpringExpressions
                 protected override LExpression GetExpressionTreeIfPossible(LExpression contextExpression,
             CompilationContext compilationContext)
         {
+            // A refusal, not an ArgumentException: CompileErrorException is the only signal the weakly
+            // typed path can fall back on, and the interpreter reports the bad source at evaluation -
+            // which is what SelectionFirstNode and SelectionLastNode do. (This answers the author's
+            // "todo: error: exception!!!!" that sat on the refusal below.)
             if (!typeof(IEnumerable).IsAssignableFrom(contextExpression.Type))
-            {
-                throw new ArgumentException(
-                    "Selection can only be used on an instance of the type that implements IEnumerable "
-                    + $"(which is not the case with {contextExpression.Type}).");
-            }
+                throw CannotCompile("selection requires a source that implements IEnumerable");
 
-            var collectionIsGenericType = contextExpression.Type.IsGenericType;
-            var collectionIsArray = contextExpression.Type.IsArray;
+            // The item type is the T of the IEnumerable<T> the source implements, not its first generic
+            // argument: a dictionary's first argument is its key type while it enumerates as
+            // KeyValuePair<K, V>, and emitting Selection<K> against it threw ArgumentException out of
+            // LINQ - where the weak path's catch (CompileErrorException) could not see it. Null here
+            // means the source enumerates only untyped, or ambiguously; the interpreter serves those.
+            var itemType = CollectionOperandUtils.GetEnumerableItemType(contextExpression.Type);
 
-            if (!collectionIsGenericType && !collectionIsArray)
-            {
-                         // todo: error: exception!!!!
+            if (itemType == null)
                 throw CannotCompile("no compiled selection for this source type");
-            }
-
-            var itemType = collectionIsGenericType
-                ? contextExpression.Type.GetGenericArguments()[0]
-                : contextExpression.Type.GetElementType();
 
             BaseNode expressionNode = (BaseNode)getFirstChild();
 

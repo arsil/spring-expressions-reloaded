@@ -26,6 +26,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 
 using JetBrains.Annotations;
+using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -66,18 +67,13 @@ namespace SpringExpressions
             if (!typeof(IList).IsAssignableFrom(contextExpression.Type))
                 throw CannotCompile("selection of the last match requires a source that implements IList");
 
-            var collectionIsGenericType = contextExpression.Type.IsGenericType;
-            var collectionIsArray = contextExpression.Type.IsArray;
+            // The item type is the T of the IEnumerable<T> the source implements, not its first generic
+            // argument. Null means it enumerates only untyped, or ambiguously; the interpreter serves
+            // those. The helper takes IList<T>, so that has to hold for the item type as well.
+            var itemType = CollectionOperandUtils.GetEnumerableItemType(contextExpression.Type);
 
-            if (!collectionIsGenericType && !collectionIsArray)
-                throw CannotCompile("no compiled selection for this source type");
-
-            var itemType = collectionIsGenericType
-                ? contextExpression.Type.GetGenericArguments()[0]
-                : contextExpression.Type.GetElementType();
-
-            // The first generic argument is not always the item type, and the helper takes IList<T>.
-            if (!typeof(IList<>).MakeGenericType(itemType).IsAssignableFrom(contextExpression.Type))
+            if (itemType == null
+                || !typeof(IList<>).MakeGenericType(itemType).IsAssignableFrom(contextExpression.Type))
                 throw CannotCompile("no compiled selection for this source type");
 
             BaseNode expressionNode = (BaseNode)getFirstChild();
