@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 
 using NUnit.Framework;
@@ -225,7 +225,7 @@ namespace SpringExpressionsTests.Expressions
         {
             Assert.Throws<CompileErrorException>(
                 () => Expression.ParseGetter<ProcessorSourceHolder, object>(
-                    "Names.orderBy('ToString()')", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                    "Names.orderBy('ToString()')", EvaluationMode.MustCompile));
 
             var holder = new ProcessorSourceHolder();
             var interpreted = InterpretGetter<ProcessorSourceHolder, object>("Names.orderBy('ToString()')")
@@ -346,3 +346,4 @@ namespace SpringExpressionsTests.Expressions
         }
     }
 }
+

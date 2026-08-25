@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -91,7 +91,7 @@ namespace SpringExpressionsTests.Expressions
         public void InterpretedVoidExpressionWritesToTheVariablesOfEachCall()
         {
             var voidExpression = Expression.ParseVoidExpression(
-                "#x = 5", CompileOptions.MustUseInterpreter);
+                "#x = 5", EvaluationMode.MustInterpret);
 
             var first = new Dictionary<string, object>();
             var second = new Dictionary<string, object>();
@@ -168,3 +168,4 @@ namespace SpringExpressionsTests.Expressions
         }
     }
 }
+

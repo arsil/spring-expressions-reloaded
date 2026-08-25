@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -12,13 +12,13 @@ namespace SpringExpressionsTests.Expressions
         protected static IGetterExpression<TRoot, TResult> CompileGetter<TRoot, TResult>(string expression)
         {
             return Expression.ParseGetter<TRoot, TResult>(
-                expression, CompileOptions.CompileOnParse | CompileOptions.MustCompile);
+                expression, EvaluationMode.MustCompile);
         }
 
         protected static IGetterExpression<TResult> CompileGetter<TResult>(string expression)
         {
             return Expression.ParseGetter<TResult>(
-                expression, CompileOptions.CompileOnParse | CompileOptions.MustCompile);
+                expression, EvaluationMode.MustCompile);
         }
 
         protected static TResult CompileAndExecuteGetter<TResult>(string expression)
@@ -27,13 +27,13 @@ namespace SpringExpressionsTests.Expressions
         protected static ISetterExpression<TRoot, TArg> CompileSetter<TRoot, TArg>(string expression)
         {
             return Expression.ParseSetter<TRoot, TArg>(
-                expression, CompileOptions.CompileOnParse | CompileOptions.MustCompile);
+                expression, EvaluationMode.MustCompile);
         }
 
         protected static ISetterExpression<TArg> CompileSetter<TArg>(string expression)
         {
             return Expression.ParseSetter<TArg>(
-                expression, CompileOptions.CompileOnParse | CompileOptions.MustCompile);
+                expression, EvaluationMode.MustCompile);
         }
 
 
@@ -41,13 +41,13 @@ namespace SpringExpressionsTests.Expressions
         protected static IGetterExpression<TRoot, TResult> InterpretGetter<TRoot, TResult>(string expression)
         {
             return Expression.ParseGetter<TRoot, TResult>(
-                expression, CompileOptions.MustUseInterpreter);
+                expression, EvaluationMode.MustInterpret);
         }
 
         protected static IGetterExpression<TResult> InterpretGetter<TResult>(string expression)
         {
             return Expression.ParseGetter<TResult>(
-                expression, CompileOptions.MustUseInterpreter);
+                expression, EvaluationMode.MustInterpret);
         }
 
 
@@ -55,7 +55,7 @@ namespace SpringExpressionsTests.Expressions
         protected static TestCompiledAssertionChecker<TResult> TestCompiledVsInterpreted<TResult>(string expression)
         {
             var compiledObjectValue = CompileGetter<object>(expression);
-            var interpretedObjectValue = Expression.ParseGetter<object>(expression, CompileOptions.MustUseInterpreter);
+            var interpretedObjectValue = Expression.ParseGetter<object>(expression, EvaluationMode.MustInterpret);
 
             var expectedType = (interpretedObjectValue.GetValue() ?? NullType).GetType();
             var actualType = (compiledObjectValue.GetValue() ?? NullType).GetType();
@@ -63,7 +63,7 @@ namespace SpringExpressionsTests.Expressions
                 $"Expression: {expression}");
 
             var compiled = CompileGetter<TResult>(expression);
-            var interpreted = Expression.ParseGetter<TResult>(expression, CompileOptions.MustUseInterpreter);
+            var interpreted = Expression.ParseGetter<TResult>(expression, EvaluationMode.MustInterpret);
 
             var expectedValue = interpreted.GetValue();
             var actualValue = compiled.GetValue();
@@ -86,7 +86,7 @@ namespace SpringExpressionsTests.Expressions
             string expression, TRoot root)
         {
             var compiledObjectValue = CompileGetter<TRoot, object>(expression);
-            var interpretedObjectValue = Expression.ParseGetter<TRoot, object>(expression, CompileOptions.MustUseInterpreter);
+            var interpretedObjectValue = Expression.ParseGetter<TRoot, object>(expression, EvaluationMode.MustInterpret);
 
             var expectedType = (interpretedObjectValue.GetValue(root) ?? NullType).GetType();
             var actualType = (compiledObjectValue.GetValue(root) ?? NullType).GetType();
@@ -95,7 +95,7 @@ namespace SpringExpressionsTests.Expressions
                 $"Expression: {expression}");
 
             var compiled = CompileGetter<TRoot, TResult>(expression);
-            var interpreted = Expression.ParseGetter<TRoot, TResult>(expression, CompileOptions.MustUseInterpreter);
+            var interpreted = Expression.ParseGetter<TRoot, TResult>(expression, EvaluationMode.MustInterpret);
 
             var expectedValue = interpreted.GetValue(root);
             var actualValue = compiled.GetValue(root);
@@ -131,3 +131,4 @@ namespace SpringExpressionsTests.Expressions
         private static readonly object NullType = new Null();
     }
 }
+

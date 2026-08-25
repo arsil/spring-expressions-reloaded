@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 using NUnit.Framework;
 
@@ -113,7 +113,7 @@ namespace SpringExpressionsTests.Expressions
         {
             Assert.Throws<CompileErrorException>(
                 () => Expression.ParseGetter<FallbackHolder, object>(
-                    "Missing ?? Unrelated", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                    "Missing ?? Unrelated", EvaluationMode.MustCompile));
 
             var holder = new FallbackHolder();
             IExpression weak = Expression.Parse("Missing ?? Unrelated");
@@ -122,3 +122,4 @@ namespace SpringExpressionsTests.Expressions
         }
     }
 }
+

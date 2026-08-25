@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Reflection;
 
 using NUnit.Framework;
@@ -167,7 +167,7 @@ namespace SpringExpressionsTests.Expressions
             var ctx = new IdxSettable();
 
             Expression.ParseSetter<IdxSettable, string>(
-                    "[45]", CompileOptions.CompileOnParse | CompileOptions.MustCompile)
+                    "[45]", EvaluationMode.MustCompile)
                 .SetValue(ctx, "compiled");
             Assert.AreEqual("compiled", ctx[45L]);
 
@@ -185,7 +185,7 @@ namespace SpringExpressionsTests.Expressions
         {
             var compiledTarget = new IdxSetGate();
             Expression.ParseSetter<IdxSetGate, string>(
-                    "[null]", CompileOptions.CompileOnParse | CompileOptions.MustCompile)
+                    "[null]", EvaluationMode.MustCompile)
                 .SetValue(compiledTarget, "x");
             Assert.AreEqual("object:x", compiledTarget.LastSet);
 
@@ -212,3 +212,4 @@ namespace SpringExpressionsTests.Expressions
         }
     }
 }
+

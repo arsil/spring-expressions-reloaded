@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 
 using SpringExpressions;
 using SpringExpressions.Expressions.Compiling.Expressions;
@@ -175,10 +175,10 @@ namespace SpringExpressionsTests.Expressions
         {
             Assert.Throws<CompileErrorException>(
                 () => Expression.ParseGetter<object>(
-                    "null and 3", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                    "null and 3", EvaluationMode.MustCompile));
             Assert.Throws<CompileErrorException>(
                 () => Expression.ParseGetter<object>(
-                    "null or 3", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                    "null or 3", EvaluationMode.MustCompile));
 
             Assert.IsNull(ExpressionEvaluator.GetValue(null, "null and 3"));
             Assert.IsNull(ExpressionEvaluator.GetValue(null, "3 and null"));
@@ -231,3 +231,4 @@ namespace SpringExpressionsTests.Expressions
         }
     }
 }
+

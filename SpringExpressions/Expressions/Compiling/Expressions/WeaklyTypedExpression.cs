@@ -29,11 +29,12 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
     /// expression rather than on every node of the tree.
     /// </p>
     /// </remarks>
-    internal sealed class WeaklyTypedExpression : IExpression
+    internal sealed class WeaklyTypedExpression : IWeaklyTypedExpression
     {
-        public WeaklyTypedExpression(BaseNode expressionNode)
+        public WeaklyTypedExpression(BaseNode expressionNode, EvaluationMode mode)
         {
             _expressionNode = expressionNode;
+            _mode = mode;
         }
 
         /// <summary>The AST this evaluates. The tree itself holds no evaluation state.</summary>
@@ -79,36 +80,29 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         }
 
         /// <summary>
-        /// Compiles for the declared context type, falling back to the interpreter when this expression has no
-        /// compiled form for it.
+        /// Builds the evaluator for one declared context type, in this expression's
+        /// <see cref="EvaluationMode"/>.
         /// </summary>
         /// <remarks>
         /// The decision is taken once, here, and never revisited: the getter this returns is the permanent
         /// strategy for that context type. Deciding at construction rather than per evaluation is what keeps
         /// the object immutable afterwards, so one expression stays safe to share across threads.
         /// <p>
-        /// <see cref="CompileOptions.CompileOnParse"/> matters: it makes the attempt happen inside the try
-        /// rather than on the first evaluation, which is the only way the failure can be caught here.
+        /// This method used to hand-roll <see cref="EvaluationMode.CompileOrInterpret"/> - compile inside a
+        /// try, and on <see cref="CompileErrorException"/> build an interpreter instead - because there was
+        /// no word for it. There is now, and the strongly typed getter honours it, so the behaviour is
+        /// expressed once rather than implemented here. Most often the context type is object, which
+        /// declares nothing to bind against; it is also every construct the compiled backend does not
+        /// implement yet, a lambda for instance. The interpreter handles both.
         /// </p>
         /// </remarks>
         private object CreateGetter<TContext>()
         {
-            try
-            {
-                return new GetterExpression<TContext, object>(
-                    _expressionNode, CompileOptions.CompileOnParse);
-            }
-            catch (CompileErrorException)
-            {
-                // No compiled form for this shape against this context type. Most often the type is object,
-                // which declares nothing to bind against; it is also every construct the compiled backend
-                // does not implement yet, a lambda for instance. The interpreter handles both.
-                return new GetterExpression<TContext, object>(
-                    _expressionNode, CompileOptions.MustUseInterpreter);
-            }
+            return new GetterExpression<TContext, object>(_expressionNode, _mode);
         }
 
         private readonly BaseNode _expressionNode;
+        private readonly EvaluationMode _mode;
 
         private readonly ConcurrentDictionary<Type, object> _gettersByDeclaredType
             = new ConcurrentDictionary<Type, object>();

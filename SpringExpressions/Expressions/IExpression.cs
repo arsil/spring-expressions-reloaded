@@ -84,6 +84,20 @@ namespace SpringExpressions
     public interface IStronglyTypedExpression
     { }
 
+    /// <summary>
+    /// The weakly typed face of a parsed expression - what <see cref="Expression.Parse"/> returns.
+    /// </summary>
+    /// <remarks>
+    /// An empty marker mirroring <see cref="IStronglyTypedExpression"/>, and it exists for the same
+    /// reason: to say what kind of expression this is. <see cref="IExpression"/> alone does not - it
+    /// reads like the root of a hierarchy when it is one specific face, and nothing derives from it on
+    /// the strongly typed side. The inherited name is kept because Spring.NET consumers know it and
+    /// <c>SpringExpressionsLegacyTests</c> is built on it; this name is added beside it rather than
+    /// replacing it.
+    /// </remarks>
+    public interface IWeaklyTypedExpression : IExpression
+    { }
+
            // todo: error: czy na pewno? - czy może osobny interface dla Get Set Execute
           // todo: serio? jak się mamy dowiedzieć, czy jest kompilowalne
     public interface IGetterExpression<in TRoot, out TResult> : IStronglyTypedExpression
@@ -116,22 +130,4 @@ namespace SpringExpressions
         void Execute(TRoot context, [CanBeNull] IDictionary<string, object> variables = null);
     }
 
-        // todo: error: SwitchOnCompileFailure SwitchOnExecutionFailure?
-       // todO: error: czy może rozbić jakoś te opcje???
-    [Flags]
-    public enum CompileOptions
-    {
-        None,
-
-        CompileOnParse = 1,
-
-        // todo: error: to działa? czy to nie rozwala wielowątkowość?--------------- moim zdaniem to jest kaszana -----------------------------------
-        CompileOnFirstExecution = 2,
-
-        MustCompile = 16,
-        TryCompileSwitchToInterpreterOnFailure = 32,
-        MustUseInterpreter = 64,
-
-        Default = CompileOnFirstExecution | TryCompileSwitchToInterpreterOnFailure
-    }
 }

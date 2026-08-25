@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 
@@ -73,7 +73,7 @@ namespace SpringExpressionsTests.Expressions
         {
             Assert.Throws<CompileErrorException>(
                 () => Expression.ParseGetter<int, long>(
-                    "long.Parse(ToString())", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                    "long.Parse(ToString())", EvaluationMode.MustCompile));
 
             IExpression weak = Expression.Parse("long.Parse(ToString())");
 
@@ -90,7 +90,7 @@ namespace SpringExpressionsTests.Expressions
         {
             Assert.Throws<CompileErrorException>(
                 () => Expression.ParseGetter<OverloadedCallCases, object>(
-                    "Foo(#var1)", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                    "Foo(#var1)", EvaluationMode.MustCompile));
 
             IExpression weak = Expression.Parse("Foo(#var1)");
             var context = new OverloadedCallCases();
@@ -115,7 +115,7 @@ namespace SpringExpressionsTests.Expressions
         {
             Assert.Throws<CompileErrorException>(
                 () => Expression.ParseGetter<ConvertingCalls, object>(
-                    "Echo(45.5)", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                    "Echo(45.5)", EvaluationMode.MustCompile));
 
             IExpression weak = Expression.Parse("Echo(45.5)");
 
@@ -132,10 +132,10 @@ namespace SpringExpressionsTests.Expressions
         {
             Assert.Throws<CompileErrorException>(
                 () => Expression.ParseGetter<ConvertingCalls, object>(
-                    "Echo(Amount)", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                    "Echo(Amount)", EvaluationMode.MustCompile));
 
             var compiled = Expression.ParseGetter<ConvertingCalls, object>(
-                    "EchoDecimal(Amount)", CompileOptions.CompileOnParse | CompileOptions.MustCompile)
+                    "EchoDecimal(Amount)", EvaluationMode.MustCompile)
                 .GetValue(new ConvertingCalls());
 
             Assert.AreEqual("dec:" + 45.5m, compiled);
@@ -151,7 +151,7 @@ namespace SpringExpressionsTests.Expressions
             var context = new ConvertingCalls();
 
             var compiled = Expression.ParseGetter<ConvertingCalls, object>(
-                    "EchoLong(45)", CompileOptions.CompileOnParse | CompileOptions.MustCompile)
+                    "EchoLong(45)", EvaluationMode.MustCompile)
                 .GetValue(context);
             Assert.AreEqual("long:45", compiled);
 
@@ -171,12 +171,12 @@ namespace SpringExpressionsTests.Expressions
         public void NullArgumentAgainstInterfaceParameterCompilesAndAgrees()
         {
             var compiled = Expression.ParseGetter<decimal, string>(
-                    "ToString('dummy', null)", CompileOptions.CompileOnParse | CompileOptions.MustCompile)
+                    "ToString('dummy', null)", EvaluationMode.MustCompile)
                 .GetValue(0m);
             Assert.AreEqual("dummy", compiled);
 
             var interpreted = Expression.ParseGetter<decimal, string>(
-                    "ToString('dummy', null)", CompileOptions.MustUseInterpreter)
+                    "ToString('dummy', null)", EvaluationMode.MustInterpret)
                 .GetValue(0m);
             Assert.AreEqual("dummy", interpreted);
 
@@ -197,14 +197,14 @@ namespace SpringExpressionsTests.Expressions
         {
             Assert.Throws<CompileErrorException>(
                 () => Expression.ParseGetter<AmbiguousOverloadCases, object>(
-                    "Pick('a', null)", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                    "Pick('a', null)", EvaluationMode.MustCompile));
 
             IExpression weak = Expression.Parse("Pick('a', null)");
             Assert.Throws<AmbiguousMatchException>(
                 () => weak.GetValue(new AmbiguousOverloadCases()));
 
             var interpreted = Expression.ParseGetter<AmbiguousOverloadCases, object>(
-                "Pick('a', null)", CompileOptions.MustUseInterpreter);
+                "Pick('a', null)", EvaluationMode.MustInterpret);
             Assert.Throws<AmbiguousMatchException>(
                 () => interpreted.GetValue(new AmbiguousOverloadCases()));
         }
@@ -221,14 +221,14 @@ namespace SpringExpressionsTests.Expressions
         {
             Assert.Throws<CompileErrorException>(
                 () => Expression.ParseGetter<AmbiguousOverloadCases, object>(
-                    "Both('a', 'b')", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                    "Both('a', 'b')", EvaluationMode.MustCompile));
 
             IExpression weak = Expression.Parse("Both('a', 'b')");
             Assert.Throws<AmbiguousMatchException>(
                 () => weak.GetValue(new AmbiguousOverloadCases()));
 
             var interpreted = Expression.ParseGetter<AmbiguousOverloadCases, object>(
-                "Both('a', 'b')", CompileOptions.MustUseInterpreter);
+                "Both('a', 'b')", EvaluationMode.MustInterpret);
             Assert.Throws<AmbiguousMatchException>(
                 () => interpreted.GetValue(new AmbiguousOverloadCases()));
         }
@@ -246,7 +246,7 @@ namespace SpringExpressionsTests.Expressions
 
             Assert.Throws<CompileErrorException>(
                 () => Expression.ParseGetter<object, object>(
-                    expr, CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                    expr, EvaluationMode.MustCompile));
 
             IExpression weak = Expression.Parse(expr);
             Assert.Throws<AmbiguousMatchException>(
@@ -254,3 +254,4 @@ namespace SpringExpressionsTests.Expressions
         }
     }
 }
+

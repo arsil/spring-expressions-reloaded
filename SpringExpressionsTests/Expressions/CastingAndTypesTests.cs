@@ -68,15 +68,24 @@ namespace SpringExpressionsTests.Expressions
             TestCompiledVsInterpreted<int[]>("null as T(int[])");
         }
 
+        /// <summary>
+        /// Casting null to a reference type yields null, on both backends - the cast gives the
+        /// expression a static type, not the value one.
+        /// </summary>
+        /// <remarks>
+        /// This asserted <c>typeof(int[])</c> against the expression's <em>value</em>, under the author's
+        /// own "fixme!!!! why this doesn't work? maybe null has no type(?)" - and that question answers
+        /// itself: the value is null, and null is not a Type. The line below it, which the same author
+        /// noted "works", was the correct test all along. What the cast does decide is the *static*
+        /// type, which is why <c>ParseGetter&lt;int[]&gt;</c> is satisfied by this expression at all.
+        /// </remarks>
         [Test]
         public void TestNullCasting()
         {
-            var arrayGetter = CompileGetter<object>("null as T(int[])");
+            Assert.IsNull(CompileGetter<object>("null as T(int[])").GetValue());
+            Assert.IsNull(CompileGetter<int[]>("null as T(int[])").GetValue());
+            Assert.IsNull(InterpretGetter<int[]>("null as T(int[])").GetValue());
 
-            // todo: error: fixme!!!! why this doesn't work? maybe null has no type(?)
-            Assert.AreEqual(typeof(int[]), arrayGetter.GetValue());
-
-            // todo: error: but this works?
             TestCompiledVsInterpreted<int[]>("null as T(int[])");
         }
 

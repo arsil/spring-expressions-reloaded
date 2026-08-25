@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -346,7 +346,7 @@ namespace SpringExpressionsTests.Expressions
         {
             Assert.Throws<CompileErrorException>(
                 () => Expression.ParseGetter<ProjectionSourceHolder, object>(
-                    "Ints.?{#root.NullInt and 3}", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                    "Ints.?{#root.NullInt and 3}", EvaluationMode.MustCompile));
 
             var holder = new ProjectionSourceHolder();
             var selected = InterpretGetter<ProjectionSourceHolder, object>("Ints.?{#root.NullInt and 3}")
@@ -417,3 +417,4 @@ namespace SpringExpressionsTests.Expressions
         }
     }
 }
+

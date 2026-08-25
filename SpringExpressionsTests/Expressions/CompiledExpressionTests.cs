@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using System;
 
 using System.Collections.Generic;
@@ -57,7 +57,7 @@ namespace SpringExpressionsTests.Expressions
             dynamicObject.IssueId = "1507";
 
             var interpreted = Expression.ParseGetter<ExpandoObject, object>(
-                "IssueId", CompileOptions.MustUseInterpreter);
+                "IssueId", EvaluationMode.MustInterpret);
             Assert.AreEqual("1507", interpreted.GetValue(dynamicObject));
 
             var expr = CompileGetter<ExpandoObject, object>("IssueId");
@@ -379,7 +379,7 @@ namespace SpringExpressionsTests.Expressions
 
 
             var setterExpression = Expression.ParseSetter<Inventor, string>("PlaceOfBirth.Country",
-                CompileOptions.CompileOnParse | CompileOptions.MustCompile);
+                EvaluationMode.MustCompile);
 
             setterExpression.SetValue(inventor, "Croatia");
 
@@ -396,7 +396,7 @@ namespace SpringExpressionsTests.Expressions
             Assert.AreEqual("Idvor", CompileGetter<Inventor, string>("PlaceOfBirth.City").GetValue(pupin));
 
             var setName = Expression.ParseSetter<Inventor, string>("Name", 
-                CompileOptions.CompileOnParse | CompileOptions.MustCompile);
+                EvaluationMode.MustCompile);
 
             setName.SetValue(pupin, "Michael Pupin");
 
@@ -418,13 +418,13 @@ namespace SpringExpressionsTests.Expressions
 
 
             var setterExpression = Expression.ParseSetter<Inventor, string>("PlaceOfBirth.CountRY",
-                CompileOptions.CompileOnParse | CompileOptions.MustCompile);
+                EvaluationMode.MustCompile);
             setterExpression.SetValue(tesla, "Croatia");
 
             Assert.AreEqual("Croatia", CompileGetter<Inventor, string>("Placeofbirth.COUNtry").GetValue(tesla));
 
             setterExpression = Expression.ParseSetter<Inventor, string>("NAME",
-                CompileOptions.CompileOnParse | CompileOptions.MustCompile);
+                EvaluationMode.MustCompile);
             setterExpression.SetValue(pupin, "Michael Pupin");
 
             Assert.AreEqual("Michael Pupin", CompileGetter<Inventor, string>("name").GetValue(pupin));
@@ -450,7 +450,7 @@ namespace SpringExpressionsTests.Expressions
             o = new ShadowingTestsMostSpezializedClass();
 
             var setter1 = Expression.ParseSetter<ShadowingTestsMostSpezializedClass, string>("SomeValue", 
-                CompileOptions.CompileOnParse | CompileOptions.MustCompile);
+                EvaluationMode.MustCompile);
             setter1.SetValue(o, "SomeOtherString");
 
             Assert.AreEqual("SomeOtherString", o.SomeValue);
@@ -464,7 +464,7 @@ namespace SpringExpressionsTests.Expressions
             {
                 // fails at compile time! 
                 Expression.ParseSetter<ShadowingTestsMostSpezializedClass, string>("ReadonlyShadowedValue",
-                    CompileOptions.CompileOnParse | CompileOptions.MustCompile);
+                    EvaluationMode.MustCompile);
 
                 Assert.Fail("Setting readonly property should throw NotWritablePropertyException");
             }
@@ -553,20 +553,20 @@ namespace SpringExpressionsTests.Expressions
             // try to set some values
             // setter for: ExpressionEvaluator.SetValue(ieee, "Officers['advisors'][0].PlaceOfBirth.Country", "Croatia");
             Expression.ParseSetter<Society, string>("(Officers['advisors'] as Inventor[])[0].PlaceOfBirth.Country",
-                    CompileOptions.CompileOnParse | CompileOptions.MustCompile)
+                    EvaluationMode.MustCompile)
                 .SetValue(ieee, "Croatia");
             Assert.AreEqual("Croatia", CompileGetter<Inventor, string>("PlaceOfBirth.Country").GetValue(tesla));
 
             // setter for: ExpressionEvaluator.SetValue(ieee, "Officers['president'].Name", "Michael Pupin");
             Expression.ParseSetter<Society, string>("(Officers['president'] as Inventor).Name",
-                    CompileOptions.CompileOnParse | CompileOptions.MustCompile)
+                    EvaluationMode.MustCompile)
                 .SetValue(ieee, "Michael Pupin");
 
             Assert.AreEqual("Michael Pupin", CompileGetter<Inventor, string>("Name").GetValue(pupin));
 
             // setter for: ExpressionEvaluator.SetValue(ieee, "Officers['advisors']", new [] { pupin, tesla });
             Expression.ParseSetter<Society, Inventor[]>("Officers['advisors']",
-                    CompileOptions.CompileOnParse | CompileOptions.MustCompile)
+                    EvaluationMode.MustCompile)
                 .SetValue(ieee, new[] { pupin, tesla });
 
             Assert.AreEqual(pupin, CompileGetter<Society, Inventor>("(Officers['advisors'] as Inventor[])[0]").GetValue(ieee));
@@ -620,13 +620,13 @@ namespace SpringExpressionsTests.Expressions
             // setters refuse for the same reason, and the weak path sets the value anyway
             Assert.Throws<SpringExpressions.Expressions.Compiling.Expressions.CompileErrorException>(
                 () => Expression.ParseSetter<Society, string>("Officers['advisors'][0].PlaceOfBirth.Country",
-                    CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                    EvaluationMode.MustCompile));
             Expression.Parse("Officers['advisors'][0].PlaceOfBirth.Country").SetValue(ieee, "Croatia");
             Assert.AreEqual("Croatia", CompileGetter<Inventor, string>("PlaceOfBirth.Country").GetValue(tesla));
 
             Assert.Throws<SpringExpressions.Expressions.Compiling.Expressions.CompileErrorException>(
                 () => Expression.ParseSetter<Society, string>("Officers['president'].Name",
-                    CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                    EvaluationMode.MustCompile));
             Expression.Parse("Officers['president'].Name").SetValue(ieee, "Michael Pupin");
             Assert.AreEqual("Michael Pupin", Expression.Parse("Officers[Society.President].Name").GetValue(ieee));
         }
@@ -939,7 +939,7 @@ namespace SpringExpressionsTests.Expressions
             Assert.AreEqual(new DateTime(1974, 8, 24),
                 Expression.ParseGetter<DateTime>(
                     "new DateTime(2004, 8, 14).AddDays(10m).AddYears(-30)", 
-                    CompileOptions.MustUseInterpreter)
+                    EvaluationMode.MustInterpret)
                 .GetValue());
 
             // implicit casting from decimal to double
@@ -1140,7 +1140,7 @@ namespace SpringExpressionsTests.Expressions
 
 
             Assert.AreEqual(6, Expression.ParseGetter<int?, int?>(
-                    "#root ?? 997", CompileOptions.MustUseInterpreter)
+                    "#root ?? 997", EvaluationMode.MustInterpret)
                 .GetValue(nullableInt));
             Assert.AreEqual(6, CompileGetter<int?, int?>("#root ?? 997").GetValue(nullableInt));
 
@@ -1198,7 +1198,7 @@ namespace SpringExpressionsTests.Expressions
         {
             Assert.Throws<ArgumentException>(
                 () => Expression.ParseSetter<string>("#this", 
-                    CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                    EvaluationMode.MustCompile));
         }
 
         /// <summary>
@@ -1209,7 +1209,7 @@ namespace SpringExpressionsTests.Expressions
         {
             Assert.Throws<ArgumentException>(
                 () => Expression.ParseSetter<string>("#root",
-                CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                EvaluationMode.MustCompile));
         }
 
         /// <summary>
@@ -1281,7 +1281,7 @@ namespace SpringExpressionsTests.Expressions
                 Expression.ParseGetter<object>(
                     "T(System.Text.RegularExpressions.RegexOptions).IgnoreCase " +
                     "or T(System.Text.RegularExpressions.RegexOptions).Compiled",
-                    CompileOptions.MustUseInterpreter).GetValue().GetType());
+                    EvaluationMode.MustInterpret).GetValue().GetType());
 
 
             Assert.AreEqual(
@@ -1337,13 +1337,13 @@ namespace SpringExpressionsTests.Expressions
             Assert.AreEqual(
                 typeof(TestEnumFlags), 
                 Expression.ParseGetter<object>(
-                    "TestEnumFlags.TwoAndFourCombined and TestEnumFlags.Four", CompileOptions.MustUseInterpreter)
+                    "TestEnumFlags.TwoAndFourCombined and TestEnumFlags.Four", EvaluationMode.MustInterpret)
                     .GetValue().GetType());
 
             Assert.AreEqual(
                 TestEnumFlags.Four,
                 Expression.ParseGetter<object>(
-                        "TestEnumFlags.TwoAndFourCombined and TestEnumFlags.Four", CompileOptions.MustUseInterpreter)
+                        "TestEnumFlags.TwoAndFourCombined and TestEnumFlags.Four", EvaluationMode.MustInterpret)
                     .GetValue());
 
             // compilation:
@@ -1388,7 +1388,7 @@ namespace SpringExpressionsTests.Expressions
             // interpreter
             Assert.Throws<ArgumentException>( ()=>
                 Expression.ParseGetter<object>(
-                        "TestEnumFlags.TwoAndFourCombined * TestEnumFlags.Four", CompileOptions.MustUseInterpreter)
+                        "TestEnumFlags.TwoAndFourCombined * TestEnumFlags.Four", EvaluationMode.MustInterpret)
                     .GetValue());
 
             // compiler - a refusal, as the author's own note here asked for ("should throw compile
@@ -1397,7 +1397,7 @@ namespace SpringExpressionsTests.Expressions
             Assert.Throws<SpringExpressions.Expressions.Compiling.Expressions.CompileErrorException>(() =>
                 Expression.ParseGetter<object>(
                     "TestEnumFlags.TwoAndFourCombined * TestEnumFlags.Four",
-                    CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                    EvaluationMode.MustCompile));
         }
 
         /// <summary>
@@ -1872,3 +1872,4 @@ namespace SpringExpressionsTests.Expressions
         #endregion
     }
 }
+

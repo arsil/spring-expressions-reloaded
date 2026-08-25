@@ -5,11 +5,11 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
     abstract class BaseStronglyTypedExpression
     {
         protected BaseStronglyTypedExpression(
-            [NotNull] BaseNode expressionNode, 
-            CompileOptions compileOptions)
+            [NotNull] BaseNode expressionNode,
+            EvaluationMode mode)
         {
             _expressionNode = expressionNode;
-            _compileOptions = compileOptions;
+            _mode = mode;
         }
 
         internal BaseNode ExpressionNode
@@ -20,7 +20,7 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         // evaluation, so one expression instance can be evaluated concurrently on many threads.
         // ReSharper disable InconsistentNaming
         protected readonly BaseNode _expressionNode;
-        protected readonly CompileOptions _compileOptions;
+        protected readonly EvaluationMode _mode;
         // ReSharper restore InconsistentNaming
     }
 }

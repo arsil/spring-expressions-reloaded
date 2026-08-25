@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -9,18 +9,38 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
 {
     abstract class BaseGetterExpression<TRoot, TResult> : BaseStronglyTypedExpression
     {
+        /// <summary>
+        /// Compilation happens here, once, or not at all - never on a later evaluation.
+        /// </summary>
+        /// <remarks>
+        /// Lazily compiling on first use put the failure in the wrong place: construction succeeded and
+        /// some later <c>GetValue</c> threw, possibly in production, possibly on another thread. It also
+        /// needed a <c>??=</c> on a shared field. Both are gone: the delegate is built in the constructor
+        /// and the field is readonly, so <see cref="_compiledExpression"/> being null *is* the record that
+        /// this expression is interpreted - which is exactly what a status query will read.
+        /// </remarks>
         protected BaseGetterExpression(
-            [NotNull] BaseNode expressionNode, CompileOptions compileOptions)
-            : base(expressionNode, compileOptions)
+            [NotNull] BaseNode expressionNode, EvaluationMode mode)
+            : base(expressionNode, mode)
         {
-            // todo: error handling!!!!
-            if (_compileOptions.HasFlag(CompileOptions.CompileOnParse))
+            if (mode == EvaluationMode.MustInterpret)
+                return;
+
+            try
+            {
                 _compiledExpression = Compiler.CompileGetter<TResult, TRoot>(_expressionNode);
+            }
+            catch (CompileErrorException) when (mode == EvaluationMode.CompileOrInterpret)
+            {
+                // No compiled form for this shape against this root type; the interpreter accepts a
+                // strict superset of what the compiled backend does, so it serves the expression.
+                // MustCompile does not catch: the refusal is what that caller asked to hear.
+            }
         }
 
         protected TResult GetValueInternal(TRoot context, IDictionary<string, object> variables)
         {
-            if (_compileOptions.HasFlag(CompileOptions.MustUseInterpreter))
+            if (_compiledExpression == null)
             {
                 // The interpreter mutates its context - SwitchThisContext in the projection and
                 // selection nodes, SwitchLocalVariables in the lambda node - so it gets a fresh
@@ -48,16 +68,14 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
                 return (TResult)value;
             }
 
-            // todo: error handling!!!!
-            var compiled = _compiledExpression ??= Compiler.CompileGetter<TResult, TRoot>(_expressionNode);
-
             // Root and variables are parameters of the compiled delegate, so nothing is shared
             // between concurrent evaluations and nothing is allocated per evaluation.
-            return compiled(context, variables);
+            return _compiledExpression(context, variables);
         }
 
+        /// <summary>Null when this expression is interpreted - see the constructor.</summary>
         [CanBeNull]
-        private Func<TRoot, IDictionary<string, object>, TResult> _compiledExpression;
+        private readonly Func<TRoot, IDictionary<string, object>, TResult> _compiledExpression;
 
 
 
@@ -172,8 +190,8 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         : BaseGetterExpression<TRoot, TResult>
         , IGetterExpression<TRoot, TResult>
     {
-        public GetterExpression([NotNull] BaseNode expressionNode, CompileOptions compileOptions)
-            : base(expressionNode, compileOptions)
+        public GetterExpression([NotNull] BaseNode expressionNode, EvaluationMode mode)
+            : base(expressionNode, mode)
         { }
 
         public TResult GetValue(TRoot context, IDictionary<string, object> variables = null)
@@ -184,11 +202,12 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         : BaseGetterExpression<object, TResult>
         , IGetterExpression<TResult>
     {
-        public GetterExpression([NotNull] BaseNode expressionNode, CompileOptions compileOptions)
-            : base(expressionNode, compileOptions)
+        public GetterExpression([NotNull] BaseNode expressionNode, EvaluationMode mode)
+            : base(expressionNode, mode)
         { }
 
         public TResult GetValue(IDictionary<string, object> variables = null)
             => GetValueInternal(null, variables);
     }
 }
+

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 using NUnit.Framework;
 
@@ -145,7 +145,7 @@ namespace SpringExpressionsTests.Expressions
                 () =>
                 {
                     var getter = Expression.ParseGetter<ISet<string>>(
-                        "{1,2} + {3}", CompileOptions.CompileOnParse | CompileOptions.MustCompile);
+                        "{1,2} + {3}", EvaluationMode.MustCompile);
                     getter.GetValue();
                 });
         }
@@ -189,7 +189,7 @@ namespace SpringExpressionsTests.Expressions
         {
             Assert.Throws<CompileErrorException>(
                 () => Expression.ParseGetter<HashSet<int>>(
-                    "{1,2,3} * {2,3,4}", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                    "{1,2,3} * {2,3,4}", EvaluationMode.MustCompile));
 
             var interpreted = InterpretGetter<HashSet<int>>("{1,2,3} * {2,3,4}").GetValue();
 
@@ -205,7 +205,7 @@ namespace SpringExpressionsTests.Expressions
         {
             Assert.Throws<CompileErrorException>(
                 () => Expression.ParseGetter<HashSet<int>>(
-                    "{1,2,3} - {2}", CompileOptions.CompileOnParse | CompileOptions.MustCompile));
+                    "{1,2,3} - {2}", EvaluationMode.MustCompile));
 
             var interpreted = InterpretGetter<HashSet<int>>("{1,2,3} - {2}").GetValue();
 
@@ -214,3 +214,4 @@ namespace SpringExpressionsTests.Expressions
         }
     }
 }
+

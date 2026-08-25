@@ -1,4 +1,4 @@
-﻿#region License
+#region License
 
 /*
  * Copyright © 2002-2011 the original author or authors.
@@ -146,9 +146,11 @@ namespace SpringExpressions
         /// by parsing specified expression string.
         /// </summary>
         /// <param name="expression">Expression to parse.</param>
-        public static IExpression Parse( string expression )
+        public static IWeaklyTypedExpression Parse(
+            string expression,
+            EvaluationMode mode = EvaluationMode.CompileOrInterpret)
         {
-            return Wrap(ParseAst(expression));
+            return Wrap(ParseAst(expression), mode);
         }
 
         /// <summary>
@@ -199,11 +201,13 @@ namespace SpringExpressions
         /// </remarks>
         /// <param name="expressionNode">The node to evaluate; must not be null.</param>
         [NotNull]
-        public static IExpression Wrap([NotNull] BaseNode expressionNode)
+        public static IWeaklyTypedExpression Wrap(
+            [NotNull] BaseNode expressionNode,
+            EvaluationMode mode = EvaluationMode.CompileOrInterpret)
         {
             AssertUtils.ArgumentNotNull(expressionNode, "expressionNode");
 
-            return new WeaklyTypedExpression(expressionNode);
+            return new WeaklyTypedExpression(expressionNode, mode);
         }
 
             // todo: error: a możę ParseAndCompile()
@@ -211,61 +215,61 @@ namespace SpringExpressions
         [NotNull]
         public static IGetterExpression<TRoot, TResult> ParseGetter<TRoot, TResult>(
             [NotNull] string expression,
-            CompileOptions compileOptions = CompileOptions.Default)
+            EvaluationMode mode = EvaluationMode.CompileOrInterpret)
         {
             AssertUtils.ArgumentHasText(expression, "expression");
 
-            return new GetterExpression<TRoot, TResult>(ParseAst(expression), compileOptions);
+            return new GetterExpression<TRoot, TResult>(ParseAst(expression), mode);
         }
 
         [NotNull]
         public static IGetterExpression<TResult> ParseGetter<TResult>(
             [NotNull] string expression,
-            CompileOptions compileOptions = CompileOptions.Default)
+            EvaluationMode mode = EvaluationMode.CompileOrInterpret)
         {
             AssertUtils.ArgumentHasText(expression, "expression");
 
-            return new GetterExpression<TResult>(ParseAst(expression), compileOptions);
+            return new GetterExpression<TResult>(ParseAst(expression), mode);
         }
 
         [NotNull]
         public static ISetterExpression<TRoot, TArgument> ParseSetter<TRoot, TArgument>(
             [NotNull] string expression,
-            CompileOptions compileOptions = CompileOptions.Default)
+            EvaluationMode mode = EvaluationMode.CompileOrInterpret)
         {
             AssertUtils.ArgumentHasText(expression, "expression");
 
-            return new SetterExpression<TRoot, TArgument>(ParseAst(expression), compileOptions);
+            return new SetterExpression<TRoot, TArgument>(ParseAst(expression), mode);
         }
 
         [NotNull]
         public static ISetterExpression<TArgument> ParseSetter<TArgument>(
             [NotNull] string expression,
-            CompileOptions compileOptions = CompileOptions.Default)
+            EvaluationMode mode = EvaluationMode.CompileOrInterpret)
         {
             AssertUtils.ArgumentHasText(expression, "expression");
 
-            return new SetterExpression<TArgument>(ParseAst(expression), compileOptions);
+            return new SetterExpression<TArgument>(ParseAst(expression), mode);
         }
 
         [NotNull]
         public static IVoidExpression<TRoot> ParseVoidExpression<TRoot>(
             [NotNull] string expression,
-            CompileOptions compileOptions = CompileOptions.Default)
+            EvaluationMode mode = EvaluationMode.CompileOrInterpret)
         {
             AssertUtils.ArgumentHasText(expression, "expression");
 
-            return new VoidExpression<TRoot>(ParseAst(expression), compileOptions);
+            return new VoidExpression<TRoot>(ParseAst(expression), mode);
         }
 
         [NotNull]
         public static IVoidExpression ParseVoidExpression(
             [NotNull] string expression,
-            CompileOptions compileOptions = CompileOptions.Default)
+            EvaluationMode mode = EvaluationMode.CompileOrInterpret)
         {
             AssertUtils.ArgumentHasText(expression, "expression");
 
-            return new VoidExpression(ParseAst(expression), compileOptions);
+            return new VoidExpression(ParseAst(expression), mode);
         }
 
 
@@ -623,3 +627,5 @@ namespace SpringExpressions
         }
     }
 }
+
+

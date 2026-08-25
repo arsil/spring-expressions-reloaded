@@ -329,13 +329,13 @@ namespace SpringExpressionsTests.Expressions
             int expectedCalls)
         {
             var interpretedRoot = graphFactory();
-            Expression.ParseGetter<NullConditionalRoot, object>(expression, CompileOptions.MustUseInterpreter)
+            Expression.ParseGetter<NullConditionalRoot, object>(expression, EvaluationMode.MustInterpret)
                 .GetValue(interpretedRoot);
             Assert.AreEqual(expectedCalls, interpretedRoot.GetItemsCallCount,
                 "interpreted: '" + expression + "' evaluated its context the wrong number of times");
 
             var compiledRoot = graphFactory();
-            Expression.ParseGetter<NullConditionalRoot, object>(expression, CompileOptions.CompileOnParse)
+            Expression.ParseGetter<NullConditionalRoot, object>(expression, EvaluationMode.MustCompile)
                 .GetValue(compiledRoot);
             Assert.AreEqual(expectedCalls, compiledRoot.GetItemsCallCount,
                 "compiled: '" + expression + "' evaluated its context the wrong number of times");
@@ -481,7 +481,7 @@ namespace SpringExpressionsTests.Expressions
 
             Assert.Throws<NotSupportedException>(
                 () => Expression.ParseVoidExpression<NullConditionalRoot>(
-                        "Author?.Name = 'someone else'", CompileOptions.MustUseInterpreter)
+                        "Author?.Name = 'someone else'", EvaluationMode.MustInterpret)
                     .Execute(graph));
 
             Assert.AreEqual(originalName, graph.Author.Name);
@@ -595,7 +595,7 @@ namespace SpringExpressionsTests.Expressions
         {
             var variables = VariablesWith(Tesla());
 
-            Expression.ParseVoidExpression<object>("#author = 'replaced'", CompileOptions.MustUseInterpreter)
+            Expression.ParseVoidExpression<object>("#author = 'replaced'", EvaluationMode.MustInterpret)
                 .Execute(null, variables);
 
             Assert.AreEqual("replaced", variables["author"]);
@@ -607,13 +607,13 @@ namespace SpringExpressionsTests.Expressions
             var target = new NullConditionalRoot { Author = Tesla() };
 
             Expression.ParseVoidExpression<NullConditionalRoot>(
-                    "Author.Name = #author?.Name", CompileOptions.MustUseInterpreter)
+                    "Author.Name = #author?.Name", EvaluationMode.MustInterpret)
                 .Execute(target, VariablesWith(new NullConditionalAuthor { Name = "from variable" }));
 
             Assert.AreEqual("from variable", target.Author.Name);
 
             Expression.ParseVoidExpression<NullConditionalRoot>(
-                    "Author.Name = #author?.Name", CompileOptions.MustUseInterpreter)
+                    "Author.Name = #author?.Name", EvaluationMode.MustInterpret)
                 .Execute(target, VariablesWith(null));
 
             Assert.IsNull(target.Author.Name, "a short-circuited variable chain assigns null");
@@ -623,11 +623,11 @@ namespace SpringExpressionsTests.Expressions
 
         #region Helpers
 
-        /// <summary>The two option sets that force each backend, so a test can assert against both.</summary>
-        private static IEnumerable<CompileOptions> InterpretedAndCompiled()
+        /// <summary>The two modes that force each backend, so a test can assert against both.</summary>
+        private static IEnumerable<EvaluationMode> InterpretedAndCompiled()
         {
-            yield return CompileOptions.MustUseInterpreter;
-            yield return CompileOptions.CompileOnParse;
+            yield return EvaluationMode.MustInterpret;
+            yield return EvaluationMode.MustCompile;
         }
 
         /// <summary>
@@ -655,3 +655,4 @@ namespace SpringExpressionsTests.Expressions
         #endregion
     }
 }
+
