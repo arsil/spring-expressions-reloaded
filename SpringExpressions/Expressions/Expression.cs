@@ -272,6 +272,42 @@ namespace SpringExpressions
             return new VoidExpression(ParseAst(expression), mode);
         }
 
+        /// <summary>
+        /// What a strongly typed expression became: compiled, or interpreted and why.
+        /// </summary>
+        /// <remarks>
+        /// One method for getters, setters and void expressions alike - <see cref="IStronglyTypedExpression"/>
+        /// is the marker they all share, so nothing needs adding to any of the six interfaces. The answer
+        /// is decided when the expression is created and never changes, which is what lets this be a pure
+        /// query: <c>ParseGetter</c> has already compiled or refused by the time it returns.
+        /// <p>
+        /// The weakly typed path has no counterpart, deliberately. It decides per declared context type,
+        /// on first use with that type, in code the asker did not write - so there is no moment at which a
+        /// query could be complete, and it reports through an observer instead. See
+        /// <c>_Docs/compilation-options-and-status.md</c> §4.
+        /// </p>
+        /// </remarks>
+        /// <exception cref="ArgumentException">
+        /// The expression was not created by this class. <see cref="IStronglyTypedExpression"/> is public
+        /// and empty, so anyone may implement it; nothing is known about such an instance.
+        /// </exception>
+        [NotNull]
+        public static CompilationStatus GetCompilationStatus(
+            [NotNull] IStronglyTypedExpression expression)
+        {
+            AssertUtils.ArgumentNotNull(expression, "expression");
+
+            if (!(expression is BaseStronglyTypedExpression ours))
+            {
+                throw new ArgumentException(
+                    $"[{expression.GetType()}] was not created by Expression.ParseGetter, ParseSetter or "
+                    + "ParseVoidExpression, so there is no compilation status to report.",
+                    "expression");
+            }
+
+            return ours.Status;
+        }
+
 
         /// <summary>
         /// Registers lambda expression under the specified <paramref name="functionName"/>.
