@@ -20,12 +20,22 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
             {
                 _compiledExpression = Compiler.CompileExecuteWithVoidReturnType<TRoot>(_expressionNode);
             }
-            catch (CompileErrorException) when (mode == EvaluationMode.CompileOrInterpret)
+            catch (CompileErrorException ex) when (mode == EvaluationMode.CompileOrInterpret)
             {
                 // No compiled form for this shape; the interpreter executes it. MustCompile does not
                 // catch: that caller asked to hear the refusal.
+                _refusalMessage = ex.Message;
             }
         }
+
+        internal override CompilationStatus Status
+            => _compiledExpression != null
+                ? CompilationStatus.Compiled
+                : _refusalMessage == null
+                    ? CompilationStatus.InterpretedByRequest
+                    : CompilationStatus.InterpretedAfterRefusal(_refusalMessage);
+
+        private readonly string _refusalMessage;
 
         protected void ExecuteInternal(
             TRoot context, IDictionary<string, object> variables)
@@ -67,4 +77,5 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
             => ExecuteInternal(null, variables);
     }
 }
+
 

@@ -30,13 +30,26 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
             {
                 _compiledExpression = Compiler.CompileGetter<TResult, TRoot>(_expressionNode);
             }
-            catch (CompileErrorException) when (mode == EvaluationMode.CompileOrInterpret)
+            catch (CompileErrorException ex) when (mode == EvaluationMode.CompileOrInterpret)
             {
                 // No compiled form for this shape against this root type; the interpreter accepts a
                 // strict superset of what the compiled backend does, so it serves the expression.
                 // MustCompile does not catch: the refusal is what that caller asked to hear.
+                // The message is kept rather than discarded - it names the node that refused, which is
+                // the only part of Status a caller cannot work out for themselves.
+                _refusalMessage = ex.Message;
             }
         }
+
+        internal override CompilationStatus Status
+            => _compiledExpression != null
+                ? CompilationStatus.Compiled
+                : _refusalMessage == null
+                    ? CompilationStatus.InterpretedByRequest
+                    : CompilationStatus.InterpretedAfterRefusal(_refusalMessage);
+
+        [CanBeNull]
+        private readonly string _refusalMessage;
 
         protected TResult GetValueInternal(TRoot context, IDictionary<string, object> variables)
         {
@@ -210,4 +223,5 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
             => GetValueInternal(null, variables);
     }
 }
+
 
