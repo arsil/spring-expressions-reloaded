@@ -1175,8 +1175,19 @@ namespace SpringExpressionsTests.Expressions
 
             var tesla = GetTesla();
 
-            // special object handling - we cast variable to assigning property/field type
-            Assert.AreEqual("Ana Maria Seovic", CompileGetter<Inventor, object>("Name = #newName").GetValue(tesla, vars));
+            // A variable is statically object, so assigning one to a typed member has no compiled form:
+            // whether it fits is decided by whatever the caller put in the variable. This used to compile
+            // to a cast - "special object handling", as the note here called it - which threw
+            // InvalidCastException on a variable holding anything but a string, where the interpreter
+            // converts it. The weak path interprets the shape instead, and a cast buys compilation back.
+            // WeakSetterEvaluationTests pins all three.
+            Assert.Throws<SpringExpressions.Expressions.Compiling.Expressions.CompileErrorException>(
+                () => CompileGetter<Inventor, object>("Name = #newName"));
+
+            Assert.AreEqual("Ana Maria Seovic",
+                Expression.Parse("Name = #newName").GetValue(tesla, vars));
+            Assert.AreEqual("Ana Maria Seovic",
+                CompileGetter<Inventor, object>("Name = #newName as string").GetValue(tesla, vars));
 
             Assert.AreEqual("Nikola Tesla",
                 CompileGetter<Inventor, object>("(#oldName = Name; Name = 'Nikola Tesla')").GetValue(tesla, vars));

@@ -64,9 +64,17 @@ namespace SpringExpressions
         /// <summary>
         /// Sets expression value.
         /// </summary>
+        /// <remarks>
+        /// The value's declared type comes from the call site, exactly as the context's does - one rule
+        /// for both halves of a write. It is what an assignment is compiled against, so a value the
+        /// target member cannot hold is a compile-time refusal that falls back to the interpreter,
+        /// rather than something that compiles and then behaves differently from it. A caller who
+        /// erases the type - passing an <c>object</c> against a typed member - gets the interpreter,
+        /// on the same grounds an object-typed method argument does.
+        /// </remarks>
         /// <param name="context">Object to evaluate expression against; may be null.</param>
         /// <param name="newValue">New value for the last node of the expression.</param>
-        void SetValue<TContext>(TContext context, object newValue);
+        void SetValue<TContext, TValue>(TContext context, TValue newValue);
 
         /// <summary>
         /// Sets expression value.
@@ -74,7 +82,8 @@ namespace SpringExpressions
         /// <param name="context">Object to evaluate expression against; may be null.</param>
         /// <param name="variables">Expression variables map.</param>
         /// <param name="newValue">New value for the last node of the expression.</param>
-        void SetValue<TContext>(TContext context, IDictionary<string, object> variables, object newValue);
+        void SetValue<TContext, TValue>(
+            TContext context, IDictionary<string, object> variables, TValue newValue);
     }
 
            // todo: error: zmienić może nazwy IGetterExpression

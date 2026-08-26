@@ -58,17 +58,61 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
             return GetterFor<TContext>().GetValue(context, variables);
         }
 
-        public void SetValue<TContext>(TContext context, object newValue)
+        public void SetValue<TContext, TValue>(TContext context, TValue newValue)
         {
-            SetValue<TContext>(context, null, newValue);
+            SetValue<TContext, TValue>(context, null, newValue);
         }
 
-        public void SetValue<TContext>(
-            TContext context, IDictionary<string, object> variables, object newValue)
+        public void SetValue<TContext, TValue>(
+            TContext context, IDictionary<string, object> variables, TValue newValue)
         {
-            // Setting always interprets: only four node types emit a compiled setter, against five that
-            // interpret one, so routing this at the compiler would refuse shapes that work today.
-            _expressionNode.SetValue(context, variables, newValue);
+            SetterFor<TContext, TValue>().SetValue(context, newValue, variables);
+        }
+
+        /// <summary>
+        /// The setter for one (declared context type, declared value type) pair, built once.
+        /// </summary>
+        /// <remarks>
+        /// Setting used to bypass all of this and interpret unconditionally - "only four node types emit
+        /// a compiled setter, against five that interpret one, so routing this at the compiler would
+        /// refuse shapes that work today". That objection died with the fallback: under
+        /// <see cref="EvaluationMode.CompileOrInterpret"/> a refusal is not a refusal, so nothing that
+        /// worked interpreted can stop working - and in exchange the mode is honoured on writes, not
+        /// only on reads.
+        /// <p>
+        /// The value type is part of the key for the same reason the context type is: it is what the
+        /// assignment is compiled against. An <c>object</c>-typed value against a typed member has no
+        /// compiled form - the runtime value decides, exactly as it does for an object-typed method
+        /// argument - so that pair refuses and the interpreter serves it.
+        /// </p>
+        /// </remarks>
+        private ISetterExpression<TContext, TValue> SetterFor<TContext, TValue>()
+        {
+            return (ISetterExpression<TContext, TValue>)_settersByDeclaredTypes.GetOrAdd(
+                new DeclaredTypes(typeof(TContext), typeof(TValue)),
+                _ => new SetterExpression<TContext, TValue>(_expressionNode, _mode));
+        }
+
+        /// <summary>The key of the setter map: one entry per declared context and value type pair.</summary>
+        private readonly struct DeclaredTypes : IEquatable<DeclaredTypes>
+        {
+            public DeclaredTypes(Type contextType, Type valueType)
+            {
+                _contextType = contextType;
+                _valueType = valueType;
+            }
+
+            public bool Equals(DeclaredTypes other)
+                => _contextType == other._contextType && _valueType == other._valueType;
+
+            public override bool Equals(object obj)
+                => obj is DeclaredTypes other && Equals(other);
+
+            public override int GetHashCode()
+                => unchecked((_contextType.GetHashCode() * 397) ^ _valueType.GetHashCode());
+
+            private readonly Type _contextType;
+            private readonly Type _valueType;
         }
 
         private IGetterExpression<TContext, object> GetterFor<TContext>()
@@ -106,5 +150,8 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
 
         private readonly ConcurrentDictionary<Type, object> _gettersByDeclaredType
             = new ConcurrentDictionary<Type, object>();
+
+        private readonly ConcurrentDictionary<DeclaredTypes, object> _settersByDeclaredTypes
+            = new ConcurrentDictionary<DeclaredTypes, object>();
     }
 }

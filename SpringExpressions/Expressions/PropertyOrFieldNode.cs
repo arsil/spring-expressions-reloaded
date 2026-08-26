@@ -1,4 +1,4 @@
-﻿#region License
+#region License
 
 /*
  * Copyright © 2002-2011 the original author or authors.
@@ -405,12 +405,7 @@ namespace SpringExpressions
 
                     var memberInfo = (PropertyInfo)propertyAcc.MemberInfo;
 
-                    // special object handling
-                    if (newValueExpression.Type == typeof(object)
-                        && newValueExpression.Type != memberInfo.PropertyType)
-                    {
-                        newValueExpression = LExpression.ConvertChecked(newValueExpression, memberInfo.PropertyType);
-                    }
+                    RefuseObjectValueAgainstTypedMember(newValueExpression, memberInfo.PropertyType);
 
                     return BuildAssign(
                         LExpression.Property(finalContextExpression, memberInfo),
@@ -440,12 +435,7 @@ namespace SpringExpressions
                     */
                     var memberInfo = (FieldInfo)fieldAcc.MemberInfo;
 
-                    // special object handling
-                    if (newValueExpression.Type == typeof(object)
-                        && newValueExpression.Type != memberInfo.FieldType)
-                    {
-                        newValueExpression = LExpression.ConvertChecked(newValueExpression, memberInfo.FieldType);
-                    }
+                    RefuseObjectValueAgainstTypedMember(newValueExpression, memberInfo.FieldType);
 
                     return BuildAssign(
                         LExpression.Field(finalContextExpression, memberInfo),
@@ -453,6 +443,35 @@ namespace SpringExpressions
                 }
 
                 throw CannotCompile("no property or field of this name on the context type");
+            }
+        }
+
+        /// <summary>
+        /// An <c>object</c>-typed value assigned to a typed member has no compiled form: only the runtime
+        /// value decides whether it fits, which is the interpreter's job.
+        /// </summary>
+        /// <remarks>
+        /// This used to emit <c>ConvertChecked(object, memberType)</c> - an unboxing *cast* - where the
+        /// interpreter performs a *conversion*. The two agree only when the runtime type already matches:
+        /// assigning a boxed 45 to an int worked either way, while assigning a boxed "45" cast-failed
+        /// where the interpreter converts it. That was invisible while only the strongly typed path
+        /// reached here and the caller had chosen the object argument themselves; once weak writes were
+        /// routed through the compiler it became a silent behaviour change on every
+        /// <c>SetValue(root, someObjectVariable)</c>.
+        /// <p>
+        /// Refusing is the same rule the overload gate applies to an object-typed method argument -
+        /// "depends on the runtime type; there is no compiled form" - and it lands the same way: the
+        /// weakly typed path falls back and the interpreter converts, exactly as before.
+        /// </p>
+        /// </remarks>
+        private void RefuseObjectValueAgainstTypedMember(
+            LExpression newValueExpression, Type memberType)
+        {
+            if (newValueExpression.Type == typeof(object) && memberType != typeof(object))
+            {
+                throw CannotCompile(
+                    $"the value is statically typed 'System.Object' and the target is '{memberType}'; "
+                    + "whether it fits depends on the runtime value, so the interpreter assigns it");
             }
         }
 
