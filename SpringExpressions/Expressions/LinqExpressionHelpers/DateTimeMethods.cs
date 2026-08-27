@@ -11,9 +11,11 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
         public static readonly MethodInfo DateTimeAddTimeSpanMethodInfo
             = typeof(DateTime).GetMethod("op_Addition", new[] { typeof(DateTime), typeof(TimeSpan) });
 
-        public static readonly MethodInfo DateTimeAddDateTimeMethodInfo
-            = typeof(DateTime).GetMethod("op_Addition", new[] { typeof(DateTime), typeof(DateTime) });
-
+        // There is no DateTimeAddDateTimeMethodInfo, and there never could be: the BCL declares no
+        // op_Addition(DateTime, DateTime) - adding two points in time is meaningless - so this lookup
+        // returned null at type-initialisation and OpADD's branch for it crashed on every use. The
+        // subtraction below is the real asymmetry: DateTime - DateTime *is* defined, yielding a
+        // TimeSpan.
 
         public static readonly MethodInfo DateTimeSubTimeSpanMethodInfo
             = typeof(DateTime).GetMethod("op_Subtraction", new[] { typeof(DateTime), typeof(TimeSpan) });

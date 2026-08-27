@@ -15,6 +15,15 @@ namespace SpringExpressionsTests.Expressions
         public HashSet<int> IntSet { get; } = new HashSet<int> { 1, 2 };
     }
 
+    /// <summary>Operands whose item type is not written on the operand's own type.</summary>
+    public class ArrayAndListHolder
+    {
+        public int[] Array { get; } = { 1, 2 };
+        public int[] OtherArray { get; } = { 2, 3 };
+        public List<int> Ints { get; } = new List<int> { 3, 4 };
+        public string[] Names { get; } = { "a", "b" };
+    }
+
     /// <summary>
     /// Whether the two backends agree on the runtime type of a collection-operator result.
     /// </summary>
@@ -41,6 +50,40 @@ namespace SpringExpressionsTests.Expressions
         public void UnionOfStrings()
         {
             TestCompiledVsInterpreted<object>("{'a','b'} + {'b','c'}");
+        }
+
+        /// <summary>
+        /// An array operand: it implements IEnumerable&lt;T&gt; without being a generic type itself.
+        /// </summary>
+        /// <remarks>
+        /// The item type used to be read as <c>Type.GetGenericArguments()[0]</c>, which for <c>int[]</c>
+        /// indexes an **empty** array - so every union with an array operand died with
+        /// IndexOutOfRangeException out of the emitter, while the interpreter unioned the two quite
+        /// happily. It is read from what the operand enumerates as now, the same helper the projection
+        /// and selection nodes were given for this exact defect.
+        /// </remarks>
+        [Test]
+        public void UnionWithAnArrayOperand()
+        {
+            var holder = new ArrayAndListHolder();
+
+            TestCompiledVsInterpreted<ArrayAndListHolder, object>("Array + Ints", holder);
+            TestCompiledVsInterpreted<ArrayAndListHolder, object>("Ints + Array", holder);
+            TestCompiledVsInterpreted<ArrayAndListHolder, object>("Array + OtherArray", holder);
+            TestCompiledVsInterpreted<ArrayAndListHolder, object>("Names + Names", holder);
+        }
+
+        /// <summary>
+        /// Two arrays of the same element type keep it when a typed result is asked for, which is what
+        /// proves the item type was discovered rather than fallen back on.
+        /// </summary>
+        [Test]
+        public void UnionOfTwoArraysKeepsTheElementType()
+        {
+            Assert.AreEqual(
+                typeof(HashSet<int>),
+                CompileGetter<ArrayAndListHolder, HashSet<int>>("Array + OtherArray")
+                    .GetValue(new ArrayAndListHolder()).GetType());
         }
 
         [Test]

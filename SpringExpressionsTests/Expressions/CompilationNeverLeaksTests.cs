@@ -91,16 +91,11 @@ namespace SpringExpressionsTests.Expressions
             // coerces by truthiness. Needs a ruling, not a patch - see the design document
             "TernaryNode/ArgumentException",
 
-            // '!' emits Not without checking the operand is boolean or integral
-            "OpNOT/InvalidOperationException",
-
-            // the collection-union path indexes something empty when an operand is an array
-            "OpADD/IndexOutOfRangeException",
-
-            // DateTimeAddDateTimeMethodInfo is null - DateTime.Add(DateTime) does not exist in the BCL,
-            // so the reflective lookup returned null at type-initialisation and the branch guarded by
-            // 'left is DateTime && right is DateTime' has been dead-and-crashing since it was written
-            "OpADD/ArgumentNullException"
+            // '!' emits Not without checking the operand is boolean or integral. Note that the
+            // interpreter is not coherent here either - '!45' is -46 (bitwise) while '!4.5' is False
+            // (truthiness), because a double is neither integral nor boolean and falls through to the
+            // logical branch - so this is a ruling, not a patch
+            "OpNOT/InvalidOperationException"
         };
 
         [Test]
@@ -181,6 +176,39 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
+        /// A name the caller got wrong is the caller's mistake, and must be reported as a refusal
+        /// naming the node - never absorbed and returned as "internal compiler error … please report
+        /// it", which blames the engine for a typo.
+        /// </summary>
+        /// <remarks>
+        /// Four surfaces resolve a type name and three of them said this properly; <c>TypeNode</c> was
+        /// missed when the others were converted, so <c>T(Nope)</c> alone told the caller to file a bug
+        /// against us. The distinction is the same one that made six deliberate user-error throws
+        /// convert to refusals: the absorber is for defects, and nothing else may reach it.
+        /// </remarks>
+        [Test]
+        public void AnUnresolvableTypeNameIsTheCallersMistakeOnEverySurfaceThatResolvesOne()
+        {
+            foreach (var expression in new[]
+                { "T(Nope)", "Number is T(Nope)", "new Nope()", "Number as T(Nope)", "Number as Nope" })
+            {
+                var refusal = Assert.Throws<CompileErrorException>(
+                    () => Expression.ParseGetter<Root, object>(expression, EvaluationMode.MustCompile),
+                    expression);
+
+                Assert.AreNotEqual(
+                    "InternalCompilerErrorException", refusal.GetType().Name,
+                    "'" + expression + "' is a name the caller got wrong, not a defect of ours");
+
+                StringAssert.Contains("does not resolve", refusal.Message, expression);
+
+                Assert.Throws<TypeLoadException>(
+                    () => Expression.Parse(expression).GetValue<Root>(new Root()),
+                    "and the interpreter reports the unresolvable name at evaluation: " + expression);
+            }
+        }
+
+        /// <summary>
         /// Every binary operator over every pair of operand kinds, then every operand kind through the
         /// unary, conditional, collection and conversion surfaces.
         /// </summary>
@@ -248,6 +276,16 @@ namespace SpringExpressionsTests.Expressions
             yield return "date('2001-01-01', 'yyyy')";
             yield return "date(Number)";
             yield return "T(System.Int32)";
+
+            // names that do not resolve, on every surface that resolves one. A caller's typo must be
+            // refused, never absorbed as a defect of ours - TypeNode was missed when its siblings were
+            // converted, and this corpus did not catch it because these rows were not in it.
+            yield return "T(Nope)";
+            yield return "Number is T(Nope)";
+            yield return "new Nope()";
+            yield return "Number as T(Nope)";
+            yield return "Number as Nope";
+            yield return "Ints.convert(Nope)";
             yield return "new System.Text.StringBuilder()";
             yield return "new System.Text.StringBuilder(Number)";
             yield return "new System.Text.StringBuilder(Name, Number)";

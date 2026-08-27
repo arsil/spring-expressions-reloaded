@@ -49,7 +49,20 @@ namespace SpringExpressions
             {
                 lock (this)
                 {
-                    type = TypeResolutionUtils.ResolveType(getText());
+                    try
+                    {
+                        type = TypeResolutionUtils.ResolveType(getText());
+                    }
+                    catch (TypeLoadException)
+                    {
+                        // The same refusal CastNode and ConstructorNode already give for an
+                        // unresolvable name; this node was missed when they were converted. Left to
+                        // escape, the TypeLoadException is absorbed as an internal compiler error - so
+                        // 'T(Nope)' told the caller that *we* were broken and asked them to report a
+                        // typo in their own expression. The interpreter reports the unresolvable name
+                        // at evaluation, as it always has.
+                        throw CannotCompile("the type name does not resolve");
+                    }
                 }
             }
 

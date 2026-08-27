@@ -83,14 +83,13 @@ namespace SpringExpressions
                         LExpression.Convert(rightExpression, typeof(double))));
             }
 
-            if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(DateTime))
-            {
-                // (DateTime) left + (DateTime) right;
-                return LExpression.Call(
-                    DateTimeMethods.DateTimeAddDateTimeMethodInfo,
-                    leftExpression,
-                    rightExpression);
-            }
+            // There is deliberately no DateTime + DateTime branch. The BCL has no such operation -
+            // DateTime.Add takes a TimeSpan - so the reflective lookup this branch used returned null
+            // at type-initialisation and every 'When + When' died on the null MethodInfo. The
+            // interpreter has always rejected the pair ("Cannot add instances of 'System.DateTime' and
+            // 'System.DateTime'"), and falling through to the refusal below is what agrees with it.
+            // The neighbouring branches are the real operations: DateTime + TimeSpan, DateTime + a
+            // number of days, and DateTime + a parseable TimeSpan string.
 
             // todo: error: coś robić dla objecta ??????? czy może ścieżka interpretacji?
             // todo: moim zdaniem jak gdzieś mamy objecta, to jest klęska i mamy w tupie taką robotę!
@@ -133,22 +132,12 @@ namespace SpringExpressions
                 // todo: error: i np. _cast(cośtam).To(int))
                 // todo: error: może tylko sety? jednak?
 
-            var leftIsGenericEnumerable = MethodBaseHelpers.IsGenericEnumerable(leftExpression.Type);
-            var rightIsGenericEnumerable = MethodBaseHelpers.IsGenericEnumerable(rightExpression.Type);
-
-            if (leftIsGenericEnumerable&& rightIsGenericEnumerable
-                && leftExpression.Type.GetGenericArguments()[0] == rightExpression.Type.GetGenericArguments()[0]
-                && MethodBaseHelpers.IsGenericEnumerableOfItemType(
-                    leftExpression.Type, leftExpression.Type.GetGenericArguments()[0]))
-            {
-                var finalUnionMi = _genericsUnionMi.MakeGenericMethod(leftExpression.Type.GetGenericArguments()[0]);
-                var typedUnion = LExpression.Call(finalUnionMi, leftExpression, rightExpression);
-
-                compilationContext.MarkAsConstructedCollection(typedUnion);
-                return typedUnion;
-            }
-
-
+            // Dictionaries are matched BEFORE the enumerable union below, and the order is load-bearing:
+            // a Dictionary<K, V> enumerates as KeyValuePair<K, V>, so the set branch would happily union
+            // two dictionaries into a set of pairs and lose the mapping. The order used to be the other
+            // way round and survived only by accident - the item type was read as the *key* type, which
+            // then failed the IsGenericEnumerableOfItemType guard and fell through to here. Reading the
+            // item type correctly removed that accident, so the guard has to be real.
             var leftIsGenericDictionary = MethodBaseHelpers.IsGenericDictionary(leftExpression.Type);
             var rightIsGenericDictionary = MethodBaseHelpers.IsGenericDictionary(rightExpression.Type);
 
@@ -167,6 +156,34 @@ namespace SpringExpressions
                 // and a pair the interpreter also rejects failed at parse instead of at evaluation.
                 throw CannotCompile(
                     $"no compiled addition of '{leftExpression.Type}' and '{rightExpression.Type}'");
+            }
+
+            var leftIsGenericEnumerable = MethodBaseHelpers.IsGenericEnumerable(leftExpression.Type);
+            var rightIsGenericEnumerable = MethodBaseHelpers.IsGenericEnumerable(rightExpression.Type);
+
+            // The item type is read from what the operand enumerates as, not from its own generic
+            // arguments: an array implements IEnumerable<T> without being a generic type at all, so
+            // GetGenericArguments() on int[] is *empty* and indexing it threw IndexOutOfRangeException -
+            // which is how 'Array + Ints' failed, while the interpreter unioned the two quite happily.
+            // GetEnumerableItemType is the same helper the projection and selection nodes were given
+            // when they had this exact defect; it also returns null for an ambiguous source rather than
+            // guessing, and a null item type simply falls through to the typeless union below.
+            var leftItemType = leftIsGenericEnumerable
+                ? CollectionOperandUtils.GetEnumerableItemType(leftExpression.Type)
+                : null;
+            var rightItemType = rightIsGenericEnumerable
+                ? CollectionOperandUtils.GetEnumerableItemType(rightExpression.Type)
+                : null;
+
+            if (leftItemType != null
+                && leftItemType == rightItemType
+                && MethodBaseHelpers.IsGenericEnumerableOfItemType(leftExpression.Type, leftItemType))
+            {
+                var finalUnionMi = _genericsUnionMi.MakeGenericMethod(leftItemType);
+                var typedUnion = LExpression.Call(finalUnionMi, leftExpression, rightExpression);
+
+                compilationContext.MarkAsConstructedCollection(typedUnion);
+                return typedUnion;
             }
 
             if ( (typeof(IList).IsAssignableFrom(leftExpression.Type)
