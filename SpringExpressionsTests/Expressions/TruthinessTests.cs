@@ -111,6 +111,17 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
+        /// A nullable boolean negates, with nothing in it read as false - the same lift the conditional
+        /// test does, and for the same ruled reason.
+        /// </summary>
+        [Test]
+        public void ANullableBooleanNegatesAndANullReadsAsFalse()
+        {
+            TestCompiledVsInterpreted<Root, object>("!NullableFlag", new Root()).ResultEqualsTo(false);
+            TestCompiledVsInterpreted<Root, object>("!NoFlag", new Root()).ResultEqualsTo(true);
+        }
+
+        /// <summary>
         /// A real number is neither, so it refuses - where it used to reach LExpression.Not and crash.
         /// </summary>
         /// <remarks>

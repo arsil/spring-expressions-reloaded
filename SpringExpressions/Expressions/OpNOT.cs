@@ -72,6 +72,14 @@ namespace SpringExpressions
             var operandIsBoolean = leftTypeCode == 3;
             var operandIsInteger = leftTypeCode >= 5 && leftTypeCode <= 12;
 
+            // A nullable boolean negates with nothing in it read as false, the same lift the conditional
+            // operator does for its test: a null in a boolean context reads as false throughout this
+            // engine - the rule that makes 'null and true' false names '!' among the shapes it covers -
+            // so this is lifting rather than any kind of conversion. Note the ordering: it is checked
+            // before the TypeCode guard, because Type.GetTypeCode(typeof(bool?)) is Object, not Boolean.
+            if (operandExpression.Type == typeof(bool?))
+                return LExpression.Not(LExpression.Call(operandExpression, NullableBoolGetValueOrDefault));
+
             if (!operandIsBoolean && !operandIsInteger)
                 throw CannotCompile(
                     $"no compiled complement for '{operandExpression.Type}'; only a boolean is negated "
@@ -125,5 +133,8 @@ namespace SpringExpressions
             else
                 return !Convert.ToBoolean(operand);
         }
+
+        private static readonly System.Reflection.MethodInfo NullableBoolGetValueOrDefault
+            = typeof(bool?).GetMethod("GetValueOrDefault", new Type[0]);
     }
 }

@@ -82,8 +82,31 @@ namespace SpringExpressions.Expressions.Compiling
 
             // todo: error: equatable<>
 
-            // TODO: upewnić się, że to działa (dla wybranych typów) tak samo jak interpretacja!
-            //TODO: brak obsługi .. czy charów... czy innych takich! to samo przy Less i innych operatorach!
+            // Two value types that are not the same type have no compiled equality. The tail below
+            // would box both and call object.Equals, which sees two unrelated types and answers
+            // *false* - '45 == true' was False, '45 != true' was True, and neither is an answer anybody
+            // chose. The interpreter refuses every such pair with ArgumentException, so this is the
+            // compiled path failing to implement a rule that already existed.
+            //
+            // This generalises the enum guard above, which was the same accident found one type at a
+            // time. Nullables unwrap first, so 'bool? == bool' and 'int? == int' keep comparing - those
+            // agree with the interpreter today, since boxing a nullable yields either the underlying
+            // boxed value or a null reference.
+            //
+            // Deliberately not extended to a value type against an *object*: there the runtime value
+            // decides, and 'Number == Anything' agrees on both backends when the object holds an int.
+            // That is the standing object-typed-operand story, and a static refusal would break it.
+            var leftValueType = Nullable.GetUnderlyingType(leftExpression.Type) ?? leftExpression.Type;
+            var rightValueType = Nullable.GetUnderlyingType(rightExpression.Type) ?? rightExpression.Type;
+
+            if (leftValueType.IsValueType
+                && rightValueType.IsValueType
+                && leftValueType != rightValueType)
+            {
+                throw new Expressions.CompileErrorException(
+                    $"no compiled equality between [{leftExpression.Type.FullName}] and "
+                    + $"[{rightExpression.Type.FullName}].");
+            }
 
             // todo: głupie jest to, iż może to nie zadziałać dla boxowanych typów... oto jest pytanie...
             // todo: może nigdy nie powiniśmy eqlals jednak używać... do zastanowienia się...
