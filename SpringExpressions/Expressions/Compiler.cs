@@ -310,17 +310,21 @@ namespace SpringExpressions.Expressions
                 getRootContextExpression,
                 new CompilationContext(getRootContextExpression, variablesParam));
 
-            // todo: error:  compile error!
-            // todo: error:  compile error!
             // todo: error void or Assign or Block? and last of the block is void or assign?
             // todo: error   Or Call(?) Call return void... so it is void?
             var validExpression
                 = exp.Type == typeof(void)
                 || exp.NodeType == ExpressionType.Assign;
 
+            // A refusal, not a defect: the shape may execute perfectly well through the interpreter,
+            // which discards whatever value the expression produces. Reporting it as anything other
+            // than CompileErrorException would escape the fallback and turn a shape that works into a
+            // hard failure - 'Ints.sort()' and '#x = 5' both emit a Call and both land here.
             if (!validExpression)
-               throw new InvalidOperationException(
-                   $"Expression '{exp.NodeType}' returning '{exp.Type}' is not a void expression!");
+               throw new CompileErrorException(
+                   expressionNode,
+                   $"a void expression must emit a void call or an assignment, and this emits "
+                   + $"'{exp.NodeType}' returning '{exp.Type}'");
 
             Expression<Action<TContext, IDictionary<string, object>>> lambda
                 = BuildLambda<Action<TContext, IDictionary<string, object>>>(

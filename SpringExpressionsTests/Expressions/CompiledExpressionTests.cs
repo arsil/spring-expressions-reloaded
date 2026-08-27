@@ -9,6 +9,7 @@ using System.Text;
 using SpringCore;
 using SpringCore.TypeResolution;
 using SpringExpressions;
+using SpringExpressions.Expressions.Compiling.Expressions;
 using SpringExpressions.Parser.antlr;
 
 using Expression = SpringExpressions.Expression;
@@ -479,13 +480,17 @@ namespace SpringExpressionsTests.Expressions
             o = new ShadowingTestsMostSpezializedClass();
             ExpressionEvaluator.SetValue(o, "WriteonlyShadowedValue", "SomeString3");
             Assert.AreEqual("SomeString3", ((ShadowingTestsBaseClass)o).WriteonlyShadowedValue);
-            try
-            {
-                CompileGetter<ShadowingTestsMostSpezializedClass, string>("WriteonlyShadowedValue");
-                Assert.Fail("Getting writeonly property should throw NotReadablePropertyException");
-            }
-            catch (NotReadablePropertyException)
-            { }
+
+            // Reading a write-only property is refused at compile time and reported by the interpreter
+            // at evaluation. The compiled path used to raise NotReadablePropertyException itself, which
+            // the weakly typed path's fallback cannot see - so the shape was a hard failure rather than
+            // an interpreted expression that then fails with the exception a caller expects.
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<ShadowingTestsMostSpezializedClass, string>("WriteonlyShadowedValue"));
+
+            Assert.Throws<NotReadablePropertyException>(
+                () => Expression.Parse("WriteonlyShadowedValue")
+                    .GetValue<ShadowingTestsMostSpezializedClass>(o));
         }
 
 

@@ -308,8 +308,13 @@ namespace SpringExpressions
 
                 if (acc is PropertyValueAccessor propertyAcc)
                 {
+                    // A refusal, not the user's error to hear from here. NotReadablePropertyException
+                    // is inherited Spring.NET surface and is what a caller must still see - but at
+                    // evaluation, from the interpreter, which throws the identical exception. Raised
+                    // during compilation it escapes the fallback, so the shape became a hard failure
+                    // instead of falling through to the backend that reports it properly.
                     if (!acc.IsReadable)
-                        throw new NotReadablePropertyException("Cannot get a non-readable property [" + name + "]");
+                        throw CannotCompile("property '" + name + "' is not readable");
 
                     return LExpression.Property(
                         finalContextExpression,

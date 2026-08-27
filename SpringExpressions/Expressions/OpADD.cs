@@ -22,6 +22,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using JetBrains.Annotations;
 using SpringCollections;
 using SpringExpressions.Expressions.Compiling;
 using SpringExpressions.Expressions.LinqExpressionHelpers;
@@ -115,18 +116,14 @@ namespace SpringExpressions
             // one of exp is a string expression - we use Concat
             if (leftExpression.Type == typeof(string) || rightExpression.Type == typeof(string))
             {
-                if (rightExpression.Type.IsValueType)
-                {
-                    return LExpression.Call(
-                        StrConcatObjObjMethodInfo,
-                        leftExpression, 
-                        LExpression.TypeAs(rightExpression, typeof(object)));
-                }
-
-                return LExpression.Call(
+                // Both arguments of String.Concat(object, object) are object, so each operand is boxed
+                // on its own merits. Boxing only the right one made the operator asymmetric: 'Ana' + 45
+                // compiled because a string needs no boxing, while 45 + 'Ana' handed an unboxed int to
+                // an object parameter and LExpression.Call threw.
+                return BuildCall(
+                    null,
                     StrConcatObjObjMethodInfo,
-                    leftExpression, 
-                    rightExpression);
+                    new[] { BoxIfValueType(leftExpression), BoxIfValueType(rightExpression) });
             }
             
                 // todo: error: wbudowane metody? - patrz date()
@@ -163,8 +160,13 @@ namespace SpringExpressions
                     throw CannotCompile("no compiled addition for these operand types");
                 }
 
-                throw new ArgumentException(
-                    $"Cannot add instances of '{leftExpression.Type.FullName}' and '{rightExpression.Type.FullName}'.");
+                // A dictionary meeting anything else. The verdict is right and was always right; it
+                // used to be delivered as an ArgumentException, which the fallback cannot see - so a
+                // pair the interpreter merges quite happily (a non-generic Hashtable meeting a
+                // Dictionary<,>, whose left operand fails the generic test above) was a hard failure,
+                // and a pair the interpreter also rejects failed at parse instead of at evaluation.
+                throw CannotCompile(
+                    $"no compiled addition of '{leftExpression.Type}' and '{rightExpression.Type}'");
             }
 
             if ( (typeof(IList).IsAssignableFrom(leftExpression.Type)
@@ -308,6 +310,23 @@ namespace SpringExpressions
                 + "' and '"
                 + rightValue?.GetType().FullName
                 + "'.");
+        }
+
+        /// <summary>
+        /// Boxes a value-typed operand so it fits an <c>object</c> parameter; anything else is already
+        /// one and is passed through, so no gratuitous conversion is emitted.
+        /// </summary>
+        /// <remarks>
+        /// A <c>Nullable&lt;T&gt;</c> holding nothing boxes to a null reference, which
+        /// <c>String.Concat</c> renders as the empty string - the same answer the interpreter gives,
+        /// since it hands Concat the boxed value it already has.
+        /// </remarks>
+        [NotNull]
+        private static LExpression BoxIfValueType([NotNull] LExpression expression)
+        {
+            return expression.Type.IsValueType
+                ? LExpression.Convert(expression, typeof(object))
+                : expression;
         }
 
         private static readonly MethodInfo StrConcatObjObjMethodInfo

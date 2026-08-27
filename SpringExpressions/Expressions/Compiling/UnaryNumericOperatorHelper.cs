@@ -1,5 +1,6 @@
 ﻿using System;
 using JetBrains.Annotations;
+using SpringExpressions.Expressions.Compiling.Expressions;
 using SpringExpressions.Expressions.LinqExpressionHelpers;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -80,8 +81,14 @@ namespace SpringExpressions.Expressions.Compiling
                     return true;
 
                 case UnaryOperator.UnaryMinus:
+                    // A refusal, not an argument error: the interpreter reaches the same verdict in
+                    // NumberUtils.Negate and reports it at evaluation. Raised as an ArgumentException
+                    // it escaped the fallback, so this was a hard failure rather than an interpreted
+                    // expression that then fails honestly. The binary twin already does it this way -
+                    // BinaryNumericPromotionException derives from CompileErrorException.
                     if (argTypeCode == 12)
-                        throw new ArgumentException("Operator '-' cannot be applied to operand of type 'ulong'");
+                        throw new CompileErrorException(
+                            "Operator '-' cannot be applied to operand of type 'ulong'");
 
                     resultExpression = LExpression.Negate(argument);
                     return true;

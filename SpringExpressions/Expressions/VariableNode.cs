@@ -110,7 +110,12 @@ namespace SpringExpressions
                     newValueExpression
                 };
 
-            return LExpression.Call(MiSetVariable, arguments);
+            // Through BuildCall, because a value-typed new value does not fit SetVariable's object
+            // parameter and LExpression.Call reports that as an ArgumentException - which the weakly
+            // typed path's fallback cannot see, so '#x = 5' was a hard failure where the interpreter
+            // assigns it quite happily. A string-valued '#x = ...' compiled all along, which is why
+            // this went unnoticed.
+            return BuildCall(null, MiSetVariable, arguments);
         }
 
         /// <summary>

@@ -319,7 +319,11 @@ namespace SpringExpressionsTests.Expressions
                 // Assert.AreEqual(typeof(long), (-ul3).GetType());
                 //Assert.AreEqual(-3, -ul3);
 
-                Assert.Throws<ArgumentException>(() => CompileGetter<ulong, ulong>("-#this"));
+                // The compiled path refuses the shape; the interpreter reaches the same verdict in
+                // NumberUtils.Negate and reports it at evaluation. Assert.Catch rather than
+                // Assert.Throws because the refusal may be any CompileErrorException, exactly as the
+                // binary half of this fixture reads.
+                Assert.Catch<CompileErrorException>(() => CompileGetter<ulong, ulong>("-#this"));
                 Assert.Throws<ArgumentException>(() => InterpretGetter<ulong, ulong>("-#this").GetValue(ul3));
             }
 

@@ -153,12 +153,10 @@ namespace SpringExpressions
         /// or interpret for it - see <see cref="Wrap"/>.
         /// </param>
         public static IWeaklyTypedExpression Parse(
-            [NotNull] string expression,
+            string expression,
             EvaluationMode mode = EvaluationMode.CompileOrInterpret,
             [CanBeNull] Action<EvaluationDecision> onEvaluationDecided = null)
         {
-            AssertUtils.ArgumentNotNull(expression, nameof(expression));
-
             return Wrap(ParseAst(expression), mode, onEvaluationDecided);
         }
 
