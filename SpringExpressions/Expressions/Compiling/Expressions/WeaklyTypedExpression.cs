@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace SpringExpressions.Expressions.Compiling.Expressions
 {
@@ -31,10 +32,14 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
     /// </remarks>
     internal sealed class WeaklyTypedExpression : IWeaklyTypedExpression
     {
-        public WeaklyTypedExpression(BaseNode expressionNode, EvaluationMode mode)
+        public WeaklyTypedExpression(
+            BaseNode expressionNode,
+            EvaluationMode mode,
+            Action<EvaluationDecision> onEvaluationDecided = null)
         {
             _expressionNode = expressionNode;
             _mode = mode;
+            _onEvaluationDecided = onEvaluationDecided;
         }
 
         /// <summary>The AST this evaluates. The tree itself holds no evaluation state.</summary>
@@ -88,9 +93,19 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         /// </remarks>
         private ISetterExpression<TContext, TValue> SetterFor<TContext, TValue>()
         {
-            return (ISetterExpression<TContext, TValue>)_settersByDeclaredTypes.GetOrAdd(
-                new DeclaredTypes(typeof(TContext), typeof(TValue)),
-                _ => new SetterExpression<TContext, TValue>(_expressionNode, _mode));
+            var key = new DeclaredTypes(typeof(TContext), typeof(TValue));
+
+            if (_settersByDeclaredTypes.TryGetValue(key, out var existing))
+                return (ISetterExpression<TContext, TValue>)existing;
+
+            var built = new SetterExpression<TContext, TValue>(_expressionNode, _mode);
+
+            if (!_settersByDeclaredTypes.TryAdd(key, built))
+                return (ISetterExpression<TContext, TValue>)_settersByDeclaredTypes[key];
+
+            Notify(EvaluationOperation.Set, typeof(TContext), typeof(TValue), built.Status);
+
+            return built;
         }
 
         /// <summary>The key of the setter map: one entry per declared context and value type pair.</summary>
@@ -115,16 +130,8 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
             private readonly Type _valueType;
         }
 
-        private IGetterExpression<TContext, object> GetterFor<TContext>()
-        {
-            // GetOrAdd may run the factory more than once under contention and keep only one result. Both
-            // would be equivalent, so a duplicated attempt is wasted work rather than a defect.
-            return (IGetterExpression<TContext, object>)_gettersByDeclaredType.GetOrAdd(
-                typeof(TContext), _ => CreateGetter<TContext>());
-        }
-
         /// <summary>
-        /// Builds the evaluator for one declared context type, in this expression's
+        /// The evaluator for one declared context type, built once, in this expression's
         /// <see cref="EvaluationMode"/>.
         /// </summary>
         /// <remarks>
@@ -132,7 +139,7 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         /// strategy for that context type. Deciding at construction rather than per evaluation is what keeps
         /// the object immutable afterwards, so one expression stays safe to share across threads.
         /// <p>
-        /// This method used to hand-roll <see cref="EvaluationMode.CompileOrInterpret"/> - compile inside a
+        /// Building it used to hand-roll <see cref="EvaluationMode.CompileOrInterpret"/> - compile inside a
         /// try, and on <see cref="CompileErrorException"/> build an interpreter instead - because there was
         /// no word for it. There is now, and the strongly typed getter honours it, so the behaviour is
         /// expressed once rather than implemented here. Most often the context type is object, which
@@ -140,13 +147,69 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         /// implement yet, a lambda for instance. The interpreter handles both.
         /// </p>
         /// </remarks>
-        private object CreateGetter<TContext>()
+        private IGetterExpression<TContext, object> GetterFor<TContext>()
         {
-            return new GetterExpression<TContext, object>(_expressionNode, _mode);
+            var contextType = typeof(TContext);
+
+            if (_gettersByDeclaredType.TryGetValue(contextType, out var existing))
+                return (IGetterExpression<TContext, object>)existing;
+
+            var built = new GetterExpression<TContext, object>(_expressionNode, _mode);
+
+            if (!_gettersByDeclaredType.TryAdd(contextType, built))
+                return (IGetterExpression<TContext, object>)_gettersByDeclaredType[contextType];
+
+            Notify(EvaluationOperation.Get, contextType, null, built.Status);
+
+            return built;
+        }
+
+        /// <summary>
+        /// Tells the observer, if there is one, what was just decided for one combination of declared
+        /// types.
+        /// </summary>
+        /// <remarks>
+        /// Called only by the thread whose <c>TryAdd</c> won, and only after the entry is published, which
+        /// is what makes this exactly one notification per decision and lets an observer that re-enters
+        /// the expression see a consistent map. That is why both lookups stopped being <c>GetOrAdd</c>:
+        /// it may run its factory more than once under contention, which is harmless while the loser is a
+        /// discarded evaluator and not harmless when it is a duplicate notification about a decision that
+        /// happened once. Measured, with the observer inside a <c>GetOrAdd</c> factory and eight threads
+        /// released together onto two declared types: eight notifications rather than two, on every run.
+        /// <p>
+        /// A throwing observer is swallowed: it runs during somebody else's <c>GetValue</c>, and a broken
+        /// logger must not surface as a failure in unrelated code. It is traced rather than dropped,
+        /// because silent-forever is the real cost of swallowing. Swallowing here is also what keeps a
+        /// broken observer from reaching the dictionary at all, whatever shape the lookup takes.
+        /// </p>
+        /// </remarks>
+        private void Notify(
+            EvaluationOperation operation, Type contextType, Type valueType, CompilationStatus status)
+        {
+            var observer = _onEvaluationDecided;
+            if (observer == null)
+                return;
+
+            try
+            {
+                observer(new EvaluationDecision(contextType, valueType, operation, status));
+            }
+            catch (Exception e)
+            {
+                Trace.WriteLine(
+                    "An expression evaluation-decision observer threw and was ignored: " + e);
+            }
         }
 
         private readonly BaseNode _expressionNode;
         private readonly EvaluationMode _mode;
+
+        /// <summary>
+        /// Null unless the caller passed one to <see cref="Expression.Parse"/> or
+        /// <see cref="Expression.Wrap"/>. Held here rather than exposed as an event, so nothing about
+        /// diagnostics appears on <see cref="IWeaklyTypedExpression"/>.
+        /// </summary>
+        private readonly Action<EvaluationDecision> _onEvaluationDecided;
 
         private readonly ConcurrentDictionary<Type, object> _gettersByDeclaredType
             = new ConcurrentDictionary<Type, object>();

@@ -23,8 +23,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using System.Runtime.Serialization;
-using JetBrains.Annotations;
+
 using SpringExpressions.Parser;
 using SpringExpressions.Parser.antlr;
 using SpringExpressions.Parser.antlr.collections;
@@ -33,6 +32,8 @@ using SpringExpressions.Expressions.Compiling.Expressions;
 using SpringReflection.Dynamic;
 using SpringUtil;
 using StringUtils = SpringUtil.StringUtils;
+
+using JetBrains.Annotations;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -146,11 +147,19 @@ namespace SpringExpressions
         /// by parsing specified expression string.
         /// </summary>
         /// <param name="expression">Expression to parse.</param>
+        /// <param name="mode">What to do when a shape has no compiled form.</param>
+        /// <param name="onEvaluationDecided">
+        /// Told once per combination of declared types, when this expression decides whether to compile
+        /// or interpret for it - see <see cref="Wrap"/>.
+        /// </param>
         public static IWeaklyTypedExpression Parse(
-            string expression,
-            EvaluationMode mode = EvaluationMode.CompileOrInterpret)
+            [NotNull] string expression,
+            EvaluationMode mode = EvaluationMode.CompileOrInterpret,
+            [CanBeNull] Action<EvaluationDecision> onEvaluationDecided = null)
         {
-            return Wrap(ParseAst(expression), mode);
+            AssertUtils.ArgumentNotNull(expression, nameof(expression));
+
+            return Wrap(ParseAst(expression), mode, onEvaluationDecided);
         }
 
         /// <summary>
@@ -200,24 +209,41 @@ namespace SpringExpressions
         /// getting its own compiled form.
         /// </remarks>
         /// <param name="expressionNode">The node to evaluate; must not be null.</param>
+        /// <param name="mode">What to do when a shape has no compiled form.</param>
+        /// <param name="onEvaluationDecided">
+        /// Told each time this expression decides whether to compile or interpret - once per declared
+        /// context type for reads, once per declared context-and-value type pair for writes, on the
+        /// first use of that combination and never again. It reports the decision, not the evaluation:
+        /// an expression used a million times against one type is reported once.
+        /// <p>
+        /// It fires even when nothing was attempted, so <see cref="EvaluationMode.MustInterpret"/>
+        /// reports <see cref="InterpretationReason.Requested"/> per combination like any other mode. The
+        /// observer runs on whichever thread got there first, possibly concurrently for different types;
+        /// one that throws is ignored and traced, because it runs inside an unrelated caller's
+        /// <c>GetValue</c>.
+        /// </p>
+        /// <p>
+        /// <see cref="ExpressionEvaluator"/> parses internally, so expressions evaluated through it
+        /// cannot be observed - there is nowhere to pass this.
+        /// </p>
+        /// </param>
         [NotNull]
         public static IWeaklyTypedExpression Wrap(
             [NotNull] BaseNode expressionNode,
-            EvaluationMode mode = EvaluationMode.CompileOrInterpret)
+            EvaluationMode mode = EvaluationMode.CompileOrInterpret,
+            Action<EvaluationDecision> onEvaluationDecided = null)
         {
             AssertUtils.ArgumentNotNull(expressionNode, "expressionNode");
 
-            return new WeaklyTypedExpression(expressionNode, mode);
+            return new WeaklyTypedExpression(expressionNode, mode, onEvaluationDecided);
         }
 
-            // todo: error: a możę ParseAndCompile()
-            // todo: error: compile options!
         [NotNull]
         public static IGetterExpression<TRoot, TResult> ParseGetter<TRoot, TResult>(
             [NotNull] string expression,
             EvaluationMode mode = EvaluationMode.CompileOrInterpret)
         {
-            AssertUtils.ArgumentHasText(expression, "expression");
+            AssertUtils.ArgumentHasText(expression, nameof(expression));
 
             return new GetterExpression<TRoot, TResult>(ParseAst(expression), mode);
         }
@@ -227,7 +253,7 @@ namespace SpringExpressions
             [NotNull] string expression,
             EvaluationMode mode = EvaluationMode.CompileOrInterpret)
         {
-            AssertUtils.ArgumentHasText(expression, "expression");
+            AssertUtils.ArgumentHasText(expression, nameof(expression));
 
             return new GetterExpression<TResult>(ParseAst(expression), mode);
         }
@@ -237,7 +263,7 @@ namespace SpringExpressions
             [NotNull] string expression,
             EvaluationMode mode = EvaluationMode.CompileOrInterpret)
         {
-            AssertUtils.ArgumentHasText(expression, "expression");
+            AssertUtils.ArgumentHasText(expression, nameof(expression));
 
             return new SetterExpression<TRoot, TArgument>(ParseAst(expression), mode);
         }
@@ -247,7 +273,7 @@ namespace SpringExpressions
             [NotNull] string expression,
             EvaluationMode mode = EvaluationMode.CompileOrInterpret)
         {
-            AssertUtils.ArgumentHasText(expression, "expression");
+            AssertUtils.ArgumentHasText(expression, nameof(expression));
 
             return new SetterExpression<TArgument>(ParseAst(expression), mode);
         }
@@ -257,7 +283,7 @@ namespace SpringExpressions
             [NotNull] string expression,
             EvaluationMode mode = EvaluationMode.CompileOrInterpret)
         {
-            AssertUtils.ArgumentHasText(expression, "expression");
+            AssertUtils.ArgumentHasText(expression, nameof(expression));
 
             return new VoidExpression<TRoot>(ParseAst(expression), mode);
         }
@@ -267,7 +293,7 @@ namespace SpringExpressions
             [NotNull] string expression,
             EvaluationMode mode = EvaluationMode.CompileOrInterpret)
         {
-            AssertUtils.ArgumentHasText(expression, "expression");
+            AssertUtils.ArgumentHasText(expression, nameof(expression));
 
             return new VoidExpression(ParseAst(expression), mode);
         }

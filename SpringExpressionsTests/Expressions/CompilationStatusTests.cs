@@ -18,7 +18,7 @@ namespace SpringExpressionsTests.Expressions
     /// <p>
     /// The weakly typed path has no counterpart on purpose. It decides per declared context type, on
     /// first use with that type, so there is no moment at which a query could be complete - it reports
-    /// through an observer instead (not built yet; see the design document).
+    /// through an observer instead, pinned by <c>EvaluationObserverTests</c>.
     /// </p>
     /// </remarks>
     [TestFixture]
