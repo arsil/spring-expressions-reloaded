@@ -56,10 +56,26 @@ namespace SpringExpressions
 
 			var leftTypeCode = (int)System.Type.GetTypeCode(operandExpression.Type);
 
-                // todo: error: double or decimal!!!!!
-			// For Char, DBNull, Object, Empty, DateTime and String
-			if (leftTypeCode < 3 || leftTypeCode > 15 || leftTypeCode == 4)
-				throw CannotCompile("no compiled complement for this operand type");
+            // TypeCode 3 is Boolean, 4 is Char, 5..12 are the integer types, and 13..15 are Single,
+            // Double and Decimal. '!' is two operators sharing a spelling - logical negation for a
+            // boolean, bitwise complement for an integer or enum - so those are the two that have a
+            // compiled form. An enum reports its underlying integral TypeCode, so it passes here and is
+            // handled below.
+            //
+            // The upper bound used to be 15, which let a real number through: not boolean, not an enum,
+            // so it reached LExpression.Not, which has no form for a double - InvalidOperationException
+            // out of the emitter, past the refusal convention, absorbed and reported as a defect of
+            // ours. The author's own marker sat on this line. The interpreter reads a real number's
+            // truthiness instead ('!4.5' is False, '!0.0' is True), which is inherited behaviour and is
+            // deliberately left to it rather than emitted: it makes '!' answer a bool for one number
+            // and a bitwise complement for another, which is an accident nobody has ruled on.
+            var operandIsBoolean = leftTypeCode == 3;
+            var operandIsInteger = leftTypeCode >= 5 && leftTypeCode <= 12;
+
+            if (!operandIsBoolean && !operandIsInteger)
+                throw CannotCompile(
+                    $"no compiled complement for '{operandExpression.Type}'; only a boolean is negated "
+                    + "and only an integer or enum is complemented");
 
             if (leftTypeCode == 3)
             {

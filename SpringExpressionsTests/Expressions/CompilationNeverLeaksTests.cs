@@ -87,15 +87,10 @@ namespace SpringExpressionsTests.Expressions
         /// </remarks>
         private static readonly string[] KnownDefects =
         {
-            // the ternary emits Condition without checking that its test is boolean; the interpreter
-            // coerces by truthiness. Needs a ruling, not a patch - see the design document
-            "TernaryNode/ArgumentException",
-
-            // '!' emits Not without checking the operand is boolean or integral. Note that the
-            // interpreter is not coherent here either - '!45' is -46 (bitwise) while '!4.5' is False
-            // (truthiness), because a double is neither integral nor boolean and falls through to the
-            // logical branch - so this is a ruling, not a patch
-            "OpNOT/InvalidOperationException"
+            // empty, and it is meant to stay that way. A row here is an expression whose *emitter*
+            // failed - not a shape without a compiled form, which is an ordinary refusal and does not
+            // appear. Adding one is admitting a defect; the test fails either way until a row matches
+            // reality.
         };
 
         [Test]
