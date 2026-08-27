@@ -101,7 +101,11 @@ namespace SpringExpressions
         {
             string variableName = getText();
 
-            ValidateForbiddenVariablesForSetter(variableName);
+            // The interpreter's Set raises the ArgumentException for this, at evaluation, where a
+            // caller expects it; from the compile phase it is a refusal, or the absorbing wrapper
+            // would report the caller's own mistake as an internal compiler error.
+            if (IsForbiddenAsSetterTarget(variableName))
+                throw CannotCompile("'" + variableName + "' is an intrinsic variable and cannot be assigned to");
 
             var arguments = new List<LExpression>
                 {
@@ -156,11 +160,19 @@ namespace SpringExpressions
 
         private static void ValidateForbiddenVariablesForSetter(string variableName)
         {
-            if (variableName == "this" || variableName == "root")
+            if (IsForbiddenAsSetterTarget(variableName))
             {
                 throw new ArgumentException(
                     "You cannot assign a value to intrinsic variable '" + variableName + "'.");
             }
+        }
+
+        /// <summary>
+        /// One predicate, two backends: the interpreter throws for it, the compiled path refuses.
+        /// </summary>
+        private static bool IsForbiddenAsSetterTarget(string variableName)
+        {
+            return variableName == "this" || variableName == "root";
         }
 
         private static object SetVariable(IDictionary<string, object> variables, string variableName, object newValue)

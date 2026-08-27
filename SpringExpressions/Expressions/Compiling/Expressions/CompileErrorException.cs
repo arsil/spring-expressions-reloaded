@@ -23,6 +23,22 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         }
 
         /// <summary>
+        /// Names the node and carries the failure that prevented compilation.
+        /// </summary>
+        /// <remarks>
+        /// Internal because the only caller is <see cref="InternalCompilerErrorException"/>: a defect
+        /// in this library, absorbed so it cannot break a caller, with the original failure kept
+        /// reachable as <see cref="Exception.InnerException"/> for whoever debugs it. Nothing a
+        /// consumer writes needs this.
+        /// </remarks>
+        internal CompileErrorException(BaseNode node, string reason, Exception innerException)
+            : base(BuildMessage(node, reason), innerException)
+        {
+            NodeType = node == null ? null : node.GetType();
+            Reason = reason;
+        }
+
+        /// <summary>
         /// Creates an exception naming the node that could not be compiled and why.
         /// </summary>
         /// <param name="node">The node that could not produce an expression tree.</param>

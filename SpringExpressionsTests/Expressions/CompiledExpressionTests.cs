@@ -461,16 +461,15 @@ namespace SpringExpressionsTests.Expressions
             ((ShadowingTestsBaseClass)o).ReadonlyShadowedValue = "SomeString1";
             Assert.AreEqual("SomeString1", 
                 CompileGetter<ShadowingTestsMostSpezializedClass, string>("ReadonlyShadowedValue").GetValue(o));
-            try
-            {
-                // fails at compile time! 
-                Expression.ParseSetter<ShadowingTestsMostSpezializedClass, string>("ReadonlyShadowedValue",
-                    EvaluationMode.MustCompile);
+            // Assigning to a read-only property is refused at compile time and reported by the
+            // interpreter at evaluation, where NotWritablePropertyException is what a caller expects.
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseSetter<ShadowingTestsMostSpezializedClass, string>(
+                    "ReadonlyShadowedValue", EvaluationMode.MustCompile));
 
-                Assert.Fail("Setting readonly property should throw NotWritablePropertyException");
-            }
-            catch (NotWritablePropertyException)
-            { }
+            Assert.Throws<NotWritablePropertyException>(
+                () => Expression.Parse("ReadonlyShadowedValue")
+                    .SetValue<ShadowingTestsMostSpezializedClass, string>(o, "nope"));
 
             Assert.AreEqual("SomeString1",
                 CompileGetter<ShadowingTestsMostSpezializedClass, string>("ReadonlyShadowedValue").GetValue(o));
@@ -1212,9 +1211,13 @@ namespace SpringExpressionsTests.Expressions
         [Test]
         public void TryToSetThis()
         {
+            // Refused at compile time; the interpreter raises the ArgumentException at evaluation,
+            // which is where a caller expects to hear about their own expression.
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseSetter<string>("#this", EvaluationMode.MustCompile));
+
             Assert.Throws<ArgumentException>(
-                () => Expression.ParseSetter<string>("#this", 
-                    EvaluationMode.MustCompile));
+                () => Expression.Parse("#this").SetValue<object, string>(null, "nope"));
         }
 
         /// <summary>
@@ -1223,9 +1226,11 @@ namespace SpringExpressionsTests.Expressions
         [Test]
         public void TryToSetRoot()
         {
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseSetter<string>("#root", EvaluationMode.MustCompile));
+
             Assert.Throws<ArgumentException>(
-                () => Expression.ParseSetter<string>("#root",
-                EvaluationMode.MustCompile));
+                () => Expression.Parse("#root").SetValue<object, string>(null, "nope"));
         }
 
         /// <summary>

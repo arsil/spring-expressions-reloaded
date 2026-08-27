@@ -174,7 +174,32 @@ namespace SpringExpressions.Expressions
                 nameof(CollectionOperandUtils.ToTypedHashSet),
                 System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
 
+        /// <summary>
+        /// Compiles a getter, or refuses. **Nothing else escapes.**
+        /// </summary>
+        /// <remarks>
+        /// This and its two siblings are the whole compilation phase - three call sites in the entire
+        /// library - which is why the guarantee lives here rather than in the fifty-one nodes that emit.
+        /// A node that reports its refusal properly is passed through untouched; anything else is a
+        /// defect in this library and is absorbed into a refusal, so a caller who did nothing wrong
+        /// gets the interpreter instead of an exception nobody can act on. See
+        /// <see cref="InternalCompilerErrorException"/>, and <c>_Docs/compilation-error-reporting.md</c>
+        /// for the sweep that measured how much used to escape.
+        /// </remarks>
         public static Func<TContext, IDictionary<string, object>, TResult> CompileGetter<TResult, TContext>(
+            BaseNode expressionNode)
+        {
+            try
+            {
+                return CompileGetterCore<TResult, TContext>(expressionNode);
+            }
+            catch (Exception e) when (InternalCompilerErrorException.ShouldAbsorb(e))
+            {
+                throw new InternalCompilerErrorException(expressionNode, e);
+            }
+        }
+
+        private static Func<TContext, IDictionary<string, object>, TResult> CompileGetterCore<TResult, TContext>(
             BaseNode expressionNode)
         {
             var ctxParam = LExpression.Parameter(typeof(TContext), "context");
@@ -250,7 +275,21 @@ namespace SpringExpressions.Expressions
             return lambda.Compile();
         }
 
+        /// <summary>Compiles a setter, or refuses - see <see cref="CompileGetter{TResult,TContext}"/>.</summary>
         public static Action<TContext, IDictionary<string, object>, TArgument> CompileSetter<TContext, TArgument>(
+            BaseNode expressionNode)
+        {
+            try
+            {
+                return CompileSetterCore<TContext, TArgument>(expressionNode);
+            }
+            catch (Exception e) when (InternalCompilerErrorException.ShouldAbsorb(e))
+            {
+                throw new InternalCompilerErrorException(expressionNode, e);
+            }
+        }
+
+        private static Action<TContext, IDictionary<string, object>, TArgument> CompileSetterCore<TContext, TArgument>(
             BaseNode expressionNode)
         {
             var ctxParam = LExpression.Parameter(typeof(TContext), "context");
@@ -290,7 +329,21 @@ namespace SpringExpressions.Expressions
             return lambda.Compile();
         }
 
+        /// <summary>Compiles a void expression, or refuses - see <see cref="CompileGetter{TResult,TContext}"/>.</summary>
         public static Action<TContext, IDictionary<string, object>> CompileExecuteWithVoidReturnType<TContext>(
+            BaseNode expressionNode)
+        {
+            try
+            {
+                return CompileExecuteWithVoidReturnTypeCore<TContext>(expressionNode);
+            }
+            catch (Exception e) when (InternalCompilerErrorException.ShouldAbsorb(e))
+            {
+                throw new InternalCompilerErrorException(expressionNode, e);
+            }
+        }
+
+        private static Action<TContext, IDictionary<string, object>> CompileExecuteWithVoidReturnTypeCore<TContext>(
             BaseNode expressionNode)
         {
             var ctxParam = LExpression.Parameter(typeof(TContext), "context");

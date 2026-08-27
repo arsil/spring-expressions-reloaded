@@ -399,9 +399,14 @@ namespace SpringExpressions
 
                 if (acc is PropertyValueAccessor propertyAcc)
                 {
+                    // A refusal, for the same reason the read-only twin above is one: the interpreter
+                    // throws NotWritablePropertyException at evaluation, which is inherited surface and
+                    // what a caller expects. Raised from here it would be absorbed and reported as an
+                    // internal compiler error, blaming the engine for the caller's expression.
+                    // 'name', not the inherited 'memberName' field, which is empty here - the original
+                    // message read "read-only property or field ''" for the same reason.
                     if (!acc.IsWriteable)
-                        throw new NotWritablePropertyException(
-                            "Can't change the value of the read-only property or field '" + memberName + "'.");
+                        throw CannotCompile("property '" + name + "' is not writable");
                     /*
                     return LExpression.Property(
                         finalContextExpression,

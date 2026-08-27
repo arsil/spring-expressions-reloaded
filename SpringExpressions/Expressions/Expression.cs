@@ -570,20 +570,34 @@ namespace SpringExpressions
         /// </remarks>
         private void AssertChainIsAssignable()
         {
+            if (ChainContainsNullConditional())
+                throw new NotSupportedException(
+                    "A null-conditional access ('?.' or '?[') cannot be used as the target of an assignment.");
+        }
+
+        private bool ChainContainsNullConditional()
+        {
             for (var node = (BaseNode)getFirstChild(); node != null; node = (BaseNode)node.getNextSibling())
             {
                 if (node.IsNullConditional)
-                    throw new NotSupportedException(
-                        "A null-conditional access ('?.' or '?[') cannot be used as the target of an assignment.");
+                    return true;
             }
+
+            return false;
         }
 
         protected override LExpression GetExpressionTreeForSetterIfPossible(
-            LExpression contextExpression, 
+            LExpression contextExpression,
             CompilationContext compilationContext,
             LExpression newValueExpression)
         {
-            AssertChainIsAssignable();
+            // The same verdict as the interpreter's AssertChainIsAssignable, phrased as a refusal
+            // because this is the compile phase. Raising NotSupportedException here would be absorbed
+            // as an internal compiler error and reported as a defect - which it is not; the caller
+            // wrote something illegal, and the interpreter tells them so at evaluation.
+            if (ChainContainsNullConditional())
+                throw CannotCompile(
+                    "a null-conditional access ('?.' or '?[') cannot be the target of an assignment");
 
             LExpression target = contextExpression;
             if (getNumberOfChildren() > 0)
@@ -608,7 +622,9 @@ namespace SpringExpressions
                 return GetExpressionTreeForSetterIfPossible((BaseNode)node, target, compilationContext, newValueExpression);
             }
 
-            throw new NotSupportedException("You cannot set the value for an empty expression.");
+            // The interpreter's Set says the same thing as NotSupportedException, which is inherited
+            // surface the frozen suite pins - it stays there, and is what a caller sees at evaluation.
+            throw CannotCompile("an empty expression has no assignment target");
         }
 
         /// <summary>

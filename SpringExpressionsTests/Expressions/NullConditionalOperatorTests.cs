@@ -5,6 +5,7 @@ using System.IO;
 using NUnit.Framework;
 
 using SpringExpressions;
+using SpringExpressions.Expressions.Compiling.Expressions;
 
 namespace SpringExpressionsTests.Expressions
 {
@@ -413,32 +414,44 @@ namespace SpringExpressionsTests.Expressions
 
         #region Assignment is refused
 
+        // Assignment through '?.' is illegal on both backends - there is no target when the chain
+        // short-circuits - so each of these pins three things, not two: the compiled path *refuses*
+        // (the compile phase reports compile errors, never the caller's own mistake), the interpreter
+        // *throws* NotSupportedException at evaluation, and the default mode - what a caller actually
+        // gets - refuses, falls back, and ends at the interpreter's exception. Do not collapse the
+        // first row into the others: a CompileErrorException at parse and a NotSupportedException at
+        // evaluation are two different events.
+
         [Test]
         public void AssigningThroughANullConditionalAccessIsRefused()
         {
-            foreach (var options in InterpretedAndCompiled())
-            {
-                var graph = FullGraph();
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseSetter<NullConditionalRoot, string>(
+                    "Author?.Name", EvaluationMode.MustCompile));
 
-                Assert.Throws<NotSupportedException>(
-                    () => Expression.ParseSetter<NullConditionalRoot, string>("Author?.Name", options)
-                        .SetValue(graph, "someone else"),
-                    "with " + options);
-            }
+            Assert.Throws<NotSupportedException>(
+                () => Expression.ParseSetter<NullConditionalRoot, string>(
+                    "Author?.Name", EvaluationMode.MustInterpret).SetValue(FullGraph(), "someone else"));
+
+            Assert.Throws<NotSupportedException>(
+                () => Expression.ParseSetter<NullConditionalRoot, string>("Author?.Name")
+                    .SetValue(FullGraph(), "someone else"));
         }
 
         [Test]
         public void AssigningThroughANullConditionalIndexerIsRefused()
         {
-            foreach (var options in InterpretedAndCompiled())
-            {
-                var graph = FullGraph();
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseSetter<NullConditionalRoot, string>(
+                    "Items?[0].Title", EvaluationMode.MustCompile));
 
-                Assert.Throws<NotSupportedException>(
-                    () => Expression.ParseSetter<NullConditionalRoot, string>("Items?[0].Title", options)
-                        .SetValue(graph, "new title"),
-                    "with " + options);
-            }
+            Assert.Throws<NotSupportedException>(
+                () => Expression.ParseSetter<NullConditionalRoot, string>(
+                    "Items?[0].Title", EvaluationMode.MustInterpret).SetValue(FullGraph(), "new title"));
+
+            Assert.Throws<NotSupportedException>(
+                () => Expression.ParseSetter<NullConditionalRoot, string>("Items?[0].Title")
+                    .SetValue(FullGraph(), "new title"));
         }
 
         [Test]
@@ -446,30 +459,35 @@ namespace SpringExpressionsTests.Expressions
         {
             // '=' inside an expression reaches the target through a different route than the setter API
             // above, so it needs covering separately. Both spellings of the assignment must be rejected.
-            foreach (var options in InterpretedAndCompiled())
-            {
-                Assert.Throws<NotSupportedException>(
-                    () => Expression.ParseVoidExpression<NullConditionalRoot>("Author?.Name = 'someone else'", options)
-                        .Execute(FullGraph()),
-                    "as a statement, with " + options);
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseVoidExpression<NullConditionalRoot>(
+                    "Author?.Name = 'someone else'", EvaluationMode.MustCompile));
 
-                Assert.Throws<NotSupportedException>(
-                    () => Expression.ParseGetter<NullConditionalRoot, object>("Author?.Name = 'someone else'", options)
-                        .GetValue(FullGraph()),
-                    "as a value-producing expression, with " + options);
-            }
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseGetter<NullConditionalRoot, object>(
+                    "Author?.Name = 'someone else'", EvaluationMode.MustCompile));
+
+            Assert.Throws<NotSupportedException>(
+                () => Expression.ParseVoidExpression<NullConditionalRoot>("Author?.Name = 'someone else'")
+                    .Execute(FullGraph()),
+                "as a statement");
+
+            Assert.Throws<NotSupportedException>(
+                () => Expression.ParseGetter<NullConditionalRoot, object>("Author?.Name = 'someone else'")
+                    .GetValue(FullGraph()),
+                "as a value-producing expression");
         }
 
         [Test]
         public void AssignmentInsideTheExpressionThroughANullConditionalIndexerIsAlsoRefused()
         {
-            foreach (var options in InterpretedAndCompiled())
-            {
-                Assert.Throws<NotSupportedException>(
-                    () => Expression.ParseVoidExpression<NullConditionalRoot>("Items?[0].Title = 'new title'", options)
-                        .Execute(FullGraph()),
-                    "with " + options);
-            }
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseVoidExpression<NullConditionalRoot>(
+                    "Items?[0].Title = 'new title'", EvaluationMode.MustCompile));
+
+            Assert.Throws<NotSupportedException>(
+                () => Expression.ParseVoidExpression<NullConditionalRoot>("Items?[0].Title = 'new title'")
+                    .Execute(FullGraph()));
         }
 
         [Test]
@@ -569,25 +587,25 @@ namespace SpringExpressionsTests.Expressions
         [Test]
         public void NullConditionalOnAVariableIsRefusedAsAnAssignmentTarget()
         {
-            foreach (var options in InterpretedAndCompiled())
-            {
-                Assert.Throws<NotSupportedException>(
-                    () => Expression.ParseVoidExpression<object>("#author?.Name = 'someone else'", options)
-                        .Execute(null, VariablesWith(Tesla())),
-                    "with " + options);
-            }
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseVoidExpression<object>(
+                    "#author?.Name = 'someone else'", EvaluationMode.MustCompile));
+
+            Assert.Throws<NotSupportedException>(
+                () => Expression.ParseVoidExpression<object>("#author?.Name = 'someone else'")
+                    .Execute(null, VariablesWith(Tesla())));
         }
 
         [Test]
         public void NullConditionalIndexerOnAVariableIsRefusedAsAnAssignmentTarget()
         {
-            foreach (var options in InterpretedAndCompiled())
-            {
-                Assert.Throws<NotSupportedException>(
-                    () => Expression.ParseVoidExpression<object>("#author?.Tags?[0] = 'new tag'", options)
-                        .Execute(null, VariablesWith(Tesla())),
-                    "with " + options);
-            }
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseVoidExpression<object>(
+                    "#author?.Tags?[0] = 'new tag'", EvaluationMode.MustCompile));
+
+            Assert.Throws<NotSupportedException>(
+                () => Expression.ParseVoidExpression<object>("#author?.Tags?[0] = 'new tag'")
+                    .Execute(null, VariablesWith(Tesla())));
         }
 
         [Test]

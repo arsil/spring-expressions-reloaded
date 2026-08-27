@@ -275,7 +275,21 @@ namespace SpringExpressions
             [NotNull] LExpression contextExpression,
             [NotNull] CompilationContext compilationContext)
 		{
-            var expression = node.GetExpressionTreeIfPossible(contextExpression, compilationContext);
+            LExpression expression;
+
+            try
+            {
+                expression = node.GetExpressionTreeIfPossible(contextExpression, compilationContext);
+            }
+            catch (Exception e) when (InternalCompilerErrorException.ShouldAbsorb(e))
+            {
+                // Whatever a node's emitter does wrong, it comes out as a refusal naming that node.
+                // This dispatcher is recursive, so the *innermost* failure is the one wrapped: an outer
+                // node then sees a CompileErrorException, which ShouldAbsorb passes through untouched.
+                // Absorbing here rather than only at the Compiler entry points is what buys the node's
+                // identity - the entry points know only the root.
+                throw new InternalCompilerErrorException(node, e);
+            }
 
             // Single enforcement point for the non-null contract. A node returning null instead of
             // throwing would otherwise be dereferenced by its caller and surface as a bare
@@ -317,8 +331,18 @@ namespace SpringExpressions
             [NotNull] CompilationContext compilationContext,
             [NotNull] LExpression newValueExpression)
         {
-            var expression = node.GetExpressionTreeForSetterIfPossible(
-                contextExpression, compilationContext, newValueExpression);
+            LExpression expression;
+
+            try
+            {
+                expression = node.GetExpressionTreeForSetterIfPossible(
+                    contextExpression, compilationContext, newValueExpression);
+            }
+            catch (Exception e) when (InternalCompilerErrorException.ShouldAbsorb(e))
+            {
+                // The write-side twin of the reader above.
+                throw new InternalCompilerErrorException(node, e);
+            }
 
             if (expression == null)
                 throw new CompileErrorException(node, "node produced no assignment expression tree");
