@@ -12,12 +12,12 @@ namespace SpringExpressionsTests.Expressions
     /// </summary>
     /// <remarks>
     /// <p>
-    /// C# allows only <c>bool</c> as a conditional test (or a type declaring <c>operator true</c>): a
-    /// number is CS0029 and a <c>bool?</c> is CS0266. This engine's interpreter is more permissive - it
-    /// runs <c>Convert.ToBoolean</c>, so <c>45 ? a : b</c> answers <c>a</c> - and that is inherited
-    /// behaviour which stays. It is deliberately **not** emitted: compiling a truthiness conversion
-    /// would bake into the fast path a rule this engine has never ruled on, and which C# does not have.
-    /// So those shapes refuse and the interpreter serves them.
+    /// <b>Ruled: a non-boolean is not a truth value, anywhere.</b> The interpreter used to run
+    /// <c>Convert.ToBoolean</c>, so <c>45 ? a : b</c> answered <c>a</c> and <c>!4.5</c> answered
+    /// <c>False</c>, while the compiled path had no such conversion - C# has none either
+    /// (<c>5 ? a : b</c> is CS0029). The deciding argument was <c>==</c>: <c>45 == true</c> has always
+    /// refused the pair rather than answering, so leaving the ternary coercing meant one expression
+    /// language giving two answers to "is 45 a truth value?". Both now refuse.
     /// </p>
     /// <p>
     /// <c>bool?</c> is the exception, and it is not truthiness: a null in a boolean context reads as
@@ -69,28 +69,34 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// Everything else refuses - and refuses as a missing compiled form, naming the type, not as an
-        /// internal compiler error.
+        /// Any other test is refused at compile time and rejected by the interpreter at evaluation -
+        /// the same answer <c>45 == true</c> has always given.
         /// </summary>
         [Test]
-        public void AnyOtherTestIsRefusedAndInterpreted()
+        public void AnyOtherTestIsRefusedOnBothBackends()
         {
-            AssertRefusedAsAMissingCompiledForm("Number ? 1 : 2", "the conditional test is");
-            AssertRefusedAsAMissingCompiledForm("Real ? 1 : 2", "the conditional test is");
-            AssertRefusedAsAMissingCompiledForm("Amount ? 1 : 2", "the conditional test is");
-            AssertRefusedAsAMissingCompiledForm("Colour ? 1 : 2", "the conditional test is");
-            AssertRefusedAsAMissingCompiledForm("Name ? 1 : 2", "the conditional test is");
+            AssertRefusedThenRejected("Number ? 1 : 2", "the conditional test is");
+            AssertRefusedThenRejected("Real ? 1 : 2", "the conditional test is");
+            AssertRefusedThenRejected("Amount ? 1 : 2", "the conditional test is");
+            AssertRefusedThenRejected("Colour ? 1 : 2", "the conditional test is");
+            AssertRefusedThenRejected("Name ? 1 : 2", "the conditional test is");
+
+            // 'true' is the sharpest row: it used to answer 'yes' as a test while '=='true' threw
+            AssertRefusedThenRejected("'true' ? 1 : 2", "the conditional test is");
+        }
+
+        /// <summary>
+        /// Null is the one carve-out, and it is not truthiness: a null in a boolean position reads as
+        /// false throughout this engine, and the ruling that makes 'null and true' false names the
+        /// conditional operator. The compiled path has no form for a null-typed test, so it refuses and
+        /// the interpreter answers.
+        /// </summary>
+        [Test]
+        public void ANullTestReadsAsFalse()
+        {
             AssertRefusedAsAMissingCompiledForm("null ? 1 : 2", "the conditional test is");
 
-            // and the interpreter goes on reading them exactly as it always has
-            var root = new Root();
-            Assert.AreEqual(1, Expression.Parse("Number ? 1 : 2").GetValue<Root>(root));
-            Assert.AreEqual(1, Expression.Parse("Real ? 1 : 2").GetValue<Root>(root));
-            Assert.AreEqual(2, Expression.Parse("null ? 1 : 2").GetValue<Root>(root));
-
-            Assert.Throws<FormatException>(
-                () => Expression.Parse("Name ? 1 : 2").GetValue<Root>(root),
-                "'Ana' is not a boolean, and that is the interpreter's answer to give");
+            Assert.AreEqual(2, Expression.Parse("null ? 1 : 2").GetValue<Root>(new Root()));
         }
 
         // ----- '!'
@@ -125,21 +131,44 @@ namespace SpringExpressionsTests.Expressions
         /// A real number is neither, so it refuses - where it used to reach LExpression.Not and crash.
         /// </summary>
         /// <remarks>
-        /// The interpreter's answer for these is <c>False</c>: a double is not an integer, so it falls
-        /// into the logical branch and its truthiness is negated. That means '!' answers a bitwise
-        /// complement for one number and a boolean for another, decided by whether the number happens
-        /// to be integral - an accident rather than a design, and the reason this is refused rather
-        /// than emitted. Do not "fix" it by compiling the interpreter's answer without ruling on what
-        /// '!' means for a real number.
+        /// The interpreter used to answer <c>False</c>: a double is not an integer, so it fell into the
+        /// logical branch and its truthiness was negated. That made '!' answer a bitwise complement for
+        /// one number and a boolean for another - <c>!45</c> is <c>-46</c>, <c>!4.5</c> was
+        /// <c>False</c> - with the *kind* of answer decided by whether the operand happened to be
+        /// integral. Both backends reject it now.
         /// </remarks>
         [Test]
-        public void ARealOperandIsRefusedAndInterpreted()
+        public void ARealOperandIsRejectedOnBothBackends()
         {
-            AssertRefusedAsAMissingCompiledForm("!Real", "no compiled complement for");
-            AssertRefusedAsAMissingCompiledForm("!Amount", "no compiled complement for");
+            AssertRefusedThenRejected("!Real", "no compiled complement for");
+            AssertRefusedThenRejected("!Amount", "no compiled complement for");
+            AssertRefusedThenRejected("!Name", "no compiled complement for");
+        }
 
-            Assert.AreEqual(false, Expression.Parse("!Real").GetValue<Root>(new Root()));
-            Assert.AreEqual(false, Expression.Parse("!Amount").GetValue<Root>(new Root()));
+        /// <summary>
+        /// A null still negates to true - the carve-out, as for the conditional test.
+        /// </summary>
+        [Test]
+        public void NegatingANullIsTrue()
+        {
+            AssertRefusedAsAMissingCompiledForm("!null", "no compiled complement for");
+
+            Assert.AreEqual(true, Expression.Parse("!null").GetValue<Root>(new Root()));
+        }
+
+        /// <summary>
+        /// Refused at compile time, and rejected by the interpreter at evaluation - which is what a
+        /// caller on the default path actually meets, after the fallback.
+        /// </summary>
+        private static void AssertRefusedThenRejected(string expression, string expectedText)
+        {
+            AssertRefusedAsAMissingCompiledForm(expression, expectedText);
+
+            var rejection = Assert.Throws<ArgumentException>(
+                () => Expression.Parse(expression).GetValue<Root>(new Root()),
+                expression);
+
+            StringAssert.Contains("only a boolean is a truth value", rejection.Message, expression);
         }
 
         /// <summary>

@@ -20,6 +20,7 @@
 
 using System;
 using SpringExpressions.Expressions.Compiling;
+using SpringExpressions.Util;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -131,7 +132,11 @@ namespace SpringExpressions
                 return Enum.ToObject(enumType, result);
             }
             else
-                return !Convert.ToBoolean(operand);
+                // A boolean is negated and a null reads as false; a real number, a string or anything
+                // else is refused rather than coerced. It used to be !Convert.ToBoolean(operand), which
+                // made '!45' a number and '!4.5' a boolean - the *kind* of answer decided by whether
+                // the operand happened to be integral.
+                return !BooleanUtils.RequireBoolean(operand, "operator '!'");
         }
 
         private static readonly System.Reflection.MethodInfo NullableBoolGetValueOrDefault

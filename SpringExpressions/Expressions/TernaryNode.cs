@@ -24,6 +24,7 @@ using System.Reflection;
 using JetBrains.Annotations;
 
 using SpringExpressions.Parser.antlr.collections;
+using SpringExpressions.Util;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -73,7 +74,11 @@ namespace SpringExpressions
                 }
             }
 
-            if (Convert.ToBoolean(GetValue(condition, context, evalContext)))
+            // Only a boolean, or a null read as false - see BooleanUtils. This used to be
+            // Convert.ToBoolean, which made '45 ? a : b' answer 'a' where the compiled path had no such
+            // conversion and '45 == true' refused the pair outright.
+            if (BooleanUtils.RequireBoolean(
+                    GetValue(condition, context, evalContext), "the conditional test"))
             {
                 return GetValue(trueExp, context, evalContext);
             }
