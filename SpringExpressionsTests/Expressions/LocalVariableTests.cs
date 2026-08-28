@@ -204,21 +204,27 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// As a void expression it is still refused, for the reason '#x = 5' is: the assignment emits
-        /// a call returning the assigned value, and a void expression must emit a void call or an
-        /// assignment node. Unchanged by this work, and pinned so it is not mistaken for a gap in it.
+        /// As a void expression it compiles, and the contrast with <c>#x = 5</c> is the point: a void
+        /// expression must emit a void call or an assignment node, and assigning to a local now *is*
+        /// an assignment node, where assigning to a <c>#variable</c> is a call that writes into the
+        /// caller's dictionary and returns the value. Storing a local in a block variable rather than
+        /// a dictionary is what closed this, and it was not the point of the change.
         /// </summary>
         [Test]
-        public void AVoidExpressionAssigningToALocalIsRefusedButStillExecutes()
+        public void AVoidExpressionAssigningToALocalCompiles()
         {
-            Assert.Throws<CompileErrorException>(
-                () => Expression.ParseVoidExpression<LocalVariableCases>(
-                    "$x = 5", EvaluationMode.MustCompile));
+            var compiled = Expression.ParseVoidExpression<LocalVariableCases>(
+                "$x = 5", EvaluationMode.MustCompile);
+            Assert.DoesNotThrow(() => compiled.Execute(new LocalVariableCases()));
 
             var interpreted = Expression.ParseVoidExpression<LocalVariableCases>(
                 "$x = 5", EvaluationMode.MustInterpret);
-
             Assert.DoesNotThrow(() => interpreted.Execute(new LocalVariableCases()));
+
+            // The #variable twin still emits a Call, so it still has no void form.
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseVoidExpression<LocalVariableCases>(
+                    "#x = 5", EvaluationMode.MustCompile));
         }
     }
 }

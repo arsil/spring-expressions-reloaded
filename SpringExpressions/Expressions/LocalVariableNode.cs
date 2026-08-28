@@ -72,21 +72,16 @@ namespace SpringExpressions
                 return variableExpression;
 
             // Anything else is a free local: storage the expression owns for the length of one
-            // evaluation. It used to refuse here, which meant an expression could assign to a local
-            // through the interpreter and never through the compiled backend - and, since the
-            // interpreter answers null for a local nothing has assigned to, refusing the read of an
-            // undefined one was refusing a shape that has a perfectly good answer.
-            if (!compilationContext.TryGetLocalsDictionary(out var localsDictionary))
+            // evaluation, and one object-typed block variable per name is all that takes. It used to
+            // refuse here, which meant an expression could assign to a local through the interpreter
+            // and never through the compiled backend - and, since the interpreter answers null for a
+            // local nothing has assigned to, refusing the read of an undefined one was refusing a
+            // shape that has a perfectly good answer. An unassigned block variable is null, which is
+            // that answer without a line of code.
+            if (!compilationContext.TryGetLocalStorage(variableName, out var storage))
                 throw CannotCompile(LocalsOutOfScopeReason);
 
-            return BuildCall(
-                null,
-                MiGetLocal,
-                new List<LExpression>
-                {
-                    localsDictionary,
-                    LExpression.Constant(variableName, typeof(string))
-                });
+            return storage;
         }
 
         protected override LExpression GetExpressionTreeForSetterIfPossible(
@@ -103,22 +98,18 @@ namespace SpringExpressions
             if (compilationContext.TryGetLocalVariable(variableName, out var _))
                 throw CannotCompile("a lambda parameter is bound by the call and cannot be assigned to");
 
-            if (!compilationContext.TryGetLocalsDictionary(out var localsDictionary))
+            if (!compilationContext.TryGetLocalStorage(variableName, out var storage))
                 throw CannotCompile(LocalsOutOfScopeReason);
 
-            // The value is boxed on the way into the object slot: without that, LExpression.Call
-            // reports the mismatch as an ArgumentException, and '$x = 5' would refuse while
-            // '$x = 'five'' compiled - the kind of split that made the same assignment behave
-            // differently for no reason a caller could see.
-            return BuildCall(
-                null,
-                MiSetLocal,
-                new List<LExpression>
-                {
-                    localsDictionary,
-                    LExpression.Constant(variableName, typeof(string)),
-                    BoxIfValueType(newValueExpression)
-                });
+            // Assign is an expression and yields the value assigned, which is what the interpreter's
+            // Set does and what '($x = 5) + $x' being ten depends on - so nothing has to be wrapped
+            // around it to produce a value.
+            //
+            // The value is boxed on the way into the object-typed slot: LINQ inserts no boxing of its
+            // own, so without this '$x = 5' would refuse while '$x = 'five'' compiled - the kind of
+            // split that made the same assignment behave differently for no reason a caller could
+            // see.
+            return BuildAssign(storage, BoxIfValueType(newValueExpression));
         }
 
         private const string LocalsOutOfScopeReason
@@ -131,32 +122,6 @@ namespace SpringExpressions
                 ? LExpression.Convert(expression, typeof(object))
                 : expression;
         }
-
-        /// <summary>
-        /// A local nothing has assigned to reads as null, which is what the interpreter answers by
-        /// reading a key out of a dictionary that does not hold it.
-        /// </summary>
-        private static object GetLocal(Dictionary<string, object> locals, string variableName)
-        {
-            object value;
-            return locals.TryGetValue(variableName, out value) ? value : null;
-        }
-
-        /// <summary>
-        /// Returns the assigned value, as VariableNode's twin does: an assignment is an expression
-        /// here, and '($x = 5) + $x' is ten.
-        /// </summary>
-        private static object SetLocal(Dictionary<string, object> locals, string variableName, object newValue)
-        {
-            locals[variableName] = newValue;
-            return newValue;
-        }
-
-        private static readonly MethodInfo MiGetLocal
-            = ((Func<Dictionary<string, object>, string, object>)GetLocal).Method;
-
-        private static readonly MethodInfo MiSetLocal
-            = ((Func<Dictionary<string, object>, string, object, object>)SetLocal).Method;
 
         /// <summary>
         /// Sets value of the local variable represented by this node.

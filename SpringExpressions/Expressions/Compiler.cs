@@ -280,13 +280,15 @@ namespace SpringExpressions.Expressions
         }
 
         /// <summary>
-        /// Declares the storage a free <c>$local</c> uses, if the emitted tree asked for any.
+        /// Declares the storage every free <c>$local</c> in the emitted tree uses, if there was any.
         /// </summary>
         /// <remarks>
-        /// A block variable holding a fresh dictionary, assigned before the body runs - so the
-        /// locals live exactly one invocation of the delegate, which is what the interpreter's
-        /// per-evaluation EvaluationContext.LocalVariables gives it, and what keeps two threads
-        /// evaluating one shared compiled expression out of each other's way.
+        /// One object-typed block variable per name, so the locals live exactly one invocation of the
+        /// delegate - which is what the interpreter's per-evaluation
+        /// EvaluationContext.LocalVariables gives it, and what keeps two threads evaluating one
+        /// shared compiled expression out of each other's way. Nothing is assigned here: a block
+        /// variable starts null, which is what the interpreter answers for a local nothing has
+        /// written to.
         /// <p>
         /// Wrapping happens last, after every inspection of <paramref name="body"/>: the block takes
         /// its type from the body, so nothing above changes, while the constructed-collection
@@ -297,15 +299,12 @@ namespace SpringExpressions.Expressions
         internal static LExpression DeclareLocalsIfUsed(
             [NotNull] LExpression body, [NotNull] CompilationContext compilationContext)
         {
-            var locals = compilationContext.DeclaredLocalsDictionary;
+            var locals = compilationContext.DeclaredLocalStorage;
 
-            if (locals == null)
+            if (locals.Count == 0)
                 return body;
 
-            return LExpression.Block(
-                new[] { locals },
-                LExpression.Assign(locals, LExpression.New(typeof(Dictionary<string, object>))),
-                body);
+            return LExpression.Block(locals, body);
         }
 
         /// <summary>Compiles a setter, or refuses - see <see cref="CompileGetter{TResult,TContext}"/>.</summary>

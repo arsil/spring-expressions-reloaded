@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Linq.Expressions;
 
+using JetBrains.Annotations;
+
 using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
@@ -13,7 +15,8 @@ namespace SpringExpressions
             ThisExpression = rootContextExpression;
             VariablesExpression = variablesExpression;
             _constructedCollections = new HashSet<LExpression>();
-            _localsDictionary = new LocalsDictionarySlot();
+            _localStorage = new Dictionary<string, ParameterExpression>();
+            _localStorageOrder = new List<ParameterExpression>();
         }
 
         public CompilationContext CreateWithNewThisContext(LExpression thisExpression)
@@ -37,10 +40,12 @@ namespace SpringExpressions
             // root that Compiler finally inspects is the one it registered into.
             _constructedCollections = constructedCollections;
 
-            // No locals slot, and deliberately none inherited: every caller of this builds a delegate
-            // with its own Compile() call and hands it in as a constant, so its tree is a separate
-            // compilation unit and cannot reference a block variable declared in the outer one.
-            _localsDictionary = null;
+            // No local storage, and deliberately none inherited: every caller of this builds a
+            // delegate with its own Compile() call and hands it in as a constant, so its tree is a
+            // separate compilation unit and cannot reference a block variable declared in the outer
+            // one.
+            _localStorage = null;
+            _localStorageOrder = null;
         }
 
         /// <summary>
@@ -97,16 +102,32 @@ namespace SpringExpressions
 
         /// <summary>
         /// The storage a free <c>$local</c> - one no enclosing lambda declares as a parameter - reads
-        /// and writes, declared on demand. False where this scope cannot host one.
+        /// and writes: one block variable per name, declared on demand. False where this scope cannot
+        /// host one.
         /// </summary>
         /// <remarks>
         /// <p>
         /// The interpreter's twin is <c>EvaluationContext.LocalVariables</c>, a dictionary created the
-        /// first time something assigns to a local and thrown away with the evaluation. This is the
-        /// same thing as a block variable: whoever wraps the emitted tree - Compiler for a whole
-        /// expression, LambdaExpressionNode for a lambda body - declares it and assigns a fresh
-        /// dictionary, so the storage lives exactly one invocation of the compiled delegate and two
-        /// threads evaluating the same expression cannot see each other's locals.
+        /// first time something assigns to a local and thrown away with the evaluation. A block
+        /// variable says the same thing to the LINQ compiler: whoever wraps the emitted tree -
+        /// Compiler for a whole expression, LambdaExpressionNode for a lambda body - declares them,
+        /// so the storage lives exactly one invocation of the compiled delegate and two threads
+        /// evaluating the same expression cannot see each other's locals.
+        /// </p>
+        /// <p>
+        /// Every <c>$name</c> is a literal in the grammar, so the set of names is known while the
+        /// tree is being emitted and there is nothing a dictionary would buy: an unassigned variable
+        /// already defaults to null, which is what the interpreter answers for a key it does not
+        /// hold, and a name is a slot rather than a hash lookup. The first version did hold one
+        /// <c>Dictionary&lt;string, object&gt;</c> here, mirroring the interpreter's storage one for
+        /// one; this is the same semantics with the allocation and the lookup removed.
+        /// </p>
+        /// <p>
+        /// The variables are object-typed and that part is forced: an unassigned local reads as null,
+        /// the interpreter's hashtable lets one be reassigned to a different type, and whether a
+        /// local is assigned at all stops being statically decidable inside a branch. Giving a local
+        /// a real type is a language change - a declaration both backends execute - and is
+        /// <c>_Docs/open-issues.md</c> item 15, which this is the compiled half of.
         /// </p>
         /// <p>
         /// A projection or selection body has no such scope: it is compiled by its own
@@ -116,38 +137,37 @@ namespace SpringExpressions
         /// then had to report as an internal defect.
         /// </p>
         /// </remarks>
-        public bool TryGetLocalsDictionary(out ParameterExpression localsDictionary)
+        public bool TryGetLocalStorage(
+            [NotNull] string variableName, out ParameterExpression storage)
         {
-            if (_localsDictionary == null)
+            if (_localStorage == null)
             {
-                localsDictionary = null;
+                storage = null;
                 return false;
             }
 
-            if (_localsDictionary.Variable == null)
+            if (!_localStorage.TryGetValue(variableName, out storage))
             {
-                _localsDictionary.Variable = LExpression.Variable(
-                    typeof(Dictionary<string, object>), "locals");
+                storage = LExpression.Variable(typeof(object), "local_" + variableName);
+                _localStorage.Add(variableName, storage);
+                _localStorageOrder.Add(storage);
             }
 
-            localsDictionary = _localsDictionary.Variable;
             return true;
         }
 
         /// <summary>
-        /// The locals dictionary if anything asked for one, otherwise null - the question whoever
-        /// wraps the tree asks, so an expression using no locals declares no variable and allocates
-        /// no dictionary.
+        /// Every local storage variable asked for, in the order it was first reached, or an empty
+        /// list - the question whoever wraps the tree asks, so an expression using no locals declares
+        /// nothing.
         /// </summary>
-        public ParameterExpression DeclaredLocalsDictionary
+        [NotNull, ItemNotNull]
+        public IList<ParameterExpression> DeclaredLocalStorage
         {
-            get { return _localsDictionary == null ? null : _localsDictionary.Variable; }
+            get { return (IList<ParameterExpression>)_localStorageOrder ?? EmptyStorage; }
         }
 
-        private class LocalsDictionarySlot
-        {
-            public ParameterExpression Variable;
-        }
+        private static readonly ParameterExpression[] EmptyStorage = new ParameterExpression[0];
 
         public LExpression RootContextExpression { get; private set; }
         public LExpression ThisExpression { get; private set; }
@@ -164,6 +184,11 @@ namespace SpringExpressions
         public Dictionary<string, ParameterExpression> _localVariables;
 
         private readonly HashSet<LExpression> _constructedCollections;
-        private readonly LocalsDictionarySlot _localsDictionary;
+
+        // Lookup and declaration order kept apart: a Dictionary does not promise an enumeration
+        // order, and an emitted tree that varies between runs is harder to read than one that does
+        // not.
+        private readonly Dictionary<string, ParameterExpression> _localStorage;
+        private readonly List<ParameterExpression> _localStorageOrder;
     }
 }
