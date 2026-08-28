@@ -1,3 +1,5 @@
+using System;
+
 using NUnit.Framework;
 
 using SpringExpressions;
@@ -101,28 +103,36 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// An integer left operand with a boolean right one: the bitwise role turns out not to apply, so the
-        /// operator falls back to the logical one - and the right operand must still be read once, not once
-        /// to find out its type and again to use it.
+        /// An integer meeting a boolean is refused on both backends, and the refusal happens without
+        /// reading the right operand twice.
         /// </summary>
         /// <remarks>
-        /// Interpreter only. The compiled path has no form for mixing an integer with a boolean and refuses
-        /// the shape, so there is nothing to compare against here.
+        /// These two used to assert that the shape *worked* - "One and Counted" answered true, by
+        /// coercing the 1 - which was the truthiness the engine has since ruled out: a non-boolean is
+        /// not a truth value, anywhere. The compiled path always refused the shape; now the interpreter
+        /// does too, and what is left worth pinning is that the operand-reading discipline holds on the
+        /// failing path as well. Do not restore the old assertions without reversing that ruling.
         /// </remarks>
         [Test]
-        public void AndReadsTheRightOperandOnceWhenTheLeftIsAnInteger()
+        public void AndRefusesAnIntegerLeftOperandAgainstABoolean()
         {
-            Assert.AreEqual(1, InterpretedReadsOfRightOperand("One and Counted"));
+            var holder = new OperandCounter();
+
+            Assert.Throws<ArgumentException>(
+                () => ExpressionEvaluator.GetValue(holder, "One and Counted"));
+
+            Assert.AreEqual(1, holder.RightOperandReads, "the right operand is read once, not twice");
         }
 
-        /// <summary>
-        /// As above. The left operand has to be zero for the fall-through to be reached at all: a non-zero
-        /// integer makes the logical "or" true and stops there.
-        /// </summary>
         [Test]
-        public void OrReadsTheRightOperandOnceWhenTheLeftIsAnInteger()
+        public void OrRefusesAnIntegerLeftOperandAgainstABoolean()
         {
-            Assert.AreEqual(1, InterpretedReadsOfRightOperand("Zero or Counted"));
+            var holder = new OperandCounter();
+
+            Assert.Throws<ArgumentException>(
+                () => ExpressionEvaluator.GetValue(holder, "Zero or Counted"));
+
+            Assert.AreEqual(1, holder.RightOperandReads, "the right operand is read once, not twice");
         }
 
         /// <summary>

@@ -20,6 +20,7 @@
 
 using System;
 using SpringExpressions.Expressions.Compiling;
+using SpringExpressions.Util;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -73,8 +74,9 @@ namespace SpringExpressions
             // logical operator short-circuits: "true or X" never evaluates X.
             if (l != null && !TypeCheckingUtils.IsInteger(l) && !(l is Enum))
             {
-                return Convert.ToBoolean(l)
-                    || Convert.ToBoolean(GetRightValue(context, evalContext));
+                return BooleanUtils.RequireBoolean(l, LogicalOperand)
+                    || BooleanUtils.RequireBoolean(
+                        GetRightValue(context, evalContext), LogicalOperand);
             }
 
             object r = GetRightValue(context, evalContext);
@@ -106,8 +108,11 @@ namespace SpringExpressions
             }
 
             // The right operand has already been evaluated above. Reading it again here would run its
-            // side effects a second time.
-            return Convert.ToBoolean(l) || Convert.ToBoolean(r);
+            // side effects a second time. See OpAND for what reaches this line and why it is refused.
+            return BooleanUtils.RequireBoolean(l, LogicalOperand)
+                || BooleanUtils.RequireBoolean(r, LogicalOperand);
         }
+
+        private const string LogicalOperand = "operator 'or'";
     }
 }

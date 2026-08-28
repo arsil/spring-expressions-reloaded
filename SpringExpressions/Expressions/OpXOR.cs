@@ -22,6 +22,7 @@ using System;
 using System.Linq.Expressions;
 using JetBrains.Annotations;
 using SpringExpressions.Expressions.Compiling;
+using SpringExpressions.Util;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -95,7 +96,12 @@ namespace SpringExpressions
                 object result = NumberUtils.BitwiseXor(l, r);
                 return Enum.ToObject(enumType, result);
             }
-            return Convert.ToBoolean(l) ^ Convert.ToBoolean(r);
+            // See OpAND for what reaches this line and why it is refused. 'xor' never short-circuits,
+            // so both operands are validated.
+            return BooleanUtils.RequireBoolean(l, LogicalOperand)
+                ^ BooleanUtils.RequireBoolean(r, LogicalOperand);
         }
+
+        private const string LogicalOperand = "operator 'xor'";
     }
 }

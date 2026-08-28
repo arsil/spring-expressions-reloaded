@@ -20,6 +20,7 @@
 
 using System;
 using SpringExpressions.Expressions.Compiling;
+using SpringExpressions.Util;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -75,8 +76,9 @@ namespace SpringExpressions
             // logical operator, and the logical operator short-circuits: "false and X" never evaluates X.
             if (l != null && !TypeCheckingUtils.IsInteger(l) && !(l is Enum))
             {
-                return Convert.ToBoolean(l)
-                    && Convert.ToBoolean(GetRightValue(context, evalContext));
+                return BooleanUtils.RequireBoolean(l, LogicalOperand)
+                    && BooleanUtils.RequireBoolean(
+                        GetRightValue(context, evalContext), LogicalOperand);
             }
 
             object r = GetRightValue(context, evalContext);
@@ -112,7 +114,17 @@ namespace SpringExpressions
 
             // The right operand has already been evaluated above. Reading it again here would run its
             // side effects a second time.
-            return Convert.ToBoolean(l) && Convert.ToBoolean(r);
+            //
+            // Everything that reaches this line is either a boolean, a null read as false, or an
+            // operand that is not a truth value at all - a bitwise pair was claimed above, and so was
+            // the lifted null. '45 and true' lands here, and used to answer True by coercing the 45.
+            return BooleanUtils.RequireBoolean(l, LogicalOperand)
+                && BooleanUtils.RequireBoolean(r, LogicalOperand);
         }
+
+        /// <summary>
+        /// How the logical role of this operator names itself when refusing a non-boolean operand.
+        /// </summary>
+        private const string LogicalOperand = "operator 'and'";
     }
 }
