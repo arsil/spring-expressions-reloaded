@@ -33,6 +33,8 @@ using System.Runtime.CompilerServices;
 
 using JetBrains.Annotations;
 
+using SpringExpressions.Util;
+
 #endregion
 
 namespace SpringUtil
@@ -419,7 +421,9 @@ namespace SpringUtil
         {
             List<MethodBase> matches = null;
             List<Type[]> matchParameterSets = null;
-            bool anyExpandedMatch = false;
+            List<MethodBase> expandedMatches = null;
+
+            object[] values = (argValues == null) ? new object[0] : argValues;
 
             foreach (MethodBase m in methods)
             {
@@ -427,54 +431,76 @@ namespace SpringUtil
                 bool isMatch = true;
                 bool isExactMatch = true;
                 bool isExpandedMatch = false;
-                object[] paramValues = (argValues == null) ? new object[0] : argValues;
+                object[] paramValues = values;
 
-                try
+                // A params candidate binds in normal form where it can and only then expands -
+                // C#'s order. Expansion used to be unconditional and used to demand at least as many
+                // arguments as parameters, so an actual array handed to a params parameter was packed
+                // inside another one and an empty expansion resolved only when the method name was
+                // unambiguous enough to skip this scan. That packing is also what the catch clause
+                // around this loop was for: it swallowed the InvalidCastException Array.SetValue
+                // raised for an element the array could not hold, which the binder now answers with
+                // NotApplicable instead of throwing.
+                if (ParamArrayUtils.GetParamArrayElementType(parameters) != null)
                 {
-                    if (parameters.Length > 0)
+                    object[] bound;
+                    switch (ParamArrayUtils.TryBind(parameters, values, out bound))
                     {
-                        ParameterInfo lastParameter = parameters[parameters.Length - 1];
-                        if (lastParameter.GetCustomAttributes(typeof(ParamArrayAttribute), false).Length > 0 && argValues.Length >= parameters.Length)
-                        {
-                            paramValues =
-                                PackageParamArray(argValues, parameters.Length,
-                                                  lastParameter.ParameterType.GetElementType());
+                        case ParamArrayBinding.NormalForm:
+                            paramValues = bound;
+                            break;
+                        case ParamArrayBinding.Expanded:
+                            paramValues = bound;
                             isExpandedMatch = true;
-                        }
-                    }
-
-                    if (parameters.Length != paramValues.Length)
-                    {
-                        isMatch = false;
-                    }
-                    else
-                    {
-                        for (int i = 0; i < parameters.Length; i++)
-                        {
-                            Type paramType = parameters[i].ParameterType;
-                            object paramValue = paramValues[i];
-
-                            if ((paramValue == null && paramType.IsValueType && !IsNullableType(paramType))
-                                || (paramValue != null && !paramType.IsAssignableFrom(paramValue.GetType())))
-                            {
-                                isMatch = false;
-                                break;
-                            }
-
-                            if (paramValue == null || paramType != paramValue.GetType())
-                            {
-                                isExactMatch = false;
-                            }
-                        }
+                            break;
+                        default:
+                            continue;
                     }
                 }
-                catch (InvalidCastException)
+
+                if (parameters.Length != paramValues.Length)
                 {
                     isMatch = false;
+                }
+                else
+                {
+                    for (int i = 0; i < parameters.Length; i++)
+                    {
+                        Type paramType = parameters[i].ParameterType;
+                        object paramValue = paramValues[i];
+
+                        if ((paramValue == null && paramType.IsValueType && !IsNullableType(paramType))
+                            || (paramValue != null && !paramType.IsAssignableFrom(paramValue.GetType())))
+                        {
+                            isMatch = false;
+                            break;
+                        }
+
+                        if (paramValue == null || paramType != paramValue.GetType())
+                        {
+                            isExactMatch = false;
+                        }
+                    }
                 }
 
                 if (isMatch)
                 {
+                    // An expanded match is a last resort: C# considers a candidate applicable in
+                    // normal form better than any candidate that had to expand, whatever the
+                    // conversions involved. Keeping the two apart also removes an order dependence -
+                    // an expanded exact match used to return here and preempt a normal-form candidate
+                    // the enumeration had not reached yet.
+                    if (isExpandedMatch)
+                    {
+                        if (expandedMatches == null)
+                        {
+                            expandedMatches = new List<MethodBase>();
+                        }
+
+                        expandedMatches.Add(m);
+                        continue;
+                    }
+
                     if (isExactMatch)
                     {
                         return m;
@@ -488,13 +514,26 @@ namespace SpringUtil
 
                     matches.Add(m);
                     matchParameterSets.Add(Array.ConvertAll(parameters, p => p.ParameterType));
-                    anyExpandedMatch = anyExpandedMatch || isExpandedMatch;
                 }
             }
 
             if (matches == null)
             {
-                return null;
+                if (expandedMatches == null)
+                {
+                    return null;
+                }
+
+                // Betterness does not rank expanded matches, so several of them stay the ambiguity
+                // this resolver has always reported.
+                if (expandedMatches.Count == 1)
+                {
+                    return expandedMatches[0];
+                }
+
+                throw new AmbiguousMatchException(
+                    string.Format("Ambiguous match for {0} '{1}' for the specified number and types of arguments.", methodTypeName,
+                                  expandedMatches[0].Name));
             }
 
             if (matches.Count == 1)
@@ -505,17 +544,14 @@ namespace SpringUtil
             // Ties used to throw unconditionally - upstream had no betterness for inexact matches, so
             // a most-derived value against Method(object)/Method(B) crashed with this very exception.
             // C#'s betterness now picks the unique most specific candidate where one exists; only
-            // genuinely incomparable sets - or params-expanded matches, which betterness does not
-            // rank - still report the ambiguity this resolver has always reported, at evaluation.
-            // (Collecting before deciding also means a later exact match wins instead of a premature
-            // tie: two inexact candidates scanned ahead of the exact one no longer preempt it.)
-            if (!anyExpandedMatch)
+            // genuinely incomparable sets still report the ambiguity this resolver has always
+            // reported, at evaluation. (Collecting before deciding also means a later exact match
+            // wins instead of a premature tie: two inexact candidates scanned ahead of the exact one
+            // no longer preempt it.)
+            int best = TypeCheckingUtils.IndexOfUniqueBestParameterSet(matchParameterSets);
+            if (best >= 0)
             {
-                int best = TypeCheckingUtils.IndexOfUniqueBestParameterSet(matchParameterSets);
-                if (best >= 0)
-                {
-                    return matches[best];
-                }
+                return matches[best];
             }
 
             throw new AmbiguousMatchException(
@@ -537,37 +573,6 @@ namespace SpringUtil
             return (ConstructorInfo)GetMethodBaseByArgumentValues("constructor", methods, argValues);
         }
 
-
-        /// <summary>
-        /// Packages arguments into argument list containing parameter array as a last argument.
-        /// </summary>
-        /// <param name="argValues">Argument vaklues to package.</param>
-        /// <param name="argCount">Total number of oarameters.</param>
-        /// <param name="elementType">Type of the param array element.</param>
-        /// <returns>Packaged arguments.</returns>
-        public static object[] PackageParamArray(object[] argValues, int argCount, Type elementType)
-        {
-            object[] values = new object[argCount];
-            int i = 0;
-
-            // copy regular arguments
-            while (i < argCount - 1)
-            {
-                values[i] = argValues[i];
-                i++;
-            }
-
-            // package param array into last argument
-            Array paramArray = Array.CreateInstance(elementType, argValues.Length - i);
-            int j = 0;
-            while (i < argValues.Length)
-            {
-                paramArray.SetValue(argValues[i++], j++);
-            }
-            values[values.Length - 1] = paramArray;
-
-            return values;
-        }
 
         /// <summary>
         /// Convenience method to convert an interface <see cref="System.Type"/> 

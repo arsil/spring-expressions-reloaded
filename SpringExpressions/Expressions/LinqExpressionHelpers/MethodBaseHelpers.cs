@@ -7,6 +7,7 @@ using System.Reflection;
 using JetBrains.Annotations;
 
 using SpringExpressions.Expressions.Compiling.Expressions;
+using SpringExpressions.Util;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -145,7 +146,9 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
         {
             List<Tuple<MethodBase, LExpression[]>> matches = null;
             List<Type[]> matchParameterSets = null;
-            var anyExpandedMatch = false;
+            List<Tuple<MethodBase, LExpression[]>> expandedMatches = null;
+
+            var allArguments = arguments ?? new LExpression[0];
 
             foreach (T m in methods)
             {
@@ -153,82 +156,92 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
                 bool isMatch = true;
                 bool isExactMatch = true;
                 bool isExpandedMatch = false;
-                LExpression[] argumentsForCurrentMethod = arguments ?? new LExpression[0];
+                LExpression[] argumentsForCurrentMethod = allArguments;
 
-                try
+                // The interpreter's twin of this decision is in ReflectionUtils: normal form first,
+                // expansion only where the normal form does not bind, and the trailing arguments
+                // converted by the rule 'new T[] {...}' uses.
+                //
+                // Two catch clauses used to wrap this loop, for an InvalidCastException and an
+                // InvalidOperationException the author could not place ("to dopisalem!!!! bo taki
+                // wyjatek wyrzuca konstruowanie tablic ze zlymi typami"). They came from the params
+                // packer building an array out of arguments it could not hold; the binder answers
+                // that with NotApplicable instead of throwing, so nothing below raises them.
+                if (ParamArrayUtils.GetParamArrayElementType(methodParameterInfoArray) != null)
                 {
-                    if (methodParameterInfoArray.Length > 0)
+                    switch (ParamArrayUtils.TryBind(
+                        methodParameterInfoArray, allArguments, out var bound))
                     {
-                        var lastMethodParameter
-                            = methodParameterInfoArray[methodParameterInfoArray.Length - 1];
-
-                        var lastParameterHasParamArrayAttribute
-                            = lastMethodParameter.GetCustomAttributes(typeof(ParamArrayAttribute), false).Length > 0;
-
-                        if (lastParameterHasParamArrayAttribute
-                            && arguments.Length >= methodParameterInfoArray.Length)
-                        {
-                            argumentsForCurrentMethod = ConvertArgumentsForVariableParamsMethod(
-                                arguments,
-                                methodParameterInfoArray.Length,
-                                lastMethodParameter.ParameterType.GetElementType());
+                        case ParamArrayBinding.NormalForm:
+                            argumentsForCurrentMethod = bound;
+                            break;
+                        case ParamArrayBinding.Expanded:
+                            argumentsForCurrentMethod = bound;
                             isExpandedMatch = true;
-                        }
+                            break;
+                        default:
+                            // Undecidable as well as NotApplicable: a candidate this backend cannot
+                            // bind is simply not among the ones it may choose from, and the
+                            // interpreter serves the call if nothing else binds.
+                            continue;
                     }
+                }
 
-                    if (methodParameterInfoArray.Length != argumentsForCurrentMethod.Length)
+                if (methodParameterInfoArray.Length != argumentsForCurrentMethod.Length)
+                {
+                    isMatch = false;
+                }
+                else
+                {
+                    for (int i = 0; i < methodParameterInfoArray.Length; i++)
                     {
-                        isMatch = false;
-                    }
-                    else
-                    {
-                        for (int i = 0; i < methodParameterInfoArray.Length; i++)
+                        var currentMethodParameter = methodParameterInfoArray[i].ParameterType;
+                        var currentArgument = argumentsForCurrentMethod[i];
+
+                        // todo: error: zrobić test na zwracanie null obiektu z metody czy wywołanie kolejnej się nie rozjebie!!!!! ------------------------------------------------------  --
+                        var currentArgumentIsConstNull
+                            = currentArgument is ConstantExpression constExpr && constExpr.Value == null;
+
+                        if (currentArgumentIsConstNull
+                            && currentMethodParameter.IsValueType
+                            && !IsNullableType(currentMethodParameter))
                         {
-                            var currentMethodParameter = methodParameterInfoArray[i].ParameterType;
-                            var currentArgument = argumentsForCurrentMethod[i];
+                            // null argument but method parameter does not accept nulls!
+                            isMatch = false;
+                            break;
+                        }
 
-                            // todo: error: zrobić test na zwracanie null obiektu z metody czy wywołanie kolejnej się nie rozjebie!!!!! ------------------------------------------------------  --
-                            var currentArgumentIsConstNull
-                                = currentArgument is ConstantExpression constExpr && constExpr.Value == null;
+                        if (!currentArgumentIsConstNull
+                            && !currentMethodParameter.IsAssignableFrom(currentArgument.Type))
+                        {
+                            // not null argument but cast not possible (incompatible type)
+                            isMatch = false;
+                            break;
+                        }
 
-                            if (currentArgumentIsConstNull
-                                && currentMethodParameter.IsValueType
-                                && !IsNullableType(currentMethodParameter))
-                            {
-                                // null argument but method parameter does not accept nulls!
-                                isMatch = false;
-                                break;
-                            }
-
-                            if (!currentArgumentIsConstNull
-                                && !currentMethodParameter.IsAssignableFrom(currentArgument.Type))
-                            {
-                                // not null argument but cast not possible (incompatible type)
-                                isMatch = false;
-                                break;
-                            }
-
-                            if (currentArgumentIsConstNull
-                                || currentMethodParameter != currentArgument.Type)
-                            {
-                                isExactMatch = false;
-                            }
+                        if (currentArgumentIsConstNull
+                            || currentMethodParameter != currentArgument.Type)
+                        {
+                            isExactMatch = false;
                         }
                     }
-                }
-                    // todo: error: dlaczego InvalidCastException         !!!!! ??????? -------------------- !!!!!!! ??????? ---------------------------------------
-                catch (InvalidCastException)
-                {
-                    isMatch = false;
-                }
-                   // todo: error: to dopisałem!!!! bo taki wyjątek wyrzuca konstruowanie tablic ze złymi typami... ale czy to jest ok?
-                catch (InvalidOperationException)
-                {
-                    isMatch = false;
                 }
 
                 if (isMatch)
                 {
+                    // Normal-form candidates outrank expanded ones, as in C#, so an expanded match is
+                    // only ever consulted when nothing bound without expanding.
+                    if (isExpandedMatch)
+                    {
+                        if (expandedMatches == null)
+                        {
+                            expandedMatches = new List<Tuple<MethodBase, LExpression[]>>();
+                        }
+
+                        expandedMatches.Add(new Tuple<MethodBase, LExpression[]>(m, argumentsForCurrentMethod));
+                        continue;
+                    }
+
                     if (isExactMatch)
                     {
                         return new Tuple<MethodBase, LExpression[]>(m, argumentsForCurrentMethod);
@@ -242,13 +255,27 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
 
                     matches.Add(new Tuple<MethodBase, LExpression[]>(m, argumentsForCurrentMethod));
                     matchParameterSets.Add(Array.ConvertAll(methodParameterInfoArray, p => p.ParameterType));
-                    anyExpandedMatch = anyExpandedMatch || isExpandedMatch;
                 }
             }
 
             if (matches == null)
             {
-                return null;
+                if (expandedMatches == null)
+                {
+                    return null;
+                }
+
+                // Betterness does not rank expanded matches, so several of them keep the legacy
+                // ambiguity - reported here as a compile refusal, which is what the interpreter's
+                // twin reports at evaluation.
+                if (expandedMatches.Count == 1)
+                {
+                    return expandedMatches[0];
+                }
+
+                throw new CompileErrorException(
+                    $"Ambiguous match for {baseMethodNameForExceptionText} '{expandedMatches[0].Item1.Name}' for " +
+                    $"the specified number and static types of arguments.");
             }
 
             if (matches.Count == 1)
@@ -258,70 +285,20 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
 
             // Ties break by C#'s betterness now, the same rule the interpreter's scan applies - a
             // null literal against Show(object)/Show(string) picks the string overload on both
-            // backends, as C# would. Only genuinely incomparable sets - or params-expanded matches,
-            // which betterness does not rank - still refuse. A tie discovered while the tree is being
-            // BUILT is a compile refusal, not a runtime error: this used to throw
-            // AmbiguousMatchException, which escapes the weak path's catch (CompileErrorException)
-            // and turned a shape the interpreter serves into a hard failure at construction.
-            if (!anyExpandedMatch)
+            // backends, as C# would. Only genuinely incomparable sets still refuse. A tie discovered
+            // while the tree is being BUILT is a compile refusal, not a runtime error: this used to
+            // throw AmbiguousMatchException, which escapes the weak path's catch
+            // (CompileErrorException) and turned a shape the interpreter serves into a hard failure
+            // at construction.
+            var best = SpringUtil.TypeCheckingUtils.IndexOfUniqueBestParameterSet(matchParameterSets);
+            if (best >= 0)
             {
-                var best = SpringUtil.TypeCheckingUtils.IndexOfUniqueBestParameterSet(matchParameterSets);
-                if (best >= 0)
-                {
-                    return matches[best];
-                }
+                return matches[best];
             }
 
             throw new CompileErrorException(
                 $"Ambiguous match for {baseMethodNameForExceptionText} '{matches[0].Item1.Name}' for " +
                 $"the specified number and static types of arguments.");
-        }
-
-        /// <summary>
-        /// Packages arguments into argument list containing parameter array as a last argument.
-        /// </summary>
-        public static LExpression[] ConvertArgumentsForVariableParamsMethod(
-            LExpression[] arguments, 
-            int variableParamsMethodArgumentCount, 
-            Type variableParamsArrayItemType)
-        {
-            LExpression[] result = new LExpression[variableParamsMethodArgumentCount];
-            int i = 0;
-
-            // copy regular arguments
-            while (i < variableParamsMethodArgumentCount - 1)
-            {
-                result[i] = arguments[i];
-                i++;
-            }
-
-            // package param array into last argument
-            var variableParameters = new List<LExpression>();
-
-
-                      // todo: error: dupa blada bo tutaj jak typy nie pasują, to się wyjebie!--------------------------
-                      // todo: error: nulls! type conversion!!! ---------------  -------------------------------------------------------------------------------
-
-                 // todo: error: uspójnić kod budowania strongly-types list!!!!
-            while (i < arguments.Length)
-            {
-                var currentArg = arguments[i++];
-
-
-                if (currentArg is ConstantExpression constExpression
-                    && constExpression.Value == null)
-                {
-                    currentArg = LExpression.Constant(null, variableParamsArrayItemType);
-                }
-
-                variableParameters.Add(currentArg);
-            }
-
-            result[result.Length - 1] = LExpression.NewArrayInit(variableParamsArrayItemType, variableParameters); ;
-
-            
-
-            return result;
         }
 
     }

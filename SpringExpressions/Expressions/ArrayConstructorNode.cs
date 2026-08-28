@@ -26,6 +26,7 @@ using SpringUtil;
 using System.Reflection;
 using SpringCore.TypeResolution;
 using SpringExpressions.Parser.antlr.collections;
+using SpringExpressions.Util;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -123,29 +124,20 @@ namespace SpringExpressions
         /// 'new string[] {1}' is not a conversion at all. Both used to produce an array of the wrong
         /// type instead.
         /// </p>
+        /// <p>
+        /// The rule itself lives in <see cref="ArrayElementConversions"/> because a params array asks
+        /// exactly the same question with the brackets left out; only the wording of the refusal is
+        /// this node's own.
+        /// </p>
         /// </remarks>
         [NotNull]
         private LExpression ConvertItemToElementType([NotNull] LExpression item, [NotNull] Type elementType)
         {
-            if (item.Type == elementType)
-                return item;
+            if (ArrayElementConversions.TryConvertExpression(item, elementType, out var converted))
+                return converted;
 
-            // A null literal carries no useful type of its own - it arrives typed object - so it is
-            // retyped rather than converted, and only where a null can actually live.
             if (IsNullLiteral(item))
-            {
-                if (!elementType.IsValueType || Nullable.GetUnderlyingType(elementType) != null)
-                    return LExpression.Constant(null, elementType);
-
-                throw CannotCompile(
-                    $"null cannot be stored in an array of '{elementType}'");
-            }
-
-            if (elementType.IsAssignableFrom(item.Type))
-                return LExpression.Convert(item, elementType);
-
-            if (TypeCheckingUtils.IsCSharpImplicitNumericConversion(item.Type, elementType))
-                return LExpression.Convert(item, elementType);
+                throw CannotCompile($"null cannot be stored in an array of '{elementType}'");
 
             throw CannotCompile(
                 $"an item of type '{item.Type}' cannot be stored in an array of '{elementType}'");
@@ -230,22 +222,11 @@ namespace SpringExpressions
         private static object ConvertItemValueToElementType(
             [CanBeNull] object value, [NotNull] Type elementType)
         {
+            if (ArrayElementConversions.TryConvertValue(value, elementType, out var converted))
+                return converted;
+
             if (value == null)
-            {
-                if (!elementType.IsValueType || Nullable.GetUnderlyingType(elementType) != null)
-                    return null;
-
-                throw new InvalidCastException(
-                    $"null cannot be stored in an array of '{elementType}'.");
-            }
-
-            if (elementType.IsInstanceOfType(value))
-                return value;
-
-            var underlyingElementType = Nullable.GetUnderlyingType(elementType) ?? elementType;
-
-            if (TypeCheckingUtils.IsCSharpImplicitNumericConversion(value.GetType(), underlyingElementType))
-                return Convert.ChangeType(value, underlyingElementType);
+                throw new InvalidCastException($"null cannot be stored in an array of '{elementType}'.");
 
             throw new InvalidCastException(
                 $"an item of type '{value.GetType()}' cannot be stored in an array of '{elementType}'.");

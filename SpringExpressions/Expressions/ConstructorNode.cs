@@ -29,6 +29,7 @@ using JetBrains.Annotations;
 using SpringCore.TypeResolution;
 using SpringExpressions.Expressions.Compiling.Expressions;
 using SpringExpressions.Expressions.LinqExpressionHelpers;
+using SpringExpressions.Util;
 using SpringUtil;
 using SpringReflection.Dynamic;
 
@@ -45,8 +46,7 @@ namespace SpringExpressions
         private SafeConstructor constructor;
         private IDictionary namedArgs;
         private bool isParamArray = false;
-        private Type paramArrayType;
-        private int argumentCount;
+        private ParameterInfo[] parameters;
 
         /// <summary>
         /// Create a new instance
@@ -222,7 +222,7 @@ namespace SpringExpressions
                 return null;
 
             if (candidates.Count == 1)
-                return Tuple.Create(candidates[0], arguments.ToArray());
+                return Tuple.Create(candidates[0], MethodNode.BindToSingleCandidate(candidates[0], arguments));
 
             for (var position = 0; position < arguments.Count; position++)
             {
@@ -274,7 +274,18 @@ namespace SpringExpressions
                 }
             }
 
-            object[] paramValues = (isParamArray ? ReflectionUtils.PackageParamArray(argValues, argumentCount, paramArrayType) : argValues);
+            object[] paramValues = argValues;
+
+            if (isParamArray
+                && ParamArrayUtils.TryBind(parameters, argValues, out var bound)
+                    != ParamArrayBinding.NotApplicable)
+            {
+                // The candidate scan that chose this constructor bound the arguments already; binding
+                // again here is how the invoker gets the same array the scan built - normal form
+                // where an array was handed straight in, expanded otherwise.
+                paramValues = bound;
+            }
+
             object instance = constructor.Invoke(paramValues);
             if (namedArgValues != null)
             {
@@ -320,19 +331,10 @@ namespace SpringExpressions
                                   "number and types of arguments does not exist.",
                                   objectType.FullName));
             }
-            else 
+            else
             {
-                ParameterInfo[] parameters = ci.GetParameters();
-                if (parameters.Length > 0)
-                {
-                    ParameterInfo lastParameter = parameters[parameters.Length - 1];
-                    isParamArray = lastParameter.GetCustomAttributes(typeof(ParamArrayAttribute), false).Length > 0;
-                    if (isParamArray)
-                    {
-                        paramArrayType = lastParameter.ParameterType.GetElementType();
-                        argumentCount = parameters.Length;
-                    }
-                }
+                parameters = ci.GetParameters();
+                isParamArray = ParamArrayUtils.GetParamArrayElementType(parameters) != null;
                 ctor = new SafeConstructor(ci);
             }
                 
