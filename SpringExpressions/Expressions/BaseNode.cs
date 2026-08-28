@@ -26,6 +26,7 @@ using System.Reflection;
 using JetBrains.Annotations;
 using SpringExpressions.Expressions;
 using SpringExpressions.Expressions.Compiling.Expressions;
+using SpringExpressions.Util;
 using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
@@ -348,6 +349,59 @@ namespace SpringExpressions
                 throw new CompileErrorException(node, "node produced no assignment expression tree");
 
             return expression;
+        }
+
+        /// <summary>
+        /// Emits a call to the operator the operand types declare between them, or null if they declare
+        /// none. Both backends run the same lookup - see <see cref="UserDefinedOperatorUtils"/>.
+        /// </summary>
+        /// <remarks>
+        /// The resolved method is passed to the LINQ factory explicitly. Letting
+        /// <c>LExpression.Add(left, right)</c> resolve for itself would use LINQ's own, more permissive
+        /// rules and drift away from what the interpreter does.
+        /// </remarks>
+        [CanBeNull]
+        protected static LExpression TryCreateUserDefinedBinary(
+            [NotNull] LExpression left,
+            [NotNull] LExpression right,
+            [NotNull] string operatorMethodName,
+            [NotNull] Func<LExpression, LExpression, MethodInfo, System.Linq.Expressions.BinaryExpression> factory)
+        {
+            if (UserDefinedOperatorUtils.IsOwnedByNumericPromotion(left.Type, right.Type))
+                return null;
+
+            var method = UserDefinedOperatorUtils.FindBinary(operatorMethodName, left.Type, right.Type);
+
+            return method == null ? null : factory(left, right, method);
+        }
+
+        /// <summary>
+        /// The interpreter's twin: invokes the operator the runtime operand types declare, if any.
+        /// </summary>
+        protected static bool TryInvokeUserDefinedBinary(
+            [CanBeNull] object left,
+            [CanBeNull] object right,
+            [NotNull] string operatorMethodName,
+            out object result)
+        {
+            result = null;
+
+            if (left == null || right == null)
+                return false;
+
+            var leftType = left.GetType();
+            var rightType = right.GetType();
+
+            if (UserDefinedOperatorUtils.IsOwnedByNumericPromotion(leftType, rightType))
+                return false;
+
+            var method = UserDefinedOperatorUtils.FindBinary(operatorMethodName, leftType, rightType);
+
+            if (method == null)
+                return false;
+
+            result = method.Invoke(null, new[] { left, right });
+            return true;
         }
 
         /// <summary>

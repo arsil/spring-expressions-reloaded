@@ -47,6 +47,13 @@ namespace SpringExpressions
             var leftExpr = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpr = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
+            // A type's own operator first - see OpADD.
+            var userDefined = TryCreateUserDefinedBinary(
+                leftExpr, rightExpr, "op_Division", LExpression.Divide);
+
+            if (userDefined != null)
+                return userDefined;
+
             if (BinaryNumericOperatorHelper.TryCreate(
                     leftExpr,
                     rightExpr,
@@ -70,6 +77,10 @@ namespace SpringExpressions
         {
             object leftValue = GetLeftValue(context, evalContext);
             object rightValue = GetRightValue(context, evalContext);
+
+            // A type's own operator first - see OpADD.
+            if (TryInvokeUserDefinedBinary(leftValue, rightValue, "op_Division", out var userDefined))
+                return userDefined;
 
             var leftIsNumber = TypeCheckingUtils.IsNumber(leftValue);
             var rightIsNumber = TypeCheckingUtils.IsNumber(rightValue);

@@ -54,6 +54,16 @@ namespace SpringExpressions
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
+            // A type's own operator is found before any conversion is considered, which is C#'s order.
+            // Without it a type that both converts to a number and declares 'operator +' erased itself:
+            // 'a + b' answered the number it converts to rather than the type. Built-in numeric pairs
+            // never reach here - the promotion rules keep that whole space.
+            var userDefined = TryCreateUserDefinedBinary(
+                leftExpression, rightExpression, "op_Addition", LExpression.Add);
+
+            if (userDefined != null)
+                return userDefined;
+
             if (BinaryNumericOperatorHelper.TryCreate(
                 leftExpression, rightExpression,
                 LExpression.Add, out var resultExpression))
@@ -253,6 +263,11 @@ namespace SpringExpressions
         {
             object leftValue = GetLeftValue(context, evalContext);
             object rightValue = GetRightValue(context, evalContext);
+
+            // The operand types' own operator, before any conversion is considered - the compiled
+            // path's first question too, so the two agree by running the same lookup.
+            if (TryInvokeUserDefinedBinary(leftValue, rightValue, "op_Addition", out var userDefined))
+                return userDefined;
 
             var leftIsNumber = TypeCheckingUtils.IsNumber(leftValue);
             var rightIsNumber = TypeCheckingUtils.IsNumber(rightValue);

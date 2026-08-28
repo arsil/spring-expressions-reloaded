@@ -48,6 +48,13 @@ namespace SpringExpressions
 
             if (leftExpr != null && rightExpr != null)
             {
+                // A type's own operator first - see OpADD.
+                var userDefined = TryCreateUserDefinedBinary(
+                    leftExpr, rightExpr, "op_Modulus", LExpression.Modulo);
+
+                if (userDefined != null)
+                    return userDefined;
+
                 if (BinaryNumericOperatorHelper.TryCreate(
                     leftExpr, rightExpr,
                     LExpression.Modulo, out var resultExpression))
@@ -69,6 +76,10 @@ namespace SpringExpressions
         {
             object leftValue = GetLeftValue(context, evalContext );
             object rightValue = GetRightValue(context, evalContext );
+
+            // A type's own operator first - see OpADD.
+            if (TryInvokeUserDefinedBinary(leftValue, rightValue, "op_Modulus", out var userDefined))
+                return userDefined;
 
             var leftIsNumber = TypeCheckingUtils.IsNumber(leftValue);
             var rightIsNumber = TypeCheckingUtils.IsNumber(rightValue);

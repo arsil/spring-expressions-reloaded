@@ -64,26 +64,32 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// A DateTime plus a TimeSpan - the most natural spelling of the operation - has no compiled
-        /// form at all, and never had one.
+        /// A DateTime plus a TimeSpan - the most natural spelling of the operation - and the one that
+        /// had no compiled form for longest.
         /// </summary>
         /// <remarks>
-        /// Not a regression and not related to the dead DateTime + DateTime branch: OpADD emits for
-        /// DateTime + string (parsed as a TimeSpan) and DateTime + a number of days, and simply has no
-        /// branch for the TimeSpan itself, though DateTimeAddTimeSpanMethodInfo - which those two
-        /// branches call - is sitting right there. So it refuses, the interpreter adds it, and the
-        /// answer is right; it is a missing compiled form rather than a defect. Recorded here because
-        /// the shape looks like it ought to be the *first* thing that compiles.
+        /// OpADD emitted for DateTime + string (parsed as a TimeSpan) and DateTime + a number of days
+        /// and had no branch for the TimeSpan itself, though the MethodInfo those two call was sitting
+        /// right there. It needed no branch in the end: <c>DateTime.op_Addition(DateTime, TimeSpan)</c>
+        /// is a user-defined operator like any other, and the operator lookup finds it. The same lookup
+        /// is why <c>Span + Other</c> works.
         /// </remarks>
         [Test]
-        public void ADateTimePlusATimeSpanIsInterpretedForWantOfACompiledForm()
+        public void ADateTimePlusATimeSpanIsTheBclOperator()
         {
-            Assert.Throws<CompileErrorException>(
-                () => Expression.ParseGetter<Holder, object>("When + Span", EvaluationMode.MustCompile));
+            TestCompiledVsInterpreted<Holder, object>("When + Span", new Holder())
+                .ResultEqualsTo(new DateTime(2001, 1, 3));
+        }
 
-            Assert.AreEqual(
-                new DateTime(2001, 1, 3),
-                Expression.Parse("When + Span").GetValue<Holder>(new Holder()));
+        /// <summary>
+        /// TimeSpan arithmetic, which the engine had none of - for the same reason, and fixed by the
+        /// same lookup.
+        /// </summary>
+        [Test]
+        public void TimeSpansAddToEachOther()
+        {
+            TestCompiledVsInterpreted<Holder, object>("Span + Span", new Holder())
+                .ResultEqualsTo(TimeSpan.FromDays(4));
         }
 
         /// <summary>
