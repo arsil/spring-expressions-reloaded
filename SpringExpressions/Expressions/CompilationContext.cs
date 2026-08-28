@@ -13,6 +13,7 @@ namespace SpringExpressions
             ThisExpression = rootContextExpression;
             VariablesExpression = variablesExpression;
             _constructedCollections = new HashSet<LExpression>();
+            _localsDictionary = new LocalsDictionarySlot();
         }
 
         public CompilationContext CreateWithNewThisContext(LExpression thisExpression)
@@ -35,6 +36,11 @@ namespace SpringExpressions
             // Shared, not copied: a union inside a projection compiles against a derived context, and the
             // root that Compiler finally inspects is the one it registered into.
             _constructedCollections = constructedCollections;
+
+            // No locals slot, and deliberately none inherited: every caller of this builds a delegate
+            // with its own Compile() call and hands it in as a constant, so its tree is a separate
+            // compilation unit and cannot reference a block variable declared in the outer one.
+            _localsDictionary = null;
         }
 
         /// <summary>
@@ -89,6 +95,60 @@ namespace SpringExpressions
             return _localVariables.TryGetValue(variableName, out variableExpression);
         }
 
+        /// <summary>
+        /// The storage a free <c>$local</c> - one no enclosing lambda declares as a parameter - reads
+        /// and writes, declared on demand. False where this scope cannot host one.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// The interpreter's twin is <c>EvaluationContext.LocalVariables</c>, a dictionary created the
+        /// first time something assigns to a local and thrown away with the evaluation. This is the
+        /// same thing as a block variable: whoever wraps the emitted tree - Compiler for a whole
+        /// expression, LambdaExpressionNode for a lambda body - declares it and assigns a fresh
+        /// dictionary, so the storage lives exactly one invocation of the compiled delegate and two
+        /// threads evaluating the same expression cannot see each other's locals.
+        /// </p>
+        /// <p>
+        /// A projection or selection body has no such scope: it is compiled by its own
+        /// <c>Compile()</c> call and passed into the emitted tree as a constant delegate, so a block
+        /// variable of the enclosing compilation is simply not in scope there. Emitting one anyway
+        /// produced an unbound-variable failure out of the LINQ compiler, which the absorbing wrapper
+        /// then had to report as an internal defect.
+        /// </p>
+        /// </remarks>
+        public bool TryGetLocalsDictionary(out ParameterExpression localsDictionary)
+        {
+            if (_localsDictionary == null)
+            {
+                localsDictionary = null;
+                return false;
+            }
+
+            if (_localsDictionary.Variable == null)
+            {
+                _localsDictionary.Variable = LExpression.Variable(
+                    typeof(Dictionary<string, object>), "locals");
+            }
+
+            localsDictionary = _localsDictionary.Variable;
+            return true;
+        }
+
+        /// <summary>
+        /// The locals dictionary if anything asked for one, otherwise null - the question whoever
+        /// wraps the tree asks, so an expression using no locals declares no variable and allocates
+        /// no dictionary.
+        /// </summary>
+        public ParameterExpression DeclaredLocalsDictionary
+        {
+            get { return _localsDictionary == null ? null : _localsDictionary.Variable; }
+        }
+
+        private class LocalsDictionarySlot
+        {
+            public ParameterExpression Variable;
+        }
+
         public LExpression RootContextExpression { get; private set; }
         public LExpression ThisExpression { get; private set; }
 
@@ -104,5 +164,6 @@ namespace SpringExpressions
         public Dictionary<string, ParameterExpression> _localVariables;
 
         private readonly HashSet<LExpression> _constructedCollections;
+        private readonly LocalsDictionarySlot _localsDictionary;
     }
 }

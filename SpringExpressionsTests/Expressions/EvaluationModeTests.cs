@@ -262,34 +262,68 @@ namespace SpringExpressionsTests.Expressions
         /// <summary>
         /// Assigning a value type to a <c>#variable</c> used to throw <c>ArgumentException</c> out of
         /// the emitter, which the fallback cannot see - so <c>CompileOrInterpret</c> was not honoured
-        /// and the shape was a hard failure on every path.
+        /// and the shape was a hard failure on every path. It compiles now.
         /// </summary>
         /// <remarks>
-        /// The emitted call passes the new value into <c>SetVariable</c>'s <c>object</c> parameter
-        /// without boxing it. A string-valued assignment compiles and always did, which is why this
-        /// went unnoticed. It refuses now, so the interpreter serves it - and boxing the argument
-        /// instead, which would let it compile, is a separate change.
+        /// The dictionary holds objects and LINQ inserts no boxing of its own, so an int-typed value
+        /// handed to <c>SetVariable</c>'s <c>object</c> parameter made the call factory throw. That
+        /// became a refusal first - which is what this test used to pin - and the value is boxed on
+        /// the way in now, which removes the refusal too. A string-valued assignment compiled all
+        /// along, which is why the split went unnoticed: the same assignment behaved differently
+        /// depending only on whether the value happened to be a reference type.
         /// </remarks>
         [Test]
-        public void AssigningAValueTypeToAVariableIsRefusedRatherThanEscapingTheFallback()
+        public void AssigningAValueTypeToAVariableCompilesAndAgreesWithTheInterpreter()
         {
-            Assert.Throws<CompileErrorException>(
-                () => Expression.ParseGetter<object, object>("#x = 5", EvaluationMode.MustCompile));
+            var compiledVariables = new Dictionary<string, object>();
+            Assert.AreEqual(5,
+                Expression.ParseGetter<object, object>("#x = 5", EvaluationMode.MustCompile)
+                    .GetValue(null, compiledVariables));
+            Assert.AreEqual(5, compiledVariables["x"]);
 
-            var variables = new Dictionary<string, object>();
-            Assert.AreEqual(5, Expression.ParseGetter<object, object>("#x = 5").GetValue(null, variables));
-            Assert.AreEqual(5, variables["x"]);
+            var interpretedVariables = new Dictionary<string, object>();
+            Assert.AreEqual(5,
+                Expression.ParseGetter<object, object>("#x = 5", EvaluationMode.MustInterpret)
+                    .GetValue(null, interpretedVariables));
+            Assert.AreEqual(5, interpretedVariables["x"]);
 
             var weakVariables = new Dictionary<string, object>();
             Assert.AreEqual(5, Expression.Parse("#x = 5").GetValue<object>(null, weakVariables));
             Assert.AreEqual(5, weakVariables["x"]);
 
-            // the string form has a compiled setter and keeps it
-            var compiledVariables = new Dictionary<string, object>();
+            // the string form has a compiled setter and always did
+            var stringVariables = new Dictionary<string, object>();
             Assert.AreEqual("five",
                 Expression.ParseGetter<object, object>("#x = 'five'", EvaluationMode.MustCompile)
-                    .GetValue(null, compiledVariables));
-            Assert.AreEqual("five", compiledVariables["x"]);
+                    .GetValue(null, stringVariables));
+            Assert.AreEqual("five", stringVariables["x"]);
+        }
+
+        /// <summary>
+        /// The value that lands in the caller's dictionary is a boxed value of the assigned type, not
+        /// something the boxing conversion reshaped: a caller reading the dictionary back sees exactly
+        /// what a <c>#variable</c> assignment has always put there.
+        /// </summary>
+        [Test]
+        public void AValueTypeAssignedToAVariableArrivesBoxedAsItself()
+        {
+            var compiledVariables = new Dictionary<string, object>();
+            Expression.ParseGetter<object, object>("#x = 5", EvaluationMode.MustCompile)
+                .GetValue(null, compiledVariables);
+
+            var interpretedVariables = new Dictionary<string, object>();
+            Expression.ParseGetter<object, object>("#x = 5", EvaluationMode.MustInterpret)
+                .GetValue(null, interpretedVariables);
+
+            Assert.AreEqual(typeof(int), compiledVariables["x"].GetType());
+            Assert.AreEqual(typeof(int), interpretedVariables["x"].GetType());
+
+            var doubleVariables = new Dictionary<string, object>();
+            Expression.ParseGetter<object, object>("#x = 5.5", EvaluationMode.MustCompile)
+                .GetValue(null, doubleVariables);
+
+            Assert.AreEqual(typeof(double), doubleVariables["x"].GetType());
+            Assert.AreEqual(5.5, doubleVariables["x"]);
         }
 
         /// <summary>

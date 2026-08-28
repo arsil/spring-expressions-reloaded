@@ -171,7 +171,12 @@ namespace SpringExpressions
 
                 blockNodes.Add(bodyExpr);
 
-                var blockExpression = LExpression.Block(blockNodes);
+                // The lambda body is its own scope for free locals as well as for parameters: the
+                // interpreter swaps the whole LocalVariables dictionary for the duration of a lambda
+                // call, so a '$x' assigned inside one is invisible outside it and vice versa. The
+                // lambda's own block is therefore where its locals dictionary has to be declared.
+                var blockExpression = SpringExpressions.Expressions.Compiler.DeclareLocalsIfUsed(
+                    LExpression.Block(blockNodes), newCompilationContext);
 
 
 

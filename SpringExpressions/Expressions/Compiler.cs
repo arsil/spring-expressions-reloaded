@@ -3,6 +3,8 @@ using System.Collections.Generic;
 
 using System.Linq.Expressions;
 
+using JetBrains.Annotations;
+
 using SpringExpressions.Expressions.Compiling.Expressions;
 using SpringUtil;
 
@@ -268,11 +270,42 @@ namespace SpringExpressions.Expressions
                 exp = LExpression.Convert(exp, typeof(TResult));
             }
 
+            exp = DeclareLocalsIfUsed(exp, compilationContext);
+
             Expression<Func<TContext, IDictionary<string, object>, TResult>> lambda
                 = BuildLambda<Func<TContext, IDictionary<string, object>, TResult>>(
                     exp, ctxParam, variablesParam);
 
             return lambda.Compile();
+        }
+
+        /// <summary>
+        /// Declares the storage a free <c>$local</c> uses, if the emitted tree asked for any.
+        /// </summary>
+        /// <remarks>
+        /// A block variable holding a fresh dictionary, assigned before the body runs - so the
+        /// locals live exactly one invocation of the delegate, which is what the interpreter's
+        /// per-evaluation EvaluationContext.LocalVariables gives it, and what keeps two threads
+        /// evaluating one shared compiled expression out of each other's way.
+        /// <p>
+        /// Wrapping happens last, after every inspection of <paramref name="body"/>: the block takes
+        /// its type from the body, so nothing above changes, while the constructed-collection
+        /// registry is keyed on the body expression itself and would stop recognising it.
+        /// </p>
+        /// </remarks>
+        [NotNull]
+        internal static LExpression DeclareLocalsIfUsed(
+            [NotNull] LExpression body, [NotNull] CompilationContext compilationContext)
+        {
+            var locals = compilationContext.DeclaredLocalsDictionary;
+
+            if (locals == null)
+                return body;
+
+            return LExpression.Block(
+                new[] { locals },
+                LExpression.Assign(locals, LExpression.New(typeof(Dictionary<string, object>))),
+                body);
         }
 
         /// <summary>Compiles a setter, or refuses - see <see cref="CompileGetter{TResult,TContext}"/>.</summary>
@@ -306,11 +339,15 @@ namespace SpringExpressions.Expressions
 
             getRootContextExpression = ctxParam;
 
+            var compilationContext = new CompilationContext(getRootContextExpression, variablesParam);
+
             var exp = GetExpressionTreeForSetterIfPossible(
                 expressionNode,
                 getRootContextExpression,
-                new CompilationContext(getRootContextExpression, variablesParam),
+                compilationContext,
                 newValueParam);
+
+            exp = DeclareLocalsIfUsed(exp, compilationContext);
 
                // todo: error; must compile!
             
@@ -358,10 +395,12 @@ namespace SpringExpressions.Expressions
 
             getRootContextExpression = ctxParam;
 
+            var compilationContext = new CompilationContext(getRootContextExpression, variablesParam);
+
             var exp = GetExpressionTreeIfPossible(
                 expressionNode,
                 getRootContextExpression,
-                new CompilationContext(getRootContextExpression, variablesParam));
+                compilationContext);
 
             // todo: error void or Assign or Block? and last of the block is void or assign?
             // todo: error   Or Call(?) Call return void... so it is void?
@@ -378,6 +417,8 @@ namespace SpringExpressions.Expressions
                    expressionNode,
                    $"a void expression must emit a void call or an assignment, and this emits "
                    + $"'{exp.NodeType}' returning '{exp.Type}'");
+
+            exp = DeclareLocalsIfUsed(exp, compilationContext);
 
             Expression<Action<TContext, IDictionary<string, object>>> lambda
                 = BuildLambda<Action<TContext, IDictionary<string, object>>>(

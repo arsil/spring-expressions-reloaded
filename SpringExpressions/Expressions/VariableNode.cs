@@ -111,14 +111,17 @@ namespace SpringExpressions
                 {
                     compilationContext.VariablesExpression,
                     LExpression.Constant(variableName, typeof(string)),
-                    newValueExpression
+
+                    // The dictionary holds objects, and LINQ inserts no boxing of its own: an
+                    // int-typed value handed to SetVariable's object parameter made
+                    // LExpression.Call throw, so '#x = 5' refused while '#x = 'five'' compiled -
+                    // the same assignment behaving differently for no reason a caller could see.
+                    // It was a hard failure until BuildCall turned it into a refusal, and the
+                    // refusal is what this removes.
+                    BoxIfValueType(newValueExpression)
                 };
 
-            // Through BuildCall, because a value-typed new value does not fit SetVariable's object
-            // parameter and LExpression.Call reports that as an ArgumentException - which the weakly
-            // typed path's fallback cannot see, so '#x = 5' was a hard failure where the interpreter
-            // assigns it quite happily. A string-valued '#x = ...' compiled all along, which is why
-            // this went unnoticed.
+            // Still through BuildCall: it names this node in anything else the call factory rejects.
             return BuildCall(null, MiSetVariable, arguments);
         }
 
@@ -156,6 +159,13 @@ namespace SpringExpressions
 
             ValidateForbiddenVariablesForSetter(variableName);
             SetVariable(evalContext.Variables, variableName, newValue);
+        }
+
+        private static LExpression BoxIfValueType(LExpression expression)
+        {
+            return expression.Type.IsValueType
+                ? LExpression.Convert(expression, typeof(object))
+                : expression;
         }
 
         private static void ValidateForbiddenVariablesForSetter(string variableName)
