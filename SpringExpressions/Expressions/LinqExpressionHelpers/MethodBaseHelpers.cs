@@ -146,6 +146,7 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
         {
             List<Tuple<MethodBase, LExpression[]>> matches = null;
             List<Type[]> matchParameterSets = null;
+            List<Tuple<MethodBase, LExpression[]>> omittedOptionalsMatches = null;
             List<Tuple<MethodBase, LExpression[]>> expandedMatches = null;
 
             var allArguments = arguments ?? new LExpression[0];
@@ -155,36 +156,37 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
                 ParameterInfo[] methodParameterInfoArray = m.GetParameters();
                 bool isMatch = true;
                 bool isExactMatch = true;
+                bool isOmittedOptionalsMatch = false;
                 bool isExpandedMatch = false;
                 LExpression[] argumentsForCurrentMethod = allArguments;
 
-                // The interpreter's twin of this decision is in ReflectionUtils: normal form first,
-                // expansion only where the normal form does not bind, and the trailing arguments
-                // converted by the rule 'new T[] {...}' uses.
+                // The interpreter's twin of this decision is in ReflectionUtils: the arguments as
+                // written first, then omitted defaults, then a built params array.
                 //
                 // Two catch clauses used to wrap this loop, for an InvalidCastException and an
                 // InvalidOperationException the author could not place ("to dopisalem!!!! bo taki
                 // wyjatek wyrzuca konstruowanie tablic ze zlymi typami"). They came from the params
                 // packer building an array out of arguments it could not hold; the binder answers
                 // that with NotApplicable instead of throwing, so nothing below raises them.
-                if (ParamArrayUtils.GetParamArrayElementType(methodParameterInfoArray) != null)
+                switch (ArgumentBindingUtils.TryBind(
+                    methodParameterInfoArray, allArguments, out var bound))
                 {
-                    switch (ParamArrayUtils.TryBind(
-                        methodParameterInfoArray, allArguments, out var bound))
-                    {
-                        case ParamArrayBinding.NormalForm:
-                            argumentsForCurrentMethod = bound;
-                            break;
-                        case ParamArrayBinding.Expanded:
-                            argumentsForCurrentMethod = bound;
-                            isExpandedMatch = true;
-                            break;
-                        default:
-                            // Undecidable as well as NotApplicable: a candidate this backend cannot
-                            // bind is simply not among the ones it may choose from, and the
-                            // interpreter serves the call if nothing else binds.
-                            continue;
-                    }
+                    case ArgumentBinding.Exact:
+                        argumentsForCurrentMethod = bound;
+                        break;
+                    case ArgumentBinding.WithOmittedOptionals:
+                        argumentsForCurrentMethod = bound;
+                        isOmittedOptionalsMatch = true;
+                        break;
+                    case ArgumentBinding.Expanded:
+                        argumentsForCurrentMethod = bound;
+                        isExpandedMatch = true;
+                        break;
+                    default:
+                        // Undecidable as well as NotApplicable: a candidate this backend cannot bind
+                        // is simply not among the ones it may choose from, and the interpreter serves
+                        // the call if nothing else binds.
+                        continue;
                 }
 
                 if (methodParameterInfoArray.Length != argumentsForCurrentMethod.Length)
@@ -229,8 +231,9 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
 
                 if (isMatch)
                 {
-                    // Normal-form candidates outrank expanded ones, as in C#, so an expanded match is
-                    // only ever consulted when nothing bound without expanding.
+                    // The tiers of ArgumentBinding, in C#'s order: a candidate that took the
+                    // arguments as written outranks one that had to fill a default, which outranks
+                    // one that had to build a params array.
                     if (isExpandedMatch)
                     {
                         if (expandedMatches == null)
@@ -239,6 +242,17 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
                         }
 
                         expandedMatches.Add(new Tuple<MethodBase, LExpression[]>(m, argumentsForCurrentMethod));
+                        continue;
+                    }
+
+                    if (isOmittedOptionalsMatch)
+                    {
+                        if (omittedOptionalsMatches == null)
+                        {
+                            omittedOptionalsMatches = new List<Tuple<MethodBase, LExpression[]>>();
+                        }
+
+                        omittedOptionalsMatches.Add(new Tuple<MethodBase, LExpression[]>(m, argumentsForCurrentMethod));
                         continue;
                     }
 
@@ -260,21 +274,51 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
 
             if (matches == null)
             {
-                if (expandedMatches == null)
+                var lowerTier = omittedOptionalsMatches ?? expandedMatches;
+
+                if (lowerTier == null)
                 {
                     return null;
                 }
 
-                // Betterness does not rank expanded matches, so several of them keep the legacy
-                // ambiguity - reported here as a compile refusal, which is what the interpreter's
-                // twin reports at evaluation.
-                if (expandedMatches.Count == 1)
+                if (lowerTier.Count == 1)
                 {
-                    return expandedMatches[0];
+                    return lowerTier[0];
+                }
+
+                // Betterness ranks neither tier - the omitted-optionals candidates have parameter
+                // lists of different lengths, and expanded matches were never ranked - except that C#
+                // prefers the candidate declaring fewest parameters among the former. Anything still
+                // tied keeps the legacy ambiguity, reported here as a compile refusal, which is what
+                // the interpreter's twin reports at evaluation.
+                if (omittedOptionalsMatches != null)
+                {
+                    Tuple<MethodBase, LExpression[]> fewest = null;
+                    var tied = false;
+
+                    foreach (var candidate in omittedOptionalsMatches)
+                    {
+                        var count = candidate.Item1.GetParameters().Length;
+
+                        if (fewest == null || count < fewest.Item1.GetParameters().Length)
+                        {
+                            fewest = candidate;
+                            tied = false;
+                        }
+                        else if (count == fewest.Item1.GetParameters().Length)
+                        {
+                            tied = true;
+                        }
+                    }
+
+                    if (!tied)
+                    {
+                        return fewest;
+                    }
                 }
 
                 throw new CompileErrorException(
-                    $"Ambiguous match for {baseMethodNameForExceptionText} '{expandedMatches[0].Item1.Name}' for " +
+                    $"Ambiguous match for {baseMethodNameForExceptionText} '{lowerTier[0].Item1.Name}' for " +
                     $"the specified number and static types of arguments.");
             }
 

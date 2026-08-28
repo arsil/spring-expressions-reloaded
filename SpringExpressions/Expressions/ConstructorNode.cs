@@ -45,7 +45,6 @@ namespace SpringExpressions
     {
         private SafeConstructor constructor;
         private IDictionary namedArgs;
-        private bool isParamArray = false;
         private ParameterInfo[] parameters;
 
         /// <summary>
@@ -222,7 +221,12 @@ namespace SpringExpressions
                 return null;
 
             if (candidates.Count == 1)
-                return Tuple.Create(candidates[0], MethodNode.BindToSingleCandidate(candidates[0], arguments));
+            {
+                return Tuple.Create(
+                    candidates[0],
+                    MethodNode.BindToSingleCandidate(
+                        candidates[0], arguments, "the constructor of '" + objectType.Name + "'"));
+            }
 
             for (var position = 0; position < arguments.Count; position++)
             {
@@ -274,17 +278,13 @@ namespace SpringExpressions
                 }
             }
 
-            object[] paramValues = argValues;
-
-            if (isParamArray
-                && ParamArrayUtils.TryBind(parameters, argValues, out var bound)
-                    != ParamArrayBinding.NotApplicable)
-            {
-                // The candidate scan that chose this constructor bound the arguments already; binding
-                // again here is how the invoker gets the same array the scan built - normal form
-                // where an array was handed straight in, expanded otherwise.
-                paramValues = bound;
-            }
+            // The candidate scan that chose this constructor bound the arguments already; binding
+            // again here is how the invoker gets the same list - defaults filled, params array built.
+            object[] bound;
+            object[] paramValues
+                = ArgumentBindingUtils.TryBind(parameters, argValues, out bound) == ArgumentBinding.NotApplicable
+                    ? argValues
+                    : bound;
 
             object instance = constructor.Invoke(paramValues);
             if (namedArgValues != null)
@@ -334,7 +334,6 @@ namespace SpringExpressions
             else
             {
                 parameters = ci.GetParameters();
-                isParamArray = ParamArrayUtils.GetParamArrayElementType(parameters) != null;
                 ctor = new SafeConstructor(ci);
             }
                 
@@ -406,18 +405,9 @@ namespace SpringExpressions
 
             foreach (ConstructorInfo ctor in ctors)
             {
-                ParameterInfo[] parameters = ctor.GetParameters();
-                if (parameters.Length == argCount)
+                if (ArgumentBindingUtils.CouldTakeArgumentCount(ctor.GetParameters(), argCount))
                 {
                     matches.Add(ctor);
-                }
-                else if (parameters.Length > 0)
-                {
-                    ParameterInfo lastParameter = parameters[parameters.Length - 1];
-                    if (lastParameter.GetCustomAttributes(typeof(ParamArrayAttribute), false).Length > 0)
-                    {
-                        matches.Add(ctor);
-                    }
                 }
             }
 

@@ -421,6 +421,7 @@ namespace SpringUtil
         {
             List<MethodBase> matches = null;
             List<Type[]> matchParameterSets = null;
+            List<MethodBase> omittedOptionalsMatches = null;
             List<MethodBase> expandedMatches = null;
 
             object[] values = (argValues == null) ? new object[0] : argValues;
@@ -430,32 +431,30 @@ namespace SpringUtil
                 ParameterInfo[] parameters = m.GetParameters();
                 bool isMatch = true;
                 bool isExactMatch = true;
+                bool isOmittedOptionalsMatch = false;
                 bool isExpandedMatch = false;
-                object[] paramValues = values;
+                object[] paramValues;
 
-                // A params candidate binds in normal form where it can and only then expands -
-                // C#'s order. Expansion used to be unconditional and used to demand at least as many
-                // arguments as parameters, so an actual array handed to a params parameter was packed
-                // inside another one and an empty expansion resolved only when the method name was
-                // unambiguous enough to skip this scan. That packing is also what the catch clause
-                // around this loop was for: it swallowed the InvalidCastException Array.SetValue
-                // raised for an element the array could not hold, which the binder now answers with
-                // NotApplicable instead of throwing.
-                if (ParamArrayUtils.GetParamArrayElementType(parameters) != null)
+                // The arguments as written bind first, then omitted defaults, then a built params
+                // array - C#'s order, and the same binder the compiled backend runs. Expansion used
+                // to be unconditional and used to demand at least as many arguments as parameters, so
+                // an actual array handed to a params parameter was packed inside another one and an
+                // empty expansion resolved only when the method name was unambiguous enough to skip
+                // this scan. That packing is also what the catch clause around this loop was for: it
+                // swallowed the InvalidCastException Array.SetValue raised for an element the array
+                // could not hold, which the binder now answers with NotApplicable instead of throwing.
+                switch (ArgumentBindingUtils.TryBind(parameters, values, out paramValues))
                 {
-                    object[] bound;
-                    switch (ParamArrayUtils.TryBind(parameters, values, out bound))
-                    {
-                        case ParamArrayBinding.NormalForm:
-                            paramValues = bound;
-                            break;
-                        case ParamArrayBinding.Expanded:
-                            paramValues = bound;
-                            isExpandedMatch = true;
-                            break;
-                        default:
-                            continue;
-                    }
+                    case ArgumentBinding.Exact:
+                        break;
+                    case ArgumentBinding.WithOmittedOptionals:
+                        isOmittedOptionalsMatch = true;
+                        break;
+                    case ArgumentBinding.Expanded:
+                        isExpandedMatch = true;
+                        break;
+                    default:
+                        continue;
                 }
 
                 if (parameters.Length != paramValues.Length)
@@ -485,11 +484,14 @@ namespace SpringUtil
 
                 if (isMatch)
                 {
-                    // An expanded match is a last resort: C# considers a candidate applicable in
-                    // normal form better than any candidate that had to expand, whatever the
-                    // conversions involved. Keeping the two apart also removes an order dependence -
-                    // an expanded exact match used to return here and preempt a normal-form candidate
-                    // the enumeration had not reached yet.
+                    // The tiers of ArgumentBinding, in C#'s order: a candidate that took the
+                    // arguments as written outranks one that had to fill a default, which outranks
+                    // one that had to build a params array. Keeping them apart also removes an order
+                    // dependence - an expanded exact match used to return here and preempt a
+                    // normal-form candidate the enumeration had not reached yet - and it is what
+                    // makes optional parameters safe to admit as candidates: no pick that resolved
+                    // before they were admitted can change, because they only ever reach a tier the
+                    // resolver consults when the one above it is empty.
                     if (isExpandedMatch)
                     {
                         if (expandedMatches == null)
@@ -498,6 +500,17 @@ namespace SpringUtil
                         }
 
                         expandedMatches.Add(m);
+                        continue;
+                    }
+
+                    if (isOmittedOptionalsMatch)
+                    {
+                        if (omittedOptionalsMatches == null)
+                        {
+                            omittedOptionalsMatches = new List<MethodBase>();
+                        }
+
+                        omittedOptionalsMatches.Add(m);
                         continue;
                     }
 
@@ -519,21 +532,48 @@ namespace SpringUtil
 
             if (matches == null)
             {
-                if (expandedMatches == null)
+                List<MethodBase> lowerTier = omittedOptionalsMatches ?? expandedMatches;
+
+                if (lowerTier == null)
                 {
                     return null;
                 }
 
-                // Betterness does not rank expanded matches, so several of them stay the ambiguity
-                // this resolver has always reported.
-                if (expandedMatches.Count == 1)
+                if (lowerTier.Count == 1)
                 {
-                    return expandedMatches[0];
+                    return lowerTier[0];
+                }
+
+                // Betterness ranks neither tier - omitted-optionals candidates have parameter lists
+                // of different lengths, and expanded matches were never ranked - except that C#
+                // prefers the candidate declaring fewest parameters among the former.
+                if (omittedOptionalsMatches != null)
+                {
+                    MethodBase fewest = null;
+                    var tied = false;
+
+                    foreach (MethodBase candidate in omittedOptionalsMatches)
+                    {
+                        if (fewest == null || candidate.GetParameters().Length < fewest.GetParameters().Length)
+                        {
+                            fewest = candidate;
+                            tied = false;
+                        }
+                        else if (candidate.GetParameters().Length == fewest.GetParameters().Length)
+                        {
+                            tied = true;
+                        }
+                    }
+
+                    if (!tied)
+                    {
+                        return fewest;
+                    }
                 }
 
                 throw new AmbiguousMatchException(
                     string.Format("Ambiguous match for {0} '{1}' for the specified number and types of arguments.", methodTypeName,
-                                  expandedMatches[0].Name));
+                                  lowerTier[0].Name));
             }
 
             if (matches.Count == 1)

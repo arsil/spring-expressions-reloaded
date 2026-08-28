@@ -54,7 +54,6 @@ namespace SpringExpressions
         private static readonly IDictionary extensionMethodProcessorMap = new Hashtable();
 
         private bool initialized = false;
-        private bool cachedIsParamArray = false;
         private ParameterInfo[] cachedParameters;
         private SafeMethod cachedInstanceMethod;
         private int cachedInstanceMethodHash;
@@ -246,7 +245,7 @@ namespace SpringExpressions
                 return null;
 
             if (candidates.Count == 1)
-                return Tuple.Create(candidates[0], BindToSingleCandidate(candidates[0], arguments));
+                return Tuple.Create(candidates[0], BindToSingleCandidate(candidates[0], arguments, methodName));
 
             for (var position = 0; position < arguments.Count; position++)
             {
@@ -276,43 +275,47 @@ namespace SpringExpressions
         }
 
         /// <summary>
-        /// With one candidate there is nothing to choose, but a params parameter list still has to be
-        /// bound: the arguments either fit it in normal form or are built into the trailing array.
-        /// Shared with <see cref="ConstructorNode"/>, whose single-candidate branch is the same shape.
+        /// With one candidate there is nothing to choose, but its parameter list still has to be
+        /// bound: omitted optional parameters are filled from their declared defaults and the
+        /// trailing params array is built. Shared with <see cref="ConstructorNode"/>, whose
+        /// single-candidate branch is the same shape.
         /// </summary>
         /// <remarks>
-        /// This branch used to hand the arguments over untouched, so every params call whose argument
-        /// count was not already the parameter count reached the arity refusal in
-        /// <see cref="ConvertParameters"/> and fell back to the interpreter - and a call whose count
-        /// did match, <c>Join('a')</c> against <c>Join(params string[])</c>, was refused one step
-        /// later for handing a string to a string[] parameter. Only the several-candidates path,
-        /// where the scan does its own binding, could emit a params call at all.
+        /// This branch used to hand the arguments over untouched, so every call that did not already
+        /// have one argument per parameter reached the arity refusal in
+        /// <see cref="ConvertParameters"/> and fell back to the interpreter. Deciding it here and
+        /// nowhere else matters: the several-candidates path must keep going through the scan, whose
+        /// tiers weigh applicability as well as binding shape, and through the overload gate, which
+        /// refuses a shape the runtime values would decide.
         /// </remarks>
         [NotNull, ItemNotNull]
         internal static LExpression[] BindToSingleCandidate(
-            [NotNull] MethodBase candidate, [NotNull, ItemNotNull] List<LExpression> arguments)
+            [NotNull] MethodBase candidate,
+            [NotNull, ItemNotNull] List<LExpression> arguments,
+            [NotNull] string calleeName)
         {
-            var parameters = candidate.GetParameters();
+            var argumentArray = arguments.ToArray();
 
-            if (ParamArrayUtils.GetParamArrayElementType(parameters) == null)
-                return arguments.ToArray();
-
-            switch (ParamArrayUtils.TryBind(parameters, arguments.ToArray(), out var bound))
+            LExpression[] bound;
+            switch (ArgumentBindingUtils.TryBind(candidate.GetParameters(), argumentArray, out bound))
             {
-                case ParamArrayBinding.NormalForm:
-                case ParamArrayBinding.Expanded:
+                case ArgumentBinding.Exact:
+                case ArgumentBinding.WithOmittedOptionals:
+                case ArgumentBinding.Expanded:
                     return bound;
 
-                case ParamArrayBinding.Undecidable:
+                case ArgumentBinding.Undecidable:
                     throw new CompileErrorException(
-                        $"The single argument of '{candidate.Name}' is statically typed "
-                        + $"'{arguments[arguments.Count - 1].Type}', so whether it is the params array "
-                        + "itself or the one element of it depends on whether it is null at runtime; "
-                        + "there is no compiled form - the interpreter reads it from the value. Add a "
-                        + "cast to the array type to pass it whole.");
+                        $"The last argument of '{calleeName}' is statically typed "
+                        + $"'{argumentArray[argumentArray.Length - 1].Type}', so whether it is the "
+                        + "params array itself or the one element of it depends on whether it is null "
+                        + "at runtime; there is no compiled form - the interpreter reads it from the "
+                        + "value. Add a cast to the array type to pass it whole.");
 
                 default:
-                    return arguments.ToArray();
+                    // Not a binding at all - the conversion gate reports why, having the parameter
+                    // types to name.
+                    return argumentArray;
             }
         }
 
@@ -394,12 +397,7 @@ namespace SpringExpressions
 
                     var parameters = method.GetParameters();
 
-                    var countCompatible = parameters.Length == argCount
-                        || (parameters.Length > 0
-                            && parameters[parameters.Length - 1]
-                                .GetCustomAttributes(typeof(ParamArrayAttribute), false).Length > 0);
-
-                    if (!countCompatible)
+                    if (!ArgumentBindingUtils.CouldTakeArgumentCount(parameters, argCount))
                         continue;
 
                     var signature = method.Name.ToUpperInvariant() + "("
@@ -695,24 +693,19 @@ namespace SpringExpressions
             }
             else if (cachedInstanceMethod != null)
             {
-                object[] paramValues = argValues;
-
-                if (cachedIsParamArray)
+                // The unambiguous-name lookup matches on the name alone and never counts arguments,
+                // so whether these ones fit the parameter list is decided here - filling any omitted
+                // defaults and building any params array on the way. Both used to be got wrong: a
+                // call omitting a default reached the invoker one argument short ("Invalid number of
+                // arguments"), and the params array was packed unconditionally, which ran off the end
+                // of a short argument list and packed a caller's own array inside a second one.
+                object[] paramValues;
+                if (ArgumentBindingUtils.TryBind(cachedParameters, argValues, out paramValues)
+                    == ArgumentBinding.NotApplicable)
                 {
-                    // The lookup above matches on the name alone, so whether these arguments fit a
-                    // params parameter list at all is decided here: they either hand an array
-                    // straight through, or build one, or the method does not take them. Packing them
-                    // unconditionally used to run off the end of the argument list for a call with
-                    // too few arguments, and to pack a caller's own array inside a second one.
-                    if (ParamArrayUtils.TryBind(cachedParameters, argValues, out var bound)
-                        == ParamArrayBinding.NotApplicable)
-                    {
-                        throw new ArgumentException(string.Format(
-                            "Method '{0}' with the specified number and types of arguments does not exist.",
-                            methodName));
-                    }
-
-                    paramValues = bound;
+                    throw new ArgumentException(string.Format(
+                        "Method '{0}' with the specified number and types of arguments does not exist.",
+                        methodName));
                 }
 
                 return cachedInstanceMethod.Invoke(context, paramValues);
@@ -755,8 +748,6 @@ namespace SpringExpressions
             else
             {
                 cachedParameters = mi.GetParameters();
-                cachedIsParamArray = ParamArrayUtils.GetParamArrayElementType(cachedParameters) != null;
-
                 cachedInstanceMethod = new SafeMethod(mi);
                 cachedInstanceMethodHash = CalculateMethodHash(contextType, argValues);
             }
@@ -819,21 +810,10 @@ namespace SpringExpressions
 
             foreach (MethodInfo method in methods)
             {
-                if (method.Name == methodName)
+                if (method.Name == methodName
+                    && ArgumentBindingUtils.CouldTakeArgumentCount(method.GetParameters(), argCount))
                 {
-                    ParameterInfo[] parameters = method.GetParameters();
-                    if (parameters.Length == argCount)
-                    {
-                        matches.Add(method);
-                    }
-                    else if (parameters.Length > 0)
-                    {
-                        ParameterInfo lastParameter = parameters[parameters.Length - 1];
-                        if (lastParameter.GetCustomAttributes(typeof(ParamArrayAttribute), false).Length > 0)
-                        {
-                            matches.Add(method);
-                        }
-                    }
+                    matches.Add(method);
                 }
             }
 
