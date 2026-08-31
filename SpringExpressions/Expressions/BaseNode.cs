@@ -376,6 +376,113 @@ namespace SpringExpressions
         }
 
         /// <summary>
+        /// Emits a call to the relational operator the operand types declare between them, or null.
+        /// The same lookup as <see cref="TryCreateUserDefinedBinary"/> with one rule added: a
+        /// relational operator must answer a <c>bool</c>.
+        /// </summary>
+        /// <remarks>
+        /// A type may declare <c>op_LessThan</c> returning anything - the lookup only rejects
+        /// <c>void</c>, which is all arithmetic needs - and a comparison node has nowhere to put a
+        /// non-boolean answer. Such a type is left to the existing paths rather than emitted against.
+        /// </remarks>
+        [CanBeNull]
+        protected static LExpression TryCreateUserDefinedComparison(
+            [NotNull] LExpression left,
+            [NotNull] LExpression right,
+            [NotNull] string operatorMethodName,
+            [NotNull] Func<LExpression, LExpression, MethodInfo, System.Linq.Expressions.BinaryExpression> factory)
+        {
+            if (UserDefinedOperatorUtils.IsOwnedByNumericPromotion(left.Type, right.Type))
+                return null;
+
+            var method = UserDefinedOperatorUtils.FindBinary(operatorMethodName, left.Type, right.Type);
+
+            if (method == null || method.ReturnType != typeof(bool))
+                return null;
+
+            return factory(left, right, method);
+        }
+
+        /// <summary>
+        /// The interpreter's twin of <see cref="TryCreateUserDefinedComparison"/>.
+        /// </summary>
+        protected static bool TryInvokeUserDefinedComparison(
+            [CanBeNull] object left,
+            [CanBeNull] object right,
+            [NotNull] string operatorMethodName,
+            out bool result)
+        {
+            result = false;
+
+            if (left == null || right == null)
+                return false;
+
+            var leftType = left.GetType();
+            var rightType = right.GetType();
+
+            if (UserDefinedOperatorUtils.IsOwnedByNumericPromotion(leftType, rightType))
+                return false;
+
+            var method = UserDefinedOperatorUtils.FindBinary(operatorMethodName, leftType, rightType);
+
+            if (method == null || method.ReturnType != typeof(bool))
+                return false;
+
+            result = (bool)method.Invoke(null, new[] { left, right });
+            return true;
+        }
+
+        /// <summary>
+        /// Emits a call to the unary operator the operand type declares for itself, or null.
+        /// </summary>
+        /// <remarks>
+        /// Consulted before the numeric paths, for the reason the binary lookup is: a type declaring
+        /// both an implicit conversion to a built-in real and its own operator would otherwise erase
+        /// itself to the type it converts to. Built-in numerics never reach here - <c>decimal</c>
+        /// declares <c>op_UnaryNegation(decimal)</c>, and the promotion rules keep that space.
+        /// </remarks>
+        [CanBeNull]
+        protected static LExpression TryCreateUserDefinedUnary(
+            [NotNull] LExpression operand,
+            [NotNull] string operatorMethodName,
+            [NotNull] Func<LExpression, MethodInfo, System.Linq.Expressions.UnaryExpression> factory)
+        {
+            if (UserDefinedOperatorUtils.IsOwnedByNumericPromotion(operand.Type, operand.Type))
+                return null;
+
+            var method = UserDefinedOperatorUtils.FindUnary(operatorMethodName, operand.Type);
+
+            return method == null ? null : factory(operand, method);
+        }
+
+        /// <summary>
+        /// The interpreter's twin of <see cref="TryCreateUserDefinedUnary"/>.
+        /// </summary>
+        protected static bool TryInvokeUserDefinedUnary(
+            [CanBeNull] object operand,
+            [NotNull] string operatorMethodName,
+            out object result)
+        {
+            result = null;
+
+            if (operand == null)
+                return false;
+
+            var operandType = operand.GetType();
+
+            if (UserDefinedOperatorUtils.IsOwnedByNumericPromotion(operandType, operandType))
+                return false;
+
+            var method = UserDefinedOperatorUtils.FindUnary(operatorMethodName, operandType);
+
+            if (method == null)
+                return false;
+
+            result = method.Invoke(null, new[] { operand });
+            return true;
+        }
+
+        /// <summary>
         /// The interpreter's twin: invokes the operator the runtime operand types declare, if any.
         /// </summary>
         protected static bool TryInvokeUserDefinedBinary(

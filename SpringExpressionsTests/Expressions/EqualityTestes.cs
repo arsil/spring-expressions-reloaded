@@ -398,46 +398,65 @@ namespace SpringExpressionsTests.Expressions
             }
         }
 
+        /// <summary>
+        /// A type declaring <c>operator ==</c> and no <c>Equals</c> override. The engine used to ignore
+        /// the operator and answer by <c>EqualityComparer&lt;T&gt;.Default</c>, which without an
+        /// <c>Equals</c> override is reference equality - so two instances with the same Id compared
+        /// unequal, where C# says they are equal. That was pinned here as a limitation; the operator is
+        /// consulted now and the engine agrees with C#.
+        /// </summary>
+        /// <remarks>
+        /// <c>distinct()</c> deliberately still answers by the comparer, so it and <c>==</c> disagree
+        /// for a type like this. That is not an oversight and not a divergence between the backends -
+        /// it is exactly C#'s own split, asserted side by side below: <c>Enumerable.Distinct</c> uses
+        /// <c>EqualityComparer</c> while <c>==</c> uses the operator, and this test shows the engine
+        /// matching both. Do not "fix" one of them into the other.
+        /// </remarks>
         [Test]
-        public void OnlyEqualityOperatorTest_OperatorsDoesNotWorkWithoutEquals()
+        public void OnlyEqualityOperatorTest_TheOperatorIsHonouredAndDistinctStillIsNot()
         {
             var a1 = new OnlyEqualityOperator("A");
             var a2 = new OnlyEqualityOperator("A");
             var b = new OnlyEqualityOperator("B");
 
+            // what C# itself says
             Assert.IsTrue(a1 == a2);
             Assert.IsTrue(a1 != b);
             Assert.IsTrue(a2 != b);
 
-            // but default EqualityComparer does not work without Equals
+            // and what the comparer says, which is what the engine used to answer: without an Equals
+            // override it is reference equality, so even a1 and a2 come out unequal
             var cmp = EqualityComparer<OnlyEqualityOperator>.Default;
-
-            // so everything returns false!
             Assert.IsFalse(cmp.Equals(a1, a2));
             Assert.IsFalse(cmp.Equals(b, a2));
             Assert.IsFalse(cmp.Equals(a1, b));
 
             var ctx = new List<OnlyEqualityOperator> { a1, b, a2 };
+
+            // the engine now answers as C# does - [0] and [2] are the two "A"s
             Assert.IsFalse(InterpretGetter<List<OnlyEqualityOperator>, bool>("[0] == [1]").GetValue(ctx));
             Assert.IsFalse(CompileGetter<List<OnlyEqualityOperator>, bool>("[0] == [1]").GetValue(ctx));
 
-            Assert.IsFalse(InterpretGetter<List<OnlyEqualityOperator>, bool>("[0] == [2]").GetValue(ctx));
-            Assert.IsFalse(CompileGetter<List<OnlyEqualityOperator>, bool>("[0] == [2]").GetValue(ctx));
+            Assert.IsTrue(InterpretGetter<List<OnlyEqualityOperator>, bool>("[0] == [2]").GetValue(ctx));
+            Assert.IsTrue(CompileGetter<List<OnlyEqualityOperator>, bool>("[0] == [2]").GetValue(ctx));
 
             Assert.IsFalse(InterpretGetter<List<OnlyEqualityOperator>, bool>("[1] == [2]").GetValue(ctx));
             Assert.IsFalse(CompileGetter<List<OnlyEqualityOperator>, bool>("[1] == [2]").GetValue(ctx));
 
+            // != stays the exact negation of ==, which is the engine's standing rule: the type's own
+            // op_Inequality is deliberately not looked up
             Assert.IsTrue(InterpretGetter<List<OnlyEqualityOperator>, bool>("[0] != [1]").GetValue(ctx));
             Assert.IsTrue(CompileGetter<List<OnlyEqualityOperator>, bool>("[0] != [1]").GetValue(ctx));
 
-            Assert.IsTrue(InterpretGetter<List<OnlyEqualityOperator>, bool>("[0] != [2]").GetValue(ctx));
-            Assert.IsTrue(CompileGetter<List<OnlyEqualityOperator>, bool>("[0] != [2]").GetValue(ctx));
+            Assert.IsFalse(InterpretGetter<List<OnlyEqualityOperator>, bool>("[0] != [2]").GetValue(ctx));
+            Assert.IsFalse(CompileGetter<List<OnlyEqualityOperator>, bool>("[0] != [2]").GetValue(ctx));
 
             Assert.IsTrue(InterpretGetter<List<OnlyEqualityOperator>, bool>("[1] != [2]").GetValue(ctx));
             Assert.IsTrue(CompileGetter<List<OnlyEqualityOperator>, bool>("[1] != [2]").GetValue(ctx));
 
             {
-                // linq also does not work
+                // distinct() answers by the comparer, not the operator - and so does LINQ's own, which
+                // is the point: the engine matches C# on both sides of the split.
                 Assert.AreEqual(3, ctx.Distinct().Count());
 
                 var distinctInterpreted = InterpretGetter<List<OnlyEqualityOperator>, List<OnlyEqualityOperator>>(

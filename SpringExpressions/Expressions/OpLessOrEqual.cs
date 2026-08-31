@@ -46,6 +46,14 @@ namespace SpringExpressions
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
+            // A type's own operator, before anything else - see TryCreateUserDefinedComparison.
+            var userDefined = TryCreateUserDefinedComparison(
+                leftExpression, rightExpression, "op_LessThanOrEqual",
+                (l, r, m) => LExpression.LessThanOrEqual(l, r, false, m));
+
+            if (userDefined != null)
+                return userDefined;
+
             if (ComparisonHelper.CreateCompare(
                 leftExpression,
                 rightExpression,
@@ -68,6 +76,9 @@ namespace SpringExpressions
         {
             object left = GetLeftValue( context, evalContext );
             object right = GetRightValue( context, evalContext );
+
+            if (TryInvokeUserDefinedComparison(left, right, "op_LessThanOrEqual", out var userDefined))
+                return userDefined;
 
             return CompareUtils.Compare(left, right) <= 0;
         }

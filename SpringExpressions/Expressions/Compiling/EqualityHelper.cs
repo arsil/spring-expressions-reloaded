@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Reflection;
 
 using JetBrains.Annotations;
+
+using SpringExpressions.Util;
+
 using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions.Expressions.Compiling
@@ -76,11 +79,36 @@ namespace SpringExpressions.Expressions.Compiling
 
             if (leftExpression.Type == rightExpression.Type)
             {
+                // A type's own op_Equality, where it declares one - the general rule the three
+                // special cases above are instances of. Without it, only numerics, string and
+                // DateTime ever reached their operator and every other same-typed pair went to
+                // EqualityComparer: Guid, TimeSpan, DateTimeOffset, Uri, Version and anything a
+                // caller wrote. EqualityUtils.CreateMethod is the interpreter's twin, so the two
+                // backends decide from one rule.
+                //
+                // The resolved MethodInfo is passed explicitly rather than letting
+                // LExpression.Equal(left, right) resolve for itself, which is this engine's standing
+                // habit: LINQ's own resolution is more permissive and would drift from the
+                // interpreter. Built-in numerics never arrive here anyway - they are handled above -
+                // but the lookup excludes them regardless, which is what keeps double/float NaN out
+                // of this change.
+                var userDefined = UserDefinedOperatorUtils.IsOwnedByNumericPromotion(
+                        leftExpression.Type, rightExpression.Type)
+                    ? null
+                    : UserDefinedOperatorUtils.FindBinary(
+                        "op_Equality", leftExpression.Type, rightExpression.Type);
+
+                if (userDefined != null && userDefined.ReturnType == typeof(bool))
+                {
+                    return GuardNullsAroundOperator(
+                        leftExpression,
+                        rightExpression,
+                        LExpression.Equal(leftExpression, rightExpression, false, userDefined));
+                }
+
                 var mi = MiEqualityComparerEquals.MakeGenericMethod(leftExpression.Type);
                 return LExpression.Call(mi, leftExpression, rightExpression);
             }
-
-            // todo: error: equatable<>
 
             // Two value types that are not the same type have no compiled equality. The tail below
             // would box both and call object.Equals, which sees two unrelated types and answers
@@ -188,6 +216,47 @@ namespace SpringExpressions.Expressions.Compiling
         [NotNull]
         private static readonly MethodInfo MiEnumEqualsName = typeof(Util.EqualityUtils)
             .GetMethod(nameof(Util.EqualityUtils.EnumEqualsName));
+
+        /// <summary>
+        /// For a reference type, answers the null cases before the operator is reached: two nulls are
+        /// equal, one null is not. Value types need none of this and are returned unchanged.
+        /// </summary>
+        /// <remarks>
+        /// <c>OpEqual.Get</c> has always done exactly this before it consults anything else, so the
+        /// interpreter never hands a null to an operator. Without the same guard here the two backends
+        /// part company on a type whose operator is not null-safe - measured:
+        /// <c>value == null</c> gave <c>NullReferenceException</c> compiled and <c>False</c>
+        /// interpreted, because the compiled call reached the operator and the interpreted one did
+        /// not. C# would also throw, but agreeing with the interpreter matters more here: a caller who
+        /// writes a comparison against null is asking a question about null, not asking to run the
+        /// operator.
+        /// <p>
+        /// The null tests are <c>ReferenceEqual</c>, not <c>Equal</c> - <c>Equal</c> would resolve the
+        /// very operator being guarded and recurse.
+        /// </p>
+        /// </remarks>
+        [NotNull]
+        private static LExpression GuardNullsAroundOperator(
+            [NotNull] LExpression leftExpression,
+            [NotNull] LExpression rightExpression,
+            [NotNull] LExpression operatorCall)
+        {
+            if (leftExpression.Type.IsValueType)
+                return operatorCall;
+
+            var leftIsNull = LExpression.ReferenceEqual(
+                leftExpression, LExpression.Constant(null, leftExpression.Type));
+            var rightIsNull = LExpression.ReferenceEqual(
+                rightExpression, LExpression.Constant(null, rightExpression.Type));
+
+            return LExpression.Condition(
+                leftIsNull,
+                rightIsNull,
+                LExpression.Condition(
+                    rightIsNull,
+                    LExpression.Constant(false),
+                    operatorCall));
+        }
 
         private static bool EqualityComparerEquals<T>(T t1, T t2)
         {

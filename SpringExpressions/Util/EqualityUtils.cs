@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Reflection;
 using JetBrains.Annotations;
 
+using LExpression = System.Linq.Expressions.Expression;
+
 namespace SpringExpressions.Util
 {
     internal static class EqualityUtils
@@ -66,13 +68,84 @@ namespace SpringExpressions.Util
             .GetMethod(nameof(EqualsUsingEqualityComparer), BindingFlags.Static | BindingFlags.NonPublic);
 
 
+        /// <summary>
+        /// The comparison one type uses for itself: its own <c>op_Equality</c> where it declares one,
+        /// and <see cref="EqualityComparer{T}"/> otherwise. Built once per type and cached.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// The engine already honoured the operator for numerics, <c>string</c> and <c>DateTime</c> -
+        /// three hand-written special cases in <c>EqualityHelper</c>, all routed to
+        /// <c>LExpression.Equal</c>, which resolves a declared <c>op_Equality</c>. Every other
+        /// same-typed pair fell to <c>EqualityComparer</c>, so a type's own operator was never called:
+        /// <c>Guid</c>, <c>TimeSpan</c>, <c>DateTimeOffset</c>, <c>Uri</c>, <c>Version</c> and anything
+        /// a caller wrote. This is that gap closed with one rule rather than a fourth special case -
+        /// the author's own <c>// todo: error: equatable&lt;&gt;</c> sat on the line where it was
+        /// missing.
+        /// </p>
+        /// <p>
+        /// Measured before the change: of the BCL types in play, the operator and the comparer agree
+        /// everywhere except <c>double</c>/<c>float</c>, where <c>NaN == NaN</c> is false and
+        /// <c>NaN.Equals(NaN)</c> is true. Those are excluded here by
+        /// <see cref="UserDefinedOperatorUtils.IsOwnedByNumericPromotion"/>, so this change cannot
+        /// move them; the NaN divergence is its own item and is fixed on its own terms.
+        /// </p>
+        /// <p>
+        /// <c>!=</c> is not looked up. It stays the negation of <c>==</c>, which is this engine's
+        /// standing rule (the enum-name ruling insisted on it), so a type declaring an
+        /// <c>op_Inequality</c> that is not its <c>op_Equality</c> negated is deliberately not
+        /// honoured - two operators that disagree have no coherent reading here.
+        /// </p>
+        /// </remarks>
         private static Func<object, object, bool> CreateMethod(Type itemType)
         {
+            var userDefined = FindEqualityOperator(itemType);
+
+            if (userDefined != null)
+                return CompileOperatorCall(itemType, userDefined);
+
             var genericMethod = MiEqualsUsingEqualityComparer.MakeGenericMethod(itemType);
             return (Func<object, object, bool>)Delegate
                 .CreateDelegate(typeof(Func<object, object, bool>), genericMethod);
         }
 
+        [CanBeNull]
+        private static MethodInfo FindEqualityOperator([NotNull] Type itemType)
+        {
+            if (UserDefinedOperatorUtils.IsOwnedByNumericPromotion(itemType, itemType))
+                return null;
+
+            var method = UserDefinedOperatorUtils.FindBinary("op_Equality", itemType, itemType);
+
+            return method != null && method.ReturnType == typeof(bool) ? method : null;
+        }
+
+        /// <summary>
+        /// A compiled call rather than <c>MethodInfo.Invoke</c>, the pattern CastOperations and
+        /// NumericBinaryOperations already use: built once per type, so the operator costs no more per
+        /// evaluation than the comparer it replaces.
+        /// </summary>
+        private static Func<object, object, bool> CompileOperatorCall(
+            [NotNull] Type itemType, [NotNull] MethodInfo method)
+        {
+            var left = LExpression.Parameter(typeof(object), "left");
+            var right = LExpression.Parameter(typeof(object), "right");
+
+            var call = LExpression.Call(
+                method,
+                LExpression.Convert(left, itemType),
+                LExpression.Convert(right, itemType));
+
+            return LExpression.Lambda<Func<object, object, bool>>(call, left, right).Compile();
+        }
+
+        /// <summary>
+        /// A warm start for the types most expressions use, nothing more - every entry here is one
+        /// <see cref="CreateMethod"/> would produce anyway. <c>string</c>, <c>DateTime</c> and
+        /// <c>TimeSpan</c> were seeded too and are not any more: they declare <c>op_Equality</c>, so
+        /// seeding them would keep the interpreter on the comparer while the compiled path used the
+        /// operator - the same answer either way, measured, but two rules where one will do.
+        /// </summary>
         static EqualityUtils()
         {
             AddMethodForType<int>();
@@ -80,9 +153,6 @@ namespace SpringExpressions.Util
             AddMethodForType<double>();
             AddMethodForType<float>();
             AddMethodForType<long>();
-            AddMethodForType<DateTime>();
-            AddMethodForType<TimeSpan>();
-            AddMethodForType<string>();
             AddMethodForType<ulong>();
             AddMethodForType<uint>();
             AddMethodForType<short>();

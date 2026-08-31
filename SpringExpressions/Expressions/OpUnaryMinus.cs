@@ -45,7 +45,14 @@ namespace SpringExpressions
         {
             var operandExpression = GetExpressionTreeIfPossible((BaseNode)getFirstChild(), contextExpression, compilationContext);
 
-            if (UnaryNumericOperatorHelper.TryCreate(operandExpression, 
+            // A type's own operator, before the numeric paths - see TryCreateUserDefinedUnary.
+            var userDefined = TryCreateUserDefinedUnary(
+                operandExpression, "op_UnaryNegation", LExpression.Negate);
+
+            if (userDefined != null)
+                return userDefined;
+
+            if (UnaryNumericOperatorHelper.TryCreate(operandExpression,
                 UnaryNumericOperatorHelper.UnaryOperator.UnaryMinus, out var result))
             {
                 return result;
@@ -75,6 +82,9 @@ namespace SpringExpressions
             // Any math operation involving value and null returns null
             if (n == null)
                 return null;
+
+            if (TryInvokeUserDefinedUnary(n, "op_UnaryNegation", out var userDefined))
+                return userDefined;
 
             if (!TypeCheckingUtils.IsNumber(n))
             {
