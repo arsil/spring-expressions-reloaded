@@ -43,10 +43,20 @@ namespace SpringExpressions.Processors
         /// </returns>
         public object Process(ICollection source, object[] args)
         {
+            // A null item is skipped, as Enumerable.Min skips it. Without that the accumulator holds
+            // null after the first null item and stays there: CompareUtils.Compare is a sorting
+            // function, so it calls null the smaller of every pair and nothing can displace it - which
+            // made min() over a null-bearing collection answer the *maximum*.
+            //
+            // A NaN is not skipped, and must not be: Enumerable.Min answers NaN if any item is one, and
+            // the sorting convention already lands on that.
             object minItem = null;
             foreach (object item in source)
             {
-                if ((minItem == null && item != null) || (CompareUtils.Compare(minItem, item) > 0))
+                if (item == null)
+                    continue;
+
+                if (minItem == null || CompareUtils.Compare(minItem, item) > 0)
                 {
                     minItem = item;
                 }

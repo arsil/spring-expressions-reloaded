@@ -68,7 +68,14 @@ namespace SpringExpressions.Processors
                 }
             }
 
-            return NumberUtils.Divide(total ?? 0d, n);
+            // With nothing counted - an empty collection, or one holding only nulls - the answer is
+            // null, which is what Enumerable.Average gives for a nullable sequence and what the
+            // compiled path already gave for one. Dividing by zero handed back NaN, which is not the
+            // average of anything.
+            if (n == 0)
+                return null;
+
+            return NumberUtils.Divide(total, n);
         }
     }
 }

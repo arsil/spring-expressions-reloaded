@@ -43,10 +43,17 @@ namespace SpringExpressions.Processors
         /// </returns>
         public object Process(ICollection source, object[] args)
         {
+            // A null item is skipped, as Enumerable.Max skips it - and unlike min(), max() already
+            // answered correctly without the test, because the sorting convention places null at the
+            // end that max() is walking away from. The skip is written anyway so both aggregators say
+            // the same thing and neither depends on which end CompareUtils puts a null.
             object maxItem = null;
             foreach (object item in source)
             {
-                if (CompareUtils.Compare(maxItem, item) < 0)
+                if (item == null)
+                    continue;
+
+                if (maxItem == null || CompareUtils.Compare(maxItem, item) < 0)
                 {
                     maxItem = item;
                 }
