@@ -37,6 +37,55 @@ namespace SpringUtil
     /// <author>Aleksandar Seovic</author>
     static class CompareUtils
     {
+        /// <summary>
+        /// Whether <c>&lt;</c>, <c>&lt;=</c>, <c>&gt;</c> or <c>&gt;=</c> over these two operands can
+        /// only answer false, because one of them is a NaN.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// <b>.NET keeps two rules for NaN and for null, and which applies depends on the API you
+        /// call.</b> That is deliberate, not an inconsistency to reconcile: a sort must be total, an
+        /// operator need not be. Measured:
+        /// </p>
+        /// <code>
+        /// Comparer&lt;double&gt;.Default.Compare(NaN, 1)    -1      NaN &lt; 1             false
+        /// Comparer&lt;double&gt;.Default.Compare(NaN, NaN)   0      NaN &lt;= NaN          false
+        /// Comparer&lt;int?&gt;.Default.Compare(null, 5)     -1      (int?)null &lt;  5     false
+        /// List&lt;int?&gt;.Sort()  -&gt;  [null, 3, 5]
+        /// </code>
+        /// <p>
+        /// A total order puts NaN and null first; a relational operator answers false for them.
+        /// <see cref="Compare"/> is the sorting half and keeps its convention, which is why
+        /// <c>sort()</c>, <c>orderBy()</c> and <c>distinct()</c> place them exactly where
+        /// <c>Enumerable.OrderBy</c> does. This method is the operator half - and it covers NaN only.
+        /// </p>
+        /// <p>
+        /// <b>Null is deliberately left out, and the frozen suite is why.</b> Upstream Spring.NET
+        /// pinned the sorting answer for a null literal under a section headed "// Null":
+        /// <c>null &lt; 'xyz'</c> is true, <c>123 &lt; null</c> is false, <c>null &lt; null</c> is
+        /// false. That is inherited semantics, both backends agree on it, and changing it is a
+        /// breaking change needing its own ruling rather than a line here.
+        /// </p>
+        /// <p>
+        /// A nullable value-typed operand is a different matter - there the two backends disagree
+        /// (<c>NullInt &lt; 5</c> is false compiled, true interpreted) and nothing upstream covers it.
+        /// It cannot be fixed here, though: at evaluation a nullable holding nothing and a null
+        /// literal are both just a null reference, so the interpreter cannot tell the inherited case
+        /// from the free one. See <c>_Docs/open-issues.md</c> item 17.
+        /// </p>
+        /// </remarks>
+        public static bool RelationalComparisonIsFalse(object first, object second)
+        {
+            return IsNaN(first) || IsNaN(second);
+        }
+
+        private static bool IsNaN(object value)
+        {
+            // Boxed, so the two real types are tested directly; nothing else has a NaN.
+            return value is double d ? double.IsNaN(d)
+                : value is float f && float.IsNaN(f);
+        }
+
         /// <summary>Compares two objects.</summary>
         /// <param name="first">First object.</param>
         /// <param name="second">Second object.</param>

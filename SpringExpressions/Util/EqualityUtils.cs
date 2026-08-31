@@ -150,9 +150,16 @@ namespace SpringExpressions.Util
         {
             AddMethodForType<int>();
             AddMethodForType<decimal>();
-            AddMethodForType<double>();
-            AddMethodForType<float>();
             AddMethodForType<long>();
+
+            // double and float compare by IEEE 754, not by EqualityComparer. The comparer answers
+            // Equals, for which NaN equals itself - so 'Nan == Nan' was true here and false compiled,
+            // and 'Nan != Nan' the other way round. IEEE, which is what == means for a real number and
+            // what the compiled path has always emitted, says a NaN equals nothing including itself.
+            // A boxed 'double?' holding a value reports typeof(double), so these two entries cover the
+            // nullable spellings as well.
+            Methods[typeof(double)] = (t1, t2) => (double)t1 == (double)t2;
+            Methods[typeof(float)] = (t1, t2) => (float)t1 == (float)t2;
             AddMethodForType<ulong>();
             AddMethodForType<uint>();
             AddMethodForType<short>();

@@ -81,6 +81,11 @@ namespace SpringExpressions
             object left = GetLeftValue( context, evalContext );
             object right = GetRightValue( context, evalContext );
 
+            // A NaN operand answers false. CompareUtils.Compare is the sorting half of .NET's
+            // pair of rules and would place a NaN instead; nulls are the helper's open question.
+            if (CompareUtils.RelationalComparisonIsFalse(left, right))
+                return false;
+
             if (TryInvokeUserDefinedComparison(left, right, "op_LessThan", out var userDefined))
                 return userDefined;
 
