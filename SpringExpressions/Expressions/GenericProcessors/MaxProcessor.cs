@@ -16,22 +16,24 @@ namespace SpringExpressions.Expressions.GenericProcessors
 
         public MaxProcessor()
         {
+            // Non-nullable value item types map to the nullable overload so an empty collection answers
+            // null - see MinProcessor for the reasoning, which is the same here.
             _methods = new Dictionary<Type, MethodInfo>
             {
                 { typeof(string), ((Func<IEnumerable<string>, string>)Enumerable.Max).Method },
-                { typeof(int), ((Func<IEnumerable<int>, int>)Enumerable.Max).Method},
-                { typeof(decimal), ((Func<IEnumerable<decimal>, decimal>)Enumerable.Max).Method },
-                { typeof(double), ((Func<IEnumerable<double>, double>)Enumerable.Max).Method },
-                { typeof(float), ((Func<IEnumerable<float>, float>)Enumerable.Max).Method },
-                { typeof(long), ((Func<IEnumerable<long>, long>)Enumerable.Max).Method },
-                { typeof(DateTime), ((Func<IEnumerable<DateTime>, DateTime>)Enumerable.Max).Method },
-                { typeof(TimeSpan), ((Func<IEnumerable<TimeSpan>, TimeSpan>)Enumerable.Max).Method },
-                { typeof(ulong), ((Func<IEnumerable<ulong>, ulong>)Enumerable.Max).Method },
-                { typeof(uint), ((Func<IEnumerable<uint>, uint>)Enumerable.Max).Method },
-                { typeof(short), ((Func<IEnumerable<short>, short>)Enumerable.Max).Method },
-                { typeof(ushort), ((Func<IEnumerable<ushort>, ushort>)Enumerable.Max).Method },
-                { typeof(byte), ((Func<IEnumerable<byte>, byte>)Enumerable.Max).Method },
-                { typeof(sbyte), ((Func<IEnumerable<sbyte>, sbyte>)Enumerable.Max).Method },
+                { typeof(int), ((Func<IEnumerable<int?>, int?>)Enumerable.Max).Method},
+                { typeof(decimal), ((Func<IEnumerable<decimal?>, decimal?>)Enumerable.Max).Method },
+                { typeof(double), ((Func<IEnumerable<double?>, double?>)Enumerable.Max).Method },
+                { typeof(float), ((Func<IEnumerable<float?>, float?>)Enumerable.Max).Method },
+                { typeof(long), ((Func<IEnumerable<long?>, long?>)Enumerable.Max).Method },
+                { typeof(DateTime), ((Func<IEnumerable<DateTime?>, DateTime?>)Enumerable.Max).Method },
+                { typeof(TimeSpan), ((Func<IEnumerable<TimeSpan?>, TimeSpan?>)Enumerable.Max).Method },
+                { typeof(ulong), ((Func<IEnumerable<ulong?>, ulong?>)Enumerable.Max).Method },
+                { typeof(uint), ((Func<IEnumerable<uint?>, uint?>)Enumerable.Max).Method },
+                { typeof(short), ((Func<IEnumerable<short?>, short?>)Enumerable.Max).Method },
+                { typeof(ushort), ((Func<IEnumerable<ushort?>, ushort?>)Enumerable.Max).Method },
+                { typeof(byte), ((Func<IEnumerable<byte?>, byte?>)Enumerable.Max).Method },
+                { typeof(sbyte), ((Func<IEnumerable<sbyte?>, sbyte?>)Enumerable.Max).Method },
 
                 { typeof(int?), ((Func<IEnumerable<int?>, int?>)Enumerable.Max).Method},
                 { typeof(decimal?), ((Func<IEnumerable<decimal?>, decimal?>)Enumerable.Max).Method },

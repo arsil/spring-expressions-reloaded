@@ -246,6 +246,31 @@ namespace SpringExpressions.Expressions
                 }
                 else if (resultType != exp.Type && resultType.IsValueType)
                 {
+                    // A nullable body against a non-nullable request is refused rather than
+                    // dereferenced. LExpression.ConvertChecked(int? -> int) is a legal conversion - it
+                    // is C#'s explicit '(int)n', compiling to Nullable<int>.Value - so nothing stopped
+                    // it being emitted, and it was: 'int? -> int', '-> long', '-> double', '-> short',
+                    // 'double? -> int' all silently unwrapped, and threw "Nullable object must have a
+                    // value" at evaluation if the value happened to be absent.
+                    //
+                    // C# refuses the same thing outright: 'int x = someNullable;' is CS0266, and the
+                    // programmer has to write the cast. Inserting it on their behalf means a request
+                    // that cannot represent an absent value looks sound right up to the evaluation that
+                    // has none - and the strongly typed path is where a caller goes to find out whether
+                    // their expression is sound, so it has to say so here.
+                    //
+                    // The escape is the cast the caller could have written: 'expr as int' makes the body
+                    // non-nullable and compiles. Requests that can carry the absence - 'int?', 'long?',
+                    // 'object' - are untouched, and so is every conversion from a non-nullable body.
+                    if (Nullable.GetUnderlyingType(exp.Type) != null)
+                    {
+                        throw new CompileErrorException(
+                            expressionNode,
+                            $"a '{exp.Type}' cannot be delivered as '{resultType}', which has no way to "
+                            + "represent an absent value; request the nullable type, or write the cast "
+                            + "explicitly in the expression");
+                    }
+
                     exp = LExpression.ConvertChecked(exp, resultType);
                 }
             }

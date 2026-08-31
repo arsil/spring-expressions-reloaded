@@ -67,7 +67,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(2m,
                     CompileGetter<NHolder2<decimal, int>, object>("Value1 / Value2").GetValue(ctxDecInt));
 
-                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal>("Value1 / Value2", ctxDecInt)
+                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal?>("Value1 / Value2", ctxDecInt)
                     .ResultEqualsTo(2m);
 
                 Assert.AreEqual(typeof(decimal),
@@ -75,7 +75,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(2m,
                     CompileGetter<NHolder2<decimal, int>, object>("Value1 / 2").GetValue(ctxDecInt));
 
-                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal>("Value1 / 2", ctxDecInt)
+                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal?>("Value1 / 2", ctxDecInt)
                     .ResultEqualsTo(2m);
             }
 
@@ -96,7 +96,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(266.4m,
                     CompileGetter<NHolder2<int, decimal>, object>("Value1 / Value2").GetValue(ctxIntDec));
 
-                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal>("Value1 / Value2", ctxIntDec)
+                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal?>("Value1 / Value2", ctxIntDec)
                     .ResultEqualsTo(266.4m);
 
                 Assert.AreEqual(266.4m, 666 / ctxIntDec.Value2);
@@ -105,7 +105,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(266.4m,
                     CompileGetter<NHolder2<int, decimal>, object>("666 / Value2").GetValue(ctxIntDec));
 
-                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal>("666 / Value2", ctxIntDec)
+                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal?>("666 / Value2", ctxIntDec)
                     .ResultEqualsTo(266.4m);
 
                 Assert.AreEqual(266.4m, ctxIntDec.Value1 / 2.5m);
@@ -114,7 +114,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(266.4m,
                     CompileGetter<NHolder2<int, decimal>, object>("Value1 / 2.5m").GetValue(ctxIntDec));
 
-                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal>("Value1 / 2.5m", ctxIntDec)
+                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal?>("Value1 / 2.5m", ctxIntDec)
                     .ResultEqualsTo(266.4m);
             }
 
@@ -174,7 +174,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(6m,
                     CompileGetter<NHolder2<decimal, int>, object>("Value1 + Value2").GetValue(ctxDecInt));
 
-                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal>("Value1 + Value2", ctxDecInt)
+                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal?>("Value1 + Value2", ctxDecInt)
                     .ResultEqualsTo(6m);
 
                 Assert.AreEqual(typeof(decimal),
@@ -182,7 +182,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(6m,
                     CompileGetter<NHolder2<decimal, int>, object>("Value1 + 2").GetValue(ctxDecInt));
 
-                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal>("Value1 + 2", ctxDecInt)
+                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal?>("Value1 + 2", ctxDecInt)
                     .ResultEqualsTo(6m);
             }
 
@@ -203,7 +203,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(668.5m,
                     CompileGetter<NHolder2<int, decimal>, object>("Value1 + Value2").GetValue(ctxIntDec));
 
-                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal>("Value1 + Value2", ctxIntDec)
+                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal?>("Value1 + Value2", ctxIntDec)
                     .ResultEqualsTo(668.5m);
 
                 Assert.AreEqual(668.5m, 666 + ctxIntDec.Value2);
@@ -212,7 +212,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(668.5m,
                     CompileGetter<NHolder2<int, decimal>, object>("666 + Value2").GetValue(ctxIntDec));
 
-                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal>("666 + Value2", ctxIntDec)
+                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal?>("666 + Value2", ctxIntDec)
                     .ResultEqualsTo(668.5m);
 
                 Assert.AreEqual(668.5m, ctxIntDec.Value1 + 2.5m);
@@ -221,7 +221,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(668.5m,
                     CompileGetter<NHolder2<int, decimal>, object>("Value1 + 2.5m").GetValue(ctxIntDec));
 
-                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal>("Value1 + 2.5m", ctxIntDec)
+                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal?>("Value1 + 2.5m", ctxIntDec)
                     .ResultEqualsTo(668.5m);
             }
         }
@@ -276,7 +276,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(2m,
                     CompileGetter<NHolder2<decimal, int>, object>("Value1 - Value2").GetValue(ctxDecInt));
 
-                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal>("Value1 - Value2", ctxDecInt)
+                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal?>("Value1 - Value2", ctxDecInt)
                     .ResultEqualsTo(2m);
 
                 Assert.AreEqual(typeof(decimal),
@@ -284,7 +284,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(2m,
                     CompileGetter<NHolder2<decimal, int>, object>("Value1 - 2").GetValue(ctxDecInt));
 
-                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal>("Value1 - 2", ctxDecInt)
+                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal?>("Value1 - 2", ctxDecInt)
                     .ResultEqualsTo(2m);
             }
 
@@ -305,7 +305,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(663.5m,
                     CompileGetter<NHolder2<int, decimal>, object>("Value1 - Value2").GetValue(ctxIntDec));
 
-                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal>("Value1 - Value2", ctxIntDec)
+                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal?>("Value1 - Value2", ctxIntDec)
                     .ResultEqualsTo(663.5m);
 
                 Assert.AreEqual(663.5m, 666 - ctxIntDec.Value2);
@@ -314,7 +314,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(663.5m,
                     CompileGetter<NHolder2<int, decimal>, object>("666 - Value2").GetValue(ctxIntDec));
 
-                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal>("666 - Value2", ctxIntDec)
+                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal?>("666 - Value2", ctxIntDec)
                     .ResultEqualsTo(663.5m);
 
                 Assert.AreEqual(663.5m, ctxIntDec.Value1 - 2.5m);
@@ -323,7 +323,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(663.5m,
                     CompileGetter<NHolder2<int, decimal>, object>("Value1 - 2.5m").GetValue(ctxIntDec));
 
-                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal>("Value1 - 2.5m", ctxIntDec)
+                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal?>("Value1 - 2.5m", ctxIntDec)
                     .ResultEqualsTo(663.5m);
             }
         }
@@ -381,7 +381,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(expected,
                     CompileGetter<NHolder2<decimal, int>, object>("Value1 * Value2").GetValue(ctxDecInt));
 
-                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal>("Value1 * Value2", ctxDecInt)
+                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal?>("Value1 * Value2", ctxDecInt)
                     .ResultEqualsTo(expected);
 
                 Assert.AreEqual(typeof(decimal),
@@ -389,7 +389,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(expected,
                     CompileGetter<NHolder2<decimal, int>, object>("Value1 * 2").GetValue(ctxDecInt));
 
-                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal>("Value1 * 2", ctxDecInt)
+                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal?>("Value1 * 2", ctxDecInt)
                     .ResultEqualsTo(expected);
             }
 
@@ -412,7 +412,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(expected,
                     CompileGetter<NHolder2<int, decimal>, object>("Value1 * Value2").GetValue(ctxIntDec));
 
-                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal>("Value1 * Value2", ctxIntDec)
+                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal?>("Value1 * Value2", ctxIntDec)
                     .ResultEqualsTo(expected);
 
                 Assert.AreEqual(expected, 666 * ctxIntDec.Value2);
@@ -421,7 +421,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(expected,
                     CompileGetter<NHolder2<int, decimal>, object>("666 * Value2").GetValue(ctxIntDec));
 
-                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal>("666 * Value2", ctxIntDec)
+                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal?>("666 * Value2", ctxIntDec)
                     .ResultEqualsTo(expected);
 
                 Assert.AreEqual(expected, ctxIntDec.Value1 * 2.5m);
@@ -430,7 +430,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(expected,
                     CompileGetter<NHolder2<int, decimal>, object>("Value1 * 2.5m").GetValue(ctxIntDec));
 
-                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal>("Value1 * 2.5m", ctxIntDec)
+                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal?>("Value1 * 2.5m", ctxIntDec)
                     .ResultEqualsTo(expected);
             }
         }
@@ -487,7 +487,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(expected,
                     CompileGetter<NHolder2<decimal, int>, object>("Value1 % Value2").GetValue(ctxDecInt));
 
-                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal>("Value1 % Value2", ctxDecInt)
+                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal?>("Value1 % Value2", ctxDecInt)
                     .ResultEqualsTo(expected);
 
                 Assert.AreEqual(typeof(decimal),
@@ -495,7 +495,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(expected,
                     CompileGetter<NHolder2<decimal, int>, object>("Value1 % 3").GetValue(ctxDecInt));
 
-                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal>("Value1 % 3", ctxDecInt)
+                TestCompiledVsInterpreted<NHolder2<decimal, int>, decimal?>("Value1 % 3", ctxDecInt)
                     .ResultEqualsTo(expected);
             }
 
@@ -519,7 +519,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(expected,
                     CompileGetter<NHolder2<int, decimal>, object>("Value1 % Value2").GetValue(ctxIntDec));
 
-                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal>("Value1 % Value2", ctxIntDec)
+                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal?>("Value1 % Value2", ctxIntDec)
                     .ResultEqualsTo(expected);
 
                 Assert.AreEqual(expected, 666 % ctxIntDec.Value2);
@@ -528,7 +528,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(expected,
                     CompileGetter<NHolder2<int, decimal>, object>("666 % Value2").GetValue(ctxIntDec));
 
-                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal>("666 % Value2", ctxIntDec)
+                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal?>("666 % Value2", ctxIntDec)
                     .ResultEqualsTo(expected);
 
                 Assert.AreEqual(expected, ctxIntDec.Value1 % 2.5m);
@@ -537,7 +537,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(expected,
                     CompileGetter<NHolder2<int, decimal>, object>("Value1 % 2.5m").GetValue(ctxIntDec));
 
-                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal>("Value1 % 2.5m", ctxIntDec)
+                TestCompiledVsInterpreted<NHolder2<int, decimal>, decimal?>("Value1 % 2.5m", ctxIntDec)
                     .ResultEqualsTo(expected);
             }
         }
@@ -583,7 +583,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(expected,
                     CompileGetter<NHolder2<decimal, int>, object>("Value1 ^ Value2").GetValue(ctxDecInt));
 
-                TestCompiledVsInterpreted<NHolder2<decimal, int>, double>("Value1 ^ Value2", ctxDecInt)
+                TestCompiledVsInterpreted<NHolder2<decimal, int>, double?>("Value1 ^ Value2", ctxDecInt)
                     .ResultEqualsTo(expected);
 
                 Assert.AreEqual(typeof(double),
@@ -591,7 +591,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(expected,
                     CompileGetter<NHolder2<decimal, int>, object>("Value1 ^ 3").GetValue(ctxDecInt));
 
-                TestCompiledVsInterpreted<NHolder2<decimal, int>, double>("Value1 ^ 3", ctxDecInt)
+                TestCompiledVsInterpreted<NHolder2<decimal, int>, double?>("Value1 ^ 3", ctxDecInt)
                     .ResultEqualsTo(expected);
             }
 
@@ -614,7 +614,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(expected,
                     CompileGetter<NHolder2<int, decimal>, object>("Value1 ^ Value2").GetValue(ctxIntDec));
 
-                TestCompiledVsInterpreted<NHolder2<int, decimal>, double>("Value1 ^ Value2", ctxIntDec)
+                TestCompiledVsInterpreted<NHolder2<int, decimal>, double?>("Value1 ^ Value2", ctxIntDec)
                     .ResultEqualsTo(expected);
 
                 Assert.AreEqual(expected, Math.Pow(625, (double)ctxIntDec.Value2.Value));
@@ -623,7 +623,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(expected,
                     CompileGetter<NHolder2<int, decimal>, object>("625 ^ Value2").GetValue(ctxIntDec));
 
-                TestCompiledVsInterpreted<NHolder2<int, decimal>, double>("625 ^ Value2", ctxIntDec)
+                TestCompiledVsInterpreted<NHolder2<int, decimal>, double?>("625 ^ Value2", ctxIntDec)
                     .ResultEqualsTo(expected);
 
                 Assert.AreEqual(expected, Math.Pow(ctxIntDec.Value1.Value, 0.5));
@@ -632,7 +632,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(expected,
                     CompileGetter<NHolder2<int, decimal>, object>("Value1 ^ 0.5m").GetValue(ctxIntDec));
 
-                TestCompiledVsInterpreted<NHolder2<int, decimal>, double>("Value1 ^ 0.5m", ctxIntDec)
+                TestCompiledVsInterpreted<NHolder2<int, decimal>, double?>("Value1 ^ 0.5m", ctxIntDec)
                     .ResultEqualsTo(expected);
             }
         }
@@ -778,7 +778,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(expected,
                     CompileGetter<NHolder2<long, int>, object>("Value1 and Value2").GetValue(ctxDecInt));
 
-                TestCompiledVsInterpreted<NHolder2<long, int>, long>("Value1 and Value2", ctxDecInt)
+                TestCompiledVsInterpreted<NHolder2<long, int>, long?>("Value1 and Value2", ctxDecInt)
                     .ResultEqualsTo(expected);
 
                 Assert.AreEqual(typeof(long),
@@ -786,7 +786,7 @@ namespace SpringExpressionsTests.Expressions
                 Assert.AreEqual(expected,
                     CompileGetter<NHolder2<long, int>, object>("Value1 and 1").GetValue(ctxDecInt));
 
-                TestCompiledVsInterpreted<NHolder2<long, int>, long>("Value1 and 1", ctxDecInt)
+                TestCompiledVsInterpreted<NHolder2<long, int>, long?>("Value1 and 1", ctxDecInt)
                     .ResultEqualsTo(expected);
             }
 

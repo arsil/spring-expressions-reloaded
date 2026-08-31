@@ -259,24 +259,48 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// The one cell where the backends differ, recorded rather than repaired: "nothing matched" cannot
-        /// be delivered as a non-nullable int, and both backends fail - the compiled one inside the
-        /// nullable-to-int conversion Compiler emits for the request, the interpreter while unboxing null.
-        /// Only the exception type differs. Do not "fix" one side: agreement here means either refusing
-        /// the request at parse or inventing a value for "no match", and both are rulings.
+        /// A non-nullable request over a body that can be absent is refused, and the refusal does not
+        /// depend on the data: <c>^{}</c> answers a <c>Nullable&lt;int&gt;</c> whatever the collection
+        /// holds, so a request for a plain <c>int</c> is unsound whether or not anything matches. The
+        /// compile phase is where a caller finds that out, so it says so there.
         /// </summary>
+        /// <remarks>
+        /// This used to compile: <c>Compiler</c> emitted the nullable-to-int conversion - C#'s explicit
+        /// <c>(int)n</c> - and the shape then threw <c>InvalidOperationException</c> compiled against
+        /// <c>NullReferenceException</c> interpreted, only when nothing matched. C# refuses the same
+        /// thing outright (<c>int x = someNullable;</c> is CS0266), and inserting the cast on the caller's
+        /// behalf hid an unsound request until the one evaluation that had no answer.
+        /// The escapes are both spellings a caller could have written, asserted below.
+        /// </remarks>
         [Test]
-        public void ANonNullableRequestFailsOnBothBackendsWhenNothingMatched()
+        public void ANonNullableRequestIsRefusedWhateverTheDataHolds()
         {
             var holder = new ProjectionSourceHolder();
 
-            Assert.AreEqual(2, CompileGetter<ProjectionSourceHolder, int>("Ints.^{#this > 1}").GetValue(holder));
-            Assert.AreEqual(2, InterpretGetter<ProjectionSourceHolder, int>("Ints.^{#this > 1}").GetValue(holder));
+            Assert.Catch<CompileErrorException>(
+                () => Expression.ParseGetter<ProjectionSourceHolder, int>(
+                    "Ints.^{#this > 1}", EvaluationMode.MustCompile));
 
-            Assert.Throws<InvalidOperationException>(
-                () => CompileGetter<ProjectionSourceHolder, int>("Ints.^{#this > 99}").GetValue(holder));
+            Assert.Catch<CompileErrorException>(
+                () => Expression.ParseGetter<ProjectionSourceHolder, int>(
+                    "Ints.^{#this > 99}", EvaluationMode.MustCompile));
+
+            // the interpreter serves it, and fails only when nothing matched
+            Assert.AreEqual(2, InterpretGetter<ProjectionSourceHolder, int>("Ints.^{#this > 1}").GetValue(holder));
             Assert.Throws<NullReferenceException>(
                 () => InterpretGetter<ProjectionSourceHolder, int>("Ints.^{#this > 99}").GetValue(holder));
+
+            // escape one: ask for the type the expression actually produces
+            Assert.AreEqual(
+                2,
+                Expression.ParseGetter<ProjectionSourceHolder, int?>(
+                    "Ints.^{#this > 1}", EvaluationMode.MustCompile).GetValue(holder));
+
+            // escape two: write the cast C# would have made you write
+            Assert.AreEqual(
+                2,
+                Expression.ParseGetter<ProjectionSourceHolder, int>(
+                    "Ints.^{#this > 1} as int", EvaluationMode.MustCompile).GetValue(holder));
         }
 
         /// <summary>

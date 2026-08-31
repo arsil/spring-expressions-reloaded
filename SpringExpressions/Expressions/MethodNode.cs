@@ -588,6 +588,13 @@ namespace SpringExpressions
                 if (GenericProcessorsFacade.TryGetMethodInfo(
                         methodName, instance.Type, itemType, processorArgumentTypes, out var mi))
                 {
+                    // min(), max() and average() ask for the nullable form of a non-nullable value item
+                    // type, so that an empty collection answers null rather than throwing out of
+                    // Enumerable. Value-type arguments are not covariant, so the source is lifted item
+                    // by item; every other processor asks for the plain item type and is untouched.
+                    processorArguments[0] =
+                        GenericProcessorsFacade.LiftSourceIfNullableItemsWanted(mi, instance, itemType);
+
                     var processorCall = LExpression.Call(mi, processorArguments.ToArray());
 
                     // A list a processor builds is the engine's own, so Compiler reshapes the root to
