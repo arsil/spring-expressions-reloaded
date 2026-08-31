@@ -232,6 +232,14 @@ namespace SpringExpressionsTests.Expressions
                 yield return "!" + value;
                 yield return value + " ? 1 : 2";
                 yield return "1 ? " + value + " : 2";
+
+                // A boolean test with one varying branch. Neither row above reaches a mismatch
+                // between the branches: the first has two int branches, and the second is refused on
+                // its non-boolean test before the branches are looked at - which is why the branch
+                // types leaked out of LExpression.Condition for as long as they did.
+                yield return "true ? " + value + " : 2";
+                yield return "true ? 2 : " + value;
+                yield return "true ? " + value + " : null";
                 yield return value + " ?? 1";
                 yield return value + " between {1, 10}";
                 yield return value + " in {1, 2}";
