@@ -19,6 +19,7 @@
 #endregion
 
 using System;
+using JetBrains.Annotations;
 using SpringExpressions.Expressions.Compiling;
 using SpringExpressions.Util;
 using SpringUtil;
@@ -81,6 +82,62 @@ namespace SpringExpressions
             if (operandExpression.Type == typeof(bool?))
                 return LExpression.Not(LExpression.Call(operandExpression, NullableBoolGetValueOrDefault));
 
+            // A type's own operator. Consulted after the built-in roles rather than before them, unlike
+            // the binary and arithmetic lookups: there is no conversion path here for it to get ahead of
+            // - '!' has never complemented a type through an implicit conversion to an integer - and no
+            // built-in type declares either operator, so the order changes no answer. See
+            // UserDefinedOperatorUtils.FindNot for why the role is read from the declared operator and
+            // why declaring both is refused.
+            var declaredComplement = UserDefinedOperatorUtils.FindNot(operandExpression.Type);
+
+            if (declaredComplement != UserDefinedOperatorUtils.NotOperator.None
+                && !operandExpression.Type.IsValueType)
+            {
+                // A reference type can hold null, and this engine has ruled that a null in a boolean
+                // context reads as false - '!null' is True, and '!' is named in that ruling. So a
+                // compiled form would have to answer a bool for null and the operator's own type
+                // otherwise, and one conditional cannot hold both. Left to the interpreter, which
+                // answers True for a null and calls the operator for anything else - so the two agree
+                // through the fallback rather than by emitting something that cannot be typed.
+                //
+                // Measured before this guard existed: the emitted call handed null straight to the
+                // operator, so a null-tolerant one answered its own value compiled against True
+                // interpreted, and a null-intolerant one gave NullReferenceException. The equality
+                // ruling hit the same wall and could guard it with ReferenceEqual, because there both
+                // answers are booleans.
+                throw CannotCompile(
+                    $"'{operandExpression.Type}' is a reference type declaring its own complement, and a "
+                    + "null operand reads as false here - no single result type can hold both answers");
+            }
+
+            switch (declaredComplement)
+            {
+                case UserDefinedOperatorUtils.NotOperator.LogicalNot:
+                {
+                    var userDefined = TryCreateUserDefinedUnary(
+                        operandExpression, "op_LogicalNot", LExpression.Not);
+
+                    if (userDefined != null)
+                        return userDefined;
+
+                    break;
+                }
+
+                case UserDefinedOperatorUtils.NotOperator.OnesComplement:
+                {
+                    var userDefined = TryCreateUserDefinedUnary(
+                        operandExpression, "op_OnesComplement", LExpression.OnesComplement);
+
+                    if (userDefined != null)
+                        return userDefined;
+
+                    break;
+                }
+
+                case UserDefinedOperatorUtils.NotOperator.Both:
+                    throw CannotCompile(DeclaresBothComplements(operandExpression.Type));
+            }
+
             if (!operandIsBoolean && !operandIsInteger)
                 throw CannotCompile(
                     $"no compiled complement for '{operandExpression.Type}'; only a boolean is negated "
@@ -131,12 +188,51 @@ namespace SpringExpressions
                 object result = NumberUtils.BitwiseNot(operand);
                 return Enum.ToObject(enumType, result);
             }
+            else if (!(operand is bool) && TryUserDefinedComplement(operand, out var userDefined))
+                return userDefined;
             else
                 // A boolean is negated and a null reads as false; a real number, a string or anything
                 // else is refused rather than coerced. It used to be !Convert.ToBoolean(operand), which
                 // made '!45' a number and '!4.5' a boolean - the *kind* of answer decided by whether
                 // the operand happened to be integral.
                 return !BooleanUtils.RequireBoolean(operand, "operator '!'");
+        }
+
+        /// <summary>
+        /// The compiled path's twin: the operator the runtime operand type declares, if any. A boolean
+        /// is excluded by the caller so the common shape pays no lookup, and a null has no type to ask.
+        /// </summary>
+        private static bool TryUserDefinedComplement([CanBeNull] object operand, out object result)
+        {
+            result = null;
+
+            if (operand == null)
+                return false;
+
+            switch (UserDefinedOperatorUtils.FindNot(operand.GetType()))
+            {
+                case UserDefinedOperatorUtils.NotOperator.LogicalNot:
+                    return TryInvokeUserDefinedUnary(operand, "op_LogicalNot", out result);
+
+                case UserDefinedOperatorUtils.NotOperator.OnesComplement:
+                    return TryInvokeUserDefinedUnary(operand, "op_OnesComplement", out result);
+
+                case UserDefinedOperatorUtils.NotOperator.Both:
+                    throw new ArgumentException(DeclaresBothComplements(operand.GetType()));
+
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// Written once, so the two backends cannot drift on what they tell the caller.
+        /// </summary>
+        private static string DeclaresBothComplements([NotNull] Type operandType)
+        {
+            return $"operator '!': '{operandType}' declares both op_LogicalNot and op_OnesComplement. "
+                + "'!' is this language's single spelling for both of C#'s complements, so which of the "
+                + "two is meant cannot be determined.";
         }
 
         private static readonly System.Reflection.MethodInfo NullableBoolGetValueOrDefault

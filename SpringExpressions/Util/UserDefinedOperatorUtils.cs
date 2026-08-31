@@ -70,6 +70,67 @@ namespace SpringExpressions.Util
         }
 
         /// <summary>
+        /// Which of C#'s two complement operators a type declares for itself.
+        /// </summary>
+        public enum NotOperator
+        {
+            /// <summary>Neither, so <c>!</c> falls through to its built-in roles.</summary>
+            None,
+
+            /// <summary><c>op_LogicalNot</c> only - what C# spells <c>!</c>.</summary>
+            LogicalNot,
+
+            /// <summary><c>op_OnesComplement</c> only - what C# spells <c>~</c>.</summary>
+            OnesComplement,
+
+            /// <summary>Both, which one spelling cannot tell apart.</summary>
+            Both
+        }
+
+        /// <summary>
+        /// The complement operator a type declares for itself, for the single <c>!</c> that serves both
+        /// of C#'s roles.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// This language has no <c>~</c>: <c>!</c> is logical negation for a boolean and bitwise
+        /// complement for an integer or enum, inherited and deliberate, the same dual role
+        /// <c>and</c>/<c>or</c>/<c>xor</c> carry. For a built-in operand the role is read from the
+        /// operand's type. A custom type gives no such signal, so it is read from **which operator the
+        /// type declares** - a type declaring only <c>op_OnesComplement</c> means C#'s <c>~</c>, and one
+        /// declaring only <c>op_LogicalNot</c> means C#'s <c>!</c>.
+        /// </p>
+        /// <p>
+        /// <b>A type declaring both is refused</b>, because the two answer differently and the
+        /// expression cannot say which it wants: measured on a struct declaring both, C# gives
+        /// <c>~x</c> = -6 and <c>!x</c> = -5 for the same operand. Picking one silently would make
+        /// <c>!x</c> mean whichever the engine happened to prefer. Refusing is the standing answer for
+        /// an illegal expression - the compile phase refuses, the interpreter raises the error at
+        /// evaluation.
+        /// </p>
+        /// <p>
+        /// No built-in type reaches this. Measured: <c>bool</c>, <c>int</c>, <c>long</c>,
+        /// <c>decimal</c> and <c>double</c> declare neither operator - their complements are intrinsic -
+        /// and C# forbids an enum from declaring operators at all. So the callers may consult this after
+        /// their built-in roles rather than before, which keeps the common <c>!someBoolean</c> free of
+        /// the lookup.
+        /// </p>
+        /// </remarks>
+        public static NotOperator FindNot([NotNull] Type operandType)
+        {
+            var hasLogicalNot = FindUnary("op_LogicalNot", operandType) != null;
+            var hasOnesComplement = FindUnary("op_OnesComplement", operandType) != null;
+
+            if (hasLogicalNot && hasOnesComplement)
+                return NotOperator.Both;
+
+            if (hasLogicalNot)
+                return NotOperator.LogicalNot;
+
+            return hasOnesComplement ? NotOperator.OnesComplement : NotOperator.None;
+        }
+
+        /// <summary>
         /// Whether the built-in numeric rules already own this pair, in which case no operator lookup
         /// happens at all.
         /// </summary>

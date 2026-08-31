@@ -170,8 +170,114 @@ namespace SpringExpressionsTests.Expressions
             public override int GetHashCode() { return Value; }
         }
 
+        /// <summary>Declares only <c>op_OnesComplement</c> - what C# spells <c>~</c>.</summary>
+        public struct Bits
+        {
+            public readonly int Value;
+            public Bits(int value) { Value = value; }
+
+            public static Bits operator ~(Bits b) { return new Bits(~b.Value); }
+
+            public override string ToString() { return "Bits(" + Value + ")"; }
+            public override bool Equals(object o) { return o is Bits p && p.Value == Value; }
+            public override int GetHashCode() { return Value; }
+        }
+
+        /// <summary>Declares only <c>op_LogicalNot</c> - what C# spells <c>!</c>.</summary>
+        public struct Switchable
+        {
+            public readonly bool Value;
+            public Switchable(bool value) { Value = value; }
+
+            public static Switchable operator !(Switchable s) { return new Switchable(!s.Value); }
+
+            public override string ToString() { return "Switchable(" + Value + ")"; }
+            public override bool Equals(object o) { return o is Switchable p && p.Value == Value; }
+            public override int GetHashCode() { return Value ? 1 : 0; }
+        }
+
+        /// <summary>
+        /// Declares both, and they answer differently - the case one spelling cannot tell apart.
+        /// </summary>
+        public struct BothComplements
+        {
+            public readonly int Value;
+            public BothComplements(int value) { Value = value; }
+
+            public static BothComplements operator ~(BothComplements b)
+            {
+                return new BothComplements(~b.Value);
+            }
+
+            public static BothComplements operator !(BothComplements b)
+            {
+                return new BothComplements(-b.Value);
+            }
+
+            public override string ToString() { return "BothComplements(" + Value + ")"; }
+        }
+
+        /// <summary>
+        /// An implicit conversion to int *and* its own complement, so the ordering is visible: the
+        /// operator wins, and the type does not erase itself to an int.
+        /// </summary>
+        public struct BitsConvertible
+        {
+            public readonly int Value;
+            public BitsConvertible(int value) { Value = value; }
+
+            public static implicit operator int(BitsConvertible b) { return b.Value; }
+            public static BitsConvertible operator ~(BitsConvertible b)
+            {
+                return new BitsConvertible(~b.Value);
+            }
+
+            public override string ToString() { return "BitsConvertible(" + Value + ")"; }
+            public override bool Equals(object o) { return o is BitsConvertible p && p.Value == Value; }
+            public override int GetHashCode() { return Value; }
+        }
+
+        /// <summary>An <c>op_LogicalNot</c> answering something other than its own type.</summary>
+        public struct NotToString
+        {
+            public readonly int Value;
+            public NotToString(int value) { Value = value; }
+
+            public static string operator !(NotToString n) { return "not:" + n.Value; }
+
+            public override string ToString() { return "NotToString(" + Value + ")"; }
+        }
+
+        /// <summary>A reference type declaring a complement - the null question.</summary>
+        public class Negatable
+        {
+            public readonly int Value;
+            public Negatable(int value) { Value = value; }
+
+            public static Negatable operator !(Negatable n)
+            {
+                return new Negatable(n == null ? -1 : -n.Value);
+            }
+
+            public override string ToString() { return "Negatable(" + Value + ")"; }
+            public override bool Equals(object o) { return o is Negatable p && p.Value == Value; }
+            public override int GetHashCode() { return Value; }
+        }
+
         public class Root
         {
+            public Bits FiveBits { get; set; } = new Bits(5);
+            public Switchable On { get; set; } = new Switchable(true);
+            public BothComplements Ambiguous { get; set; } = new BothComplements(5);
+            public BitsConvertible ConvBits { get; set; } = new BitsConvertible(5);
+            public NotToString Stringy { get; set; } = new NotToString(5);
+
+            public Negatable NegFive { get; set; } = new Negatable(5);
+            public Negatable NoNegatable { get; set; } = null;
+
+            public Bits? NullableBits { get; set; } = new Bits(5);
+            public Bits? NoBits { get; set; } = null;
+
             public Money Ten { get; set; } = new Money(10);
             public Money Three { get; set; } = new Money(3);
             public Convertible ConvTen { get; set; } = new Convertible(10);
@@ -562,6 +668,151 @@ namespace SpringExpressionsTests.Expressions
             Assert.Throws<ArgumentException>(
                 () => Expression.ParseGetter<Root, object>(
                     "{Two, Five}.min()", EvaluationMode.MustInterpret).GetValue(new Root()));
+        }
+
+        // ----- '!' and the two operators it spells
+
+        /// <summary>
+        /// This language has no <c>~</c>: <c>!</c> is logical negation for a boolean and bitwise
+        /// complement for an integer or enum. A custom type gives no such signal, so the role is read
+        /// from which of the two operators the type declares.
+        /// </summary>
+        [Test]
+        public void ATypeDeclaringOnesComplementIsComplementedByExclamation()
+        {
+            var root = new Root();
+
+            TestCompiledVsInterpreted<Root, object>("!FiveBits", root).ResultEqualsTo(new Bits(-6));
+
+            // which is what C# answers for its own spelling of the same operator
+            Assert.AreEqual(new Bits(-6), ~new Bits(5));
+        }
+
+        [Test]
+        public void ATypeDeclaringLogicalNotIsNegatedByTheSameExclamation()
+        {
+            var root = new Root();
+
+            TestCompiledVsInterpreted<Root, object>("!On", root).ResultEqualsTo(new Switchable(false));
+
+            Assert.AreEqual(new Switchable(false), !new Switchable(true));
+        }
+
+        /// <summary>
+        /// The operator runs before any conversion, as it does in arithmetic: a type with an implicit
+        /// conversion to int *and* its own complement answers its own type, not an int. Without that
+        /// ordering the type would erase itself - the defect the binary lookup was written to avoid.
+        /// </summary>
+        [Test]
+        public void AConvertibleTypeDoesNotEraseItselfToTheIntItConvertsTo()
+        {
+            var root = new Root();
+
+            TestCompiledVsInterpreted<Root, object>("!ConvBits", root)
+                .ResultEqualsTo(new BitsConvertible(-6));
+        }
+
+        /// <summary>
+        /// Nothing constrains the result type beyond it not being void, exactly as in C#, where
+        /// <c>op_LogicalNot</c> may answer anything. This is unlike the relational operators, which must
+        /// answer a bool because a comparison node has nowhere else to put the answer.
+        /// </summary>
+        [Test]
+        public void AComplementMayAnswerAnyType()
+        {
+            var root = new Root();
+
+            TestCompiledVsInterpreted<Root, object>("!Stringy", root).ResultEqualsTo("not:5");
+        }
+
+        /// <summary>
+        /// A type declaring both is refused on both backends: C# tells them apart by spelling
+        /// (<c>~x</c> is -6, <c>!x</c> is -5 for the same operand) and this language has only one
+        /// spelling, so picking either would make <c>!x</c> mean whichever the engine preferred.
+        /// The compile phase refuses and the interpreter raises the error at evaluation, which is this
+        /// engine's standing shape for an expression that cannot be read.
+        /// </summary>
+        [Test]
+        public void ATypeDeclaringBothComplementsIsRefused()
+        {
+            Assert.Catch<CompileErrorException>(
+                () => Expression.ParseGetter<Root, object>("!Ambiguous", EvaluationMode.MustCompile));
+
+            var thrown = Assert.Throws<ArgumentException>(
+                () => Expression.ParseGetter<Root, object>(
+                    "!Ambiguous", EvaluationMode.MustInterpret).GetValue(new Root()));
+
+            Assert.That(thrown.Message, Does.Contain("op_LogicalNot"));
+            Assert.That(thrown.Message, Does.Contain("op_OnesComplement"));
+
+            // and C# does read them apart, which is exactly why one spelling cannot
+            Assert.AreEqual(-6, (~new BothComplements(5)).Value);
+            Assert.AreEqual(-5, (!new BothComplements(5)).Value);
+        }
+
+        /// <summary>
+        /// A reference type declaring a complement has no compiled form, and the reason is a type rather
+        /// than an oversight: a null reads as false in a boolean context here - <c>!null</c> is
+        /// <c>True</c>, the ruled behaviour - so a compiled form would have to answer a bool for null and
+        /// the operator's own type otherwise, and one conditional cannot hold both. The interpreter
+        /// serves both cases and the weak path follows it.
+        /// Do not "fix" this by emitting the call unguarded: that answered the operator's value for a
+        /// null-tolerant type and NullReferenceException for any other.
+        /// </summary>
+        [Test]
+        public void AReferenceTypeIsLeftToTheInterpreterBecauseOfNull()
+        {
+            var root = new Root();
+
+            Assert.Catch<CompileErrorException>(
+                () => Expression.ParseGetter<Root, object>("!NegFive", EvaluationMode.MustCompile));
+
+            Assert.AreEqual(
+                new Negatable(-5),
+                Expression.ParseGetter<Root, object>("!NegFive").GetValue(root));
+
+            // and a null operand keeps the null-reads-as-false answer rather than reaching the operator,
+            // even though this particular operator would have tolerated it
+            Assert.AreEqual(true, Expression.ParseGetter<Root, object>("!NoNegatable").GetValue(root));
+        }
+
+        /// <summary>
+        /// A nullable operand has no compiled form either - <c>Nullable&lt;Bits&gt;</c> declares no
+        /// operator of its own, so the lookup finds nothing and the built-in guard refuses. The
+        /// interpreter answers, because a boxed nullable holding a value reports the underlying type.
+        /// Giving this a compiled lifted form is open-issues item 18, together with every other operator.
+        /// </summary>
+        [Test]
+        public void ANullableOperandStaysInterpreted()
+        {
+            var root = new Root();
+
+            Assert.Catch<CompileErrorException>(
+                () => Expression.ParseGetter<Root, object>("!NullableBits", EvaluationMode.MustCompile));
+
+            Assert.AreEqual(
+                new Bits(-6),
+                Expression.ParseGetter<Root, object>("!NullableBits").GetValue(root));
+
+            Assert.AreEqual(true, Expression.ParseGetter<Root, object>("!NoBits").GetValue(root));
+        }
+
+        /// <summary>
+        /// The built-in roles are untouched, and the lookup does not disturb them: no BCL primitive
+        /// declares either operator, and C# forbids an enum from declaring operators at all.
+        /// </summary>
+        [Test]
+        public void TheBuiltInRolesAreUnchanged()
+        {
+            var root = new Root();
+
+            TestCompiledVsInterpreted<Root, object>("!true", root).ResultEqualsTo(false);
+            TestCompiledVsInterpreted<Root, object>("!Int", root).ResultEqualsTo(-4);
+
+            // a type with a conversion but no complement of its own is still refused, not converted
+            Assert.Throws<ArgumentException>(
+                () => Expression.ParseGetter<Root, object>(
+                    "!ConvTen", EvaluationMode.MustInterpret).GetValue(root));
         }
     }
 }
