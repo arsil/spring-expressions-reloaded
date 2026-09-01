@@ -16,12 +16,26 @@ namespace SpringExpressions.Expressions.Compiling
     {
         [ContractAnnotation(
             "=>true,resultExpression:notnull;=>false,resultExpression:null")]
+        /// <summary>
+        /// A comparison over operands that may be <c>Nullable&lt;T&gt;</c>, with the three
+        /// nothing-involved outcomes supplied by the caller.
+        /// </summary>
+        /// <remarks>
+        /// The three used to be two constants, both <c>false</c> - C#'s rule, where any comparison with
+        /// a null operand is false. That made a nullable the one kind of nothing this engine ordered
+        /// differently: a null literal and a null reference already sorted first on both backends, and
+        /// so did a nullable on the *interpreter*. Only the compiled path treated it as C# does, which
+        /// is why <c>NullableNumber &lt; Number</c> was False compiled against True interpreted.
+        /// They are three now because the sorting answer is not symmetric: which side holds the nothing
+        /// decides. See open-issues item 17.
+        /// </remarks>
         public static bool TryCreateForComparison(
             [NotNull] LExpression left,
             [NotNull] LExpression right,
-            [NotNull] LConstantExpression oneSideReturnsNullResult,
-            [NotNull] LConstantExpression bothSidesReturnsNullResult,
-            [NotNull] Func<LExpression, LExpression, LExpression> 
+            [NotNull] LExpression leftIsNothingResult,
+            [NotNull] LExpression rightIsNothingResult,
+            [NotNull] LExpression bothAreNothingResult,
+            [NotNull] Func<LExpression, LExpression, LExpression>
                 bothSidesReturnsNotNullBinaryFunctionCreator,
             out LExpression resultExpression
                 )
@@ -68,7 +82,7 @@ namespace SpringExpressions.Expressions.Compiling
                     = LExpression.Condition(
                         LExpression.Property(left, leftNullableTypeInfo.HasValue),
                         bothSidesNotNullExpression,
-                        oneSideReturnsNullResult);
+                        leftIsNothingResult);
             }
             // ReSharper disable once ConditionIsAlwaysTrueOrFalse
             else if (!leftIsNullable && rightIsNullable)
@@ -88,7 +102,7 @@ namespace SpringExpressions.Expressions.Compiling
                     = LExpression.Condition(
                         LExpression.Property(right, rightNullableTypeInfo.HasValue),
                         bothSidesNotNullExpression,
-                        oneSideReturnsNullResult);
+                        rightIsNothingResult);
             }
             else
             {
@@ -110,15 +124,15 @@ namespace SpringExpressions.Expressions.Compiling
                                 // both have values
                                 bothSidesNotNullExpression,
                                 // else - left HasValue but right doesn't
-                                oneSideReturnsNullResult
+                                rightIsNothingResult
                                 ),
                         // else - left is null (does not have value)
                             // if (right.HasValue)
                             LExpression.Condition(LExpression.Property(right, rightNullableTypeInfo.HasValue),
                                 // !left.HasValue && right.HasValue (so null && Value)
-                                oneSideReturnsNullResult,
+                                leftIsNothingResult,
                                 // else - !left.HasValue && !right.HasValue (so null && null)
-                                bothSidesReturnsNullResult
+                                bothAreNothingResult
                                 )
                             );
             }

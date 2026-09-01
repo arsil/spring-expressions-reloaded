@@ -277,37 +277,52 @@ namespace SpringExpressionsTests.Expressions
          */
         // todo: error: nullable datetime or bool?
 
+        /// <summary>
+        /// A nullable holding no value sorts before every value, on both backends. The author's own two
+        /// markers used to sit on these lines - <c>to jednak działa!</c> above a commented-out
+        /// interpreter assertion, and <c>to oczywiście nie działa...</c> above the compiled ones - which
+        /// is the whole of open-issues item 17 in two comments: the interpreter was right and the
+        /// compiled path was not. The interpreter assertion is live again below.
+        /// </summary>
+        /// <remarks>
+        /// This is the engine deviating from C#, deliberately. C# answers false for any comparison
+        /// against a null, and the raw-C# lines in <see cref="NullableDateTimeTests"/> assert that as
+        /// the reference. Here a null literal, a null reference and a nullable holding nothing are one
+        /// kind of nothing, and nothing sorts first - which the frozen suite has always pinned for the
+        /// literal (<c>null &lt; 'xyz'</c> is True), so the compiled path was the only place a nullable
+        /// was ordered differently from the other two.
+        /// </remarks>
         [Test]
         public void MixedNumbersTests()
         {
-            var ctx = new NHolder<int>
-                { Value = null };
+            var ctx = new NHolder<int> { Value = null };
 
-                // todo: to jednak działą!
-           // Assert.IsTrue(InterpretGetter<NHolder, bool>("Value <= 3").GetValue(ctx));
+            Assert.IsTrue(InterpretGetter<NHolder<int>, bool>("Value <= 3").GetValue(ctx));
 
-              // todo: error: to oczywiście nie działa...
-            Assert.IsFalse(CompileGetter<NHolder<int>, bool>("Value <= 3").GetValue(ctx));
+            Assert.IsTrue(CompileGetter<NHolder<int>, bool>("Value <= 3").GetValue(ctx));
             Assert.IsFalse(CompileGetter<NHolder<int>, bool>("Value >= 3").GetValue(ctx));
-            Assert.IsFalse(CompileGetter<NHolder<int>, bool>("Value <  3").GetValue(ctx));
+            Assert.IsTrue(CompileGetter<NHolder<int>, bool>("Value <  3").GetValue(ctx));
             Assert.IsFalse(CompileGetter<NHolder<int>, bool>("Value >  3").GetValue(ctx));
 
-            var ctx2 = new NHolder<long>
-                { Value = null };
-            Assert.IsFalse(CompileGetter<NHolder<long>, bool>("Value <= 3").GetValue(ctx2));
+            var ctx2 = new NHolder<long> { Value = null };
+            Assert.IsTrue(CompileGetter<NHolder<long>, bool>("Value <= 3").GetValue(ctx2));
             Assert.IsFalse(CompileGetter<NHolder<long>, bool>("Value >= 3").GetValue(ctx2));
-            Assert.IsFalse(CompileGetter<NHolder<long>, bool>("Value <  3").GetValue(ctx2));
+            Assert.IsTrue(CompileGetter<NHolder<long>, bool>("Value <  3").GetValue(ctx2));
             Assert.IsFalse(CompileGetter<NHolder<long>, bool>("Value >  3").GetValue(ctx2));
 
-            Assert.IsFalse(CompileGetter<NHolder<long>, bool>("Value <= 3.6").GetValue(ctx2));
+            Assert.IsTrue(CompileGetter<NHolder<long>, bool>("Value <= 3.6").GetValue(ctx2));
             Assert.IsFalse(CompileGetter<NHolder<long>, bool>("Value >= 3.6").GetValue(ctx2));
-            Assert.IsFalse(CompileGetter<NHolder<long>, bool>("Value <  3.6").GetValue(ctx2));
+            Assert.IsTrue(CompileGetter<NHolder<long>, bool>("Value <  3.6").GetValue(ctx2));
             Assert.IsFalse(CompileGetter<NHolder<long>, bool>("Value >  3.6").GetValue(ctx2));
 
-            Assert.IsFalse(CompileGetter<NHolder<long>, bool>("Value <= 3.6m").GetValue(ctx2));
+            Assert.IsTrue(CompileGetter<NHolder<long>, bool>("Value <= 3.6m").GetValue(ctx2));
             Assert.IsFalse(CompileGetter<NHolder<long>, bool>("Value >= 3.6m").GetValue(ctx2));
-            Assert.IsFalse(CompileGetter<NHolder<long>, bool>("Value <  3.6m").GetValue(ctx2));
+            Assert.IsTrue(CompileGetter<NHolder<long>, bool>("Value <  3.6m").GetValue(ctx2));
             Assert.IsFalse(CompileGetter<NHolder<long>, bool>("Value >  3.6m").GetValue(ctx2));
+
+            // and the interpreter agrees on every one of them, which is the point of the change
+            Assert.IsTrue(InterpretGetter<NHolder<long>, bool>("Value <  3.6m").GetValue(ctx2));
+            Assert.IsFalse(InterpretGetter<NHolder<long>, bool>("Value >  3.6m").GetValue(ctx2));
         }
 
         /**/
@@ -322,20 +337,33 @@ namespace SpringExpressionsTests.Expressions
         /**/
         // booleans cannot be compared using <> etc.
 
+        /// <summary>
+        /// The first four lines are C# itself, kept as the reference: C# answers false for every
+        /// comparison against a null. **The engine deliberately answers otherwise** - nothing sorts
+        /// before everything - so this test is the record of a chosen deviation rather than a mismatch.
+        /// See open-issues item 17 for why: the frozen suite pins the sorting answer for a null literal,
+        /// so following C# here would have made a nullable the one kind of nothing ordered differently.
+        /// </summary>
         [Test]
         public void NullableDateTimeTests()
         {
             var ctx = new NHolder<DateTime>();
+
+            // C#, for contrast
             Assert.IsFalse(new DateTime(2022, 12, 10) < ctx.Value);
             Assert.IsFalse(new DateTime(2022, 12, 10) > ctx.Value);
             Assert.IsFalse(new DateTime(2022, 12, 10) <= ctx.Value);
             Assert.IsFalse(new DateTime(2022, 12, 10) >= ctx.Value);
 
-            Assert.IsFalse(CompileGetter<NHolder<DateTime>, bool>("Value <= date('2022-12-12', 'yyyy-MM-dd')").GetValue(ctx));
+            // the engine: Value is nothing, so it sorts below the date
+            Assert.IsTrue(CompileGetter<NHolder<DateTime>, bool>("Value <= date('2022-12-12', 'yyyy-MM-dd')").GetValue(ctx));
             Assert.IsFalse(CompileGetter<NHolder<DateTime>, bool>("Value >= date('2022-12-12', 'yyyy-MM-dd')").GetValue(ctx));
-            Assert.IsFalse(CompileGetter<NHolder<DateTime>, bool>("Value <  date('2022-12-12', 'yyyy-MM-dd')").GetValue(ctx));
+            Assert.IsTrue(CompileGetter<NHolder<DateTime>, bool>("Value <  date('2022-12-12', 'yyyy-MM-dd')").GetValue(ctx));
             Assert.IsFalse(CompileGetter<NHolder<DateTime>, bool>("Value >  date('2022-12-12', 'yyyy-MM-dd')").GetValue(ctx));
 
+            // and the interpreter has always said so
+            Assert.IsTrue(InterpretGetter<NHolder<DateTime>, bool>("Value <  date('2022-12-12', 'yyyy-MM-dd')").GetValue(ctx));
+            Assert.IsFalse(InterpretGetter<NHolder<DateTime>, bool>("Value >  date('2022-12-12', 'yyyy-MM-dd')").GetValue(ctx));
         }
 
         [Test]
@@ -353,9 +381,10 @@ namespace SpringExpressionsTests.Expressions
             Assert.IsFalse(ctx.Value2 >= ctx.Value1);
 
 
-            Assert.IsFalse(
+            // both are nothing, so they sort equal: '<=' and '>=' hold, '<' and '>' do not
+            Assert.IsTrue(
                 CompileGetter<NHolder2<DateTimeOffset, DateTimeOffset>, bool>("Value1 <= Value2").GetValue(ctx));
-            Assert.IsFalse(
+            Assert.IsTrue(
                 CompileGetter<NHolder2<DateTimeOffset, DateTimeOffset>, bool>("Value1 >= Value2").GetValue(ctx));
             Assert.IsFalse(
                 CompileGetter<NHolder2<DateTimeOffset, DateTimeOffset>, bool>("Value1 <  Value2").GetValue(ctx));
@@ -364,25 +393,34 @@ namespace SpringExpressionsTests.Expressions
 
             ctx.Value1 = new DateTimeOffset(new DateTime(2022, 12, 10));
 
+            // a value on the left, nothing on the right: the value sorts above
             Assert.IsFalse(
                 CompileGetter<NHolder2<DateTimeOffset, DateTimeOffset>, bool>("Value1 <= Value2").GetValue(ctx));
-            Assert.IsFalse(
+            Assert.IsTrue(
                 CompileGetter<NHolder2<DateTimeOffset, DateTimeOffset>, bool>("Value1 >= Value2").GetValue(ctx));
             Assert.IsFalse(
                 CompileGetter<NHolder2<DateTimeOffset, DateTimeOffset>, bool>("Value1 <  Value2").GetValue(ctx));
-            Assert.IsFalse(
+            Assert.IsTrue(
                 CompileGetter<NHolder2<DateTimeOffset, DateTimeOffset>, bool>("Value1 >  Value2").GetValue(ctx));
 
             ctx.Value1 = null;
             ctx.Value2 = new DateTimeOffset(new DateTime(2022, 12, 10));
-            Assert.IsFalse(
+
+            // and the mirror image, which is what makes the three outcomes three rather than two
+            Assert.IsTrue(
                 CompileGetter<NHolder2<DateTimeOffset, DateTimeOffset>, bool>("Value1 <= Value2").GetValue(ctx));
             Assert.IsFalse(
                 CompileGetter<NHolder2<DateTimeOffset, DateTimeOffset>, bool>("Value1 >= Value2").GetValue(ctx));
-            Assert.IsFalse(
+            Assert.IsTrue(
                 CompileGetter<NHolder2<DateTimeOffset, DateTimeOffset>, bool>("Value1 <  Value2").GetValue(ctx));
             Assert.IsFalse(
                 CompileGetter<NHolder2<DateTimeOffset, DateTimeOffset>, bool>("Value1 >  Value2").GetValue(ctx));
+
+            // the interpreter answers the same, on the asymmetric case that used to differ
+            Assert.IsTrue(
+                InterpretGetter<NHolder2<DateTimeOffset, DateTimeOffset>, bool>("Value1 <  Value2").GetValue(ctx));
+            Assert.IsFalse(
+                InterpretGetter<NHolder2<DateTimeOffset, DateTimeOffset>, bool>("Value1 >  Value2").GetValue(ctx));
         }
 
         // todo: error: string, numeryczne, nullable

@@ -39,11 +39,34 @@ namespace SpringExpressions.Expressions.Compiling
             leftExpression = BinaryNumericOperatorHelper.ConvertCustomReal(leftExpression);
             rightExpression = BinaryNumericOperatorHelper.ConvertCustomReal(rightExpression);
 
+            // Nothing sorts before everything, and a nullable holding no value is one of the kinds of
+            // nothing. The three outcomes are the operator applied to the *sort order* the two operands
+            // would have - so the rule is written once here rather than as twelve booleans, and
+            // '<=' and '>=' come out true for two nothings without anyone having to say so:
+            //
+            //   nothing vs a value   -1      so  '<' is true, '>' is false
+            //   a value vs nothing   +1      so  '>' is true, '<' is false
+            //   nothing vs nothing    0      so  '<=' and '>=' are true, '<' and '>' are false
+            //
+            // These used to be two constants, both false - C#'s rule, where any comparison against a
+            // null is false. That made a nullable the only kind of nothing this engine ordered
+            // differently: a null literal and a null reference already sorted first on both backends,
+            // and so did a nullable on the interpreter. Only the compiled path followed C#, which is
+            // the whole of open-issues item 17 - 116 rows of the evaluation sweep.
+            //
+            // Note this is deliberately *not* what the NaN ruling did, where the operators were taken
+            // off the sorting answer. The two are told apart by the frozen suite: it pins null sorting
+            // first for a null literal ('null < xyz' is True) and says nothing about NaN, so for null
+            // the sorting answer is inherited behaviour and for NaN it never was.
+            LExpression SortOrderAnswer(int order)
+                => comparisonExpression(LExpression.Constant(order), LExpression.Constant(0));
+
             if (NullableValueTypesHelper.TryCreateForComparison(
                     leftExpression,
                     rightExpression,
-                    LExpression.Constant(false, typeof(bool)),
-                    LExpression.Constant(false, typeof(bool)),
+                    SortOrderAnswer(-1),
+                    SortOrderAnswer(1),
+                    SortOrderAnswer(0),
                     (l, r) => HandleValueTypesComparison(l, r, comparisonExpression),
                     out var binaryExpression1
                     ))
