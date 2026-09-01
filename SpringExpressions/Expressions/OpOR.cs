@@ -81,6 +81,15 @@ namespace SpringExpressions
 
             object r = GetRightValue(context, evalContext);
 
+            // Nothing combined with nothing is nothing, the same rule OpADD states in full. Two
+            // nulls do not tell this side which of the operator's two roles applies - the operands
+            // could have been integers or booleans and both arrive as a bare null - so it fell into
+            // the logical branch below and coerced them to false, while the compiled path read the
+            // declared types, took the bitwise role and lifted to null. One answer has to serve both,
+            // and propagation is the one the rest of arithmetic uses.
+            if (l == null && r == null)
+                return null;
+
             var leftIsInteger = TypeCheckingUtils.IsInteger(l);
             var rightIsInteger = TypeCheckingUtils.IsInteger(r);
 

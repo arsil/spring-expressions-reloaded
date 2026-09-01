@@ -73,15 +73,14 @@ namespace SpringExpressions.Expressions.Compiling
                         left.Type);
                 }
 
-                if (right.Type == typeof(object))
-                {
-                    // trying to convert object to enum
-                    return LExpression.Convert(
-                        bitwiseOperatorCreator(
-                            LExpression.Convert(left, enumUnderlyingType),
-                            LExpression.Convert(LExpression.Convert(right, enumType), enumUnderlyingType)),
-                        enumType);
-                }
+                // There is deliberately no branch for an object-typed right operand. It used to cast the
+                // object to the enum and combine - which the CLR allows for a boxed value of the enum's
+                // underlying type, so 'Colour and Anything' with an int 45 in the box answered an enum -
+                // while the interpreter looked at the runtime value, found the types unrelated and
+                // refused the pair. That is the shape open-issues item 21 ruled on for the comparison
+                // operators: a decision the static types do not determine is refused, not guessed, so
+                // the interpreter can answer from the value. Falling through to the refusal below is
+                // what agrees with it.
             }
 
             if (ExpressionTypeHelper.IsIntegerOrNullableIntegerExpression(left, out _, out _)

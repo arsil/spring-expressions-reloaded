@@ -201,8 +201,15 @@ namespace SpringExpressionsTests.Expressions
             Assert.AreEqual(true, ExpressionEvaluator.GetValue(null, "null or true"));
             Assert.AreEqual(false, ExpressionEvaluator.GetValue(null, "null or false"));
             Assert.AreEqual(true, ExpressionEvaluator.GetValue(null, "null xor true"));
-            Assert.AreEqual(false, ExpressionEvaluator.GetValue(null, "null and null"));
-            Assert.AreEqual(false, ExpressionEvaluator.GetValue(null, "null or null"));
+
+            // Two nothings are nothing, not false. These two used to answer false, which was the
+            // boolean family's rule applied to a pair that does not name a family at all - the same
+            // guess the compiled path was criticised for making the other way, since it read the
+            // declared types, took the bitwise role and lifted to null. 'NoNumber and NoNumber' is the
+            // shape that showed it, and one answer has to serve both.
+            Assert.IsNull(ExpressionEvaluator.GetValue(null, "null and null"));
+            Assert.IsNull(ExpressionEvaluator.GetValue(null, "null or null"));
+            Assert.IsNull(ExpressionEvaluator.GetValue(null, "null xor null"));
         }
 
         /// <summary>

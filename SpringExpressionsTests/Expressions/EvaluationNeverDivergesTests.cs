@@ -96,13 +96,7 @@ namespace SpringExpressionsTests.Expressions
         /// </remarks>
         private static readonly string[] KnownDivergences =
         {
-            "6x binary and  ::  both answered, values differ",
-            "1x binary and  ::  compiled answered / interpreted threw ArgumentException",
             "2x binary is  ::  both answered, values differ",
-            "6x binary or  ::  both answered, values differ",
-            "1x binary or  ::  compiled answered / interpreted threw ArgumentException",
-            "6x binary xor  ::  both answered, values differ",
-            "1x binary xor  ::  compiled answered / interpreted threw ArgumentException",
             "6x call  ::  both answered, values differ",
             "13x call  ::  compiled answered / interpreted threw ArgumentException",
             "1x call  ::  compiled answered / interpreted threw NullReferenceException",
