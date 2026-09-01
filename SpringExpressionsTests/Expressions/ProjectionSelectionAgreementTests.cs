@@ -345,17 +345,20 @@ namespace SpringExpressionsTests.Expressions
             TestCompiledVsInterpreted<ProjectionSourceHolder, object>("Ints.^{#this > 99} + 1", holder)
                 .ResultEqualsTo(null);
 
-            // the divergence: Nullable<int>.ToString() answers an empty string, where the interpreter
-            // cannot resolve ToString against a null at all
-            Assert.AreEqual(string.Empty,
-                CompileGetter<ProjectionSourceHolder, object>("Ints.^{#this > 99}.ToString()").GetValue(holder));
-            Assert.Throws<ArgumentException>(
+            // No match means no value, so a member written after it fails - on both backends. This was
+            // the recorded divergence: Nullable<int>.ToString() answered an empty string where the
+            // interpreter could not resolve ToString against a null at all. The compiled path resolves
+            // members against the value inside the nullable now rather than against the wrapper, so
+            // there is no ToString to find either.
+            Assert.Catch<Exception>(
+                () => CompileGetter<ProjectionSourceHolder, object>("Ints.^{#this > 99}.ToString()").GetValue(holder));
+            Assert.Catch<Exception>(
                 () => InterpretGetter<ProjectionSourceHolder, object>("Ints.^{#this > 99}.ToString()").GetValue(holder));
 
-            // and the same two answers for a nullable property, which no selection node touches
-            Assert.AreEqual(string.Empty,
-                CompileGetter<ProjectionSourceHolder, object>("NullInt.ToString()").GetValue(holder));
-            Assert.Throws<ArgumentException>(
+            // and the same for a nullable property, which no selection node touches
+            Assert.Catch<Exception>(
+                () => CompileGetter<ProjectionSourceHolder, object>("NullInt.ToString()").GetValue(holder));
+            Assert.Catch<Exception>(
                 () => InterpretGetter<ProjectionSourceHolder, object>("NullInt.ToString()").GetValue(holder));
         }
 

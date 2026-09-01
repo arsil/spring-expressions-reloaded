@@ -270,6 +270,23 @@ namespace SpringExpressions
                     return HandleExpandoForGetter(contextExpression, name);
                 }
 
+                // A member written after a Nullable<T> is read from the value inside it. The
+                // interpreter has always done this - a boxed nullable holding a value *is* a boxed T,
+                // so it never sees a wrapper - while this path resolved against Nullable<T> itself and
+                // so had no form for 'ShippedOn.Year' at all. See NullableReceiver for what that cost
+                // in both directions.
+                //
+                // Recursing with the unwrapped receiver keeps every branch below - properties, fields,
+                // consts, enums - working against the underlying type without any of them knowing.
+                if (Nullable.GetUnderlyingType(contextExpressionType) != null)
+                {
+                    var member = GetExpressionTreeIfPossible(
+                        LExpression.Property(contextExpression, "Value"), compilationContext);
+
+                    return SpringExpressions.Util.NullableReceiver.GuardWithHasValue(
+                        contextExpression, member, name);
+                }
+
                 if (contextExpressionType == typeof(Type)
                     && contextExpression.NodeType == ExpressionType.Constant)
                 {

@@ -93,6 +93,20 @@ namespace SpringExpressions
 // todo: być może trzeba to lockować!
 			string methodName = getText();
 
+            // A method written after a Nullable<T> is called on the value inside it, the same way
+            // PropertyOrFieldNode reads a member from it - see NullableReceiver. Without this,
+            // 'ShippedOn.AddDays(1)' had no compiled form, because Nullable<T> declares no AddDays,
+            // while 'NoNumber.ToString()' resolved against the wrapper and answered "" where the
+            // interpreter - which only ever sees the unwrapped value - could find no method at all.
+            if (Nullable.GetUnderlyingType(contextExpression.Type) != null)
+            {
+                var onTheValue = GetExpressionTreeIfPossible(
+                    LExpression.Property(contextExpression, "Value"), compilationContext);
+
+                return SpringExpressions.Util.NullableReceiver.GuardWithHasValue(
+                    contextExpression, onTheValue, methodName);
+            }
+
 		    var instance = contextExpression;
 
 			var node = this.getFirstChild();

@@ -338,27 +338,31 @@ namespace SpringExpressionsTests.Expressions
         /// nothing means.
         /// </summary>
         [Test]
-        public void AMemberAccessChainedOntoTheNullAnswerIsThePreExistingAsymmetry()
+        public void AMemberAccessChainedOntoTheNullAnswerFailsOnBothBackends()
         {
             var root = new EmptyAndFullCollections();
 
-            Assert.AreEqual(
-                string.Empty,
-                CompileGetter<EmptyAndFullCollections, object>("NoInts.min().ToString()").GetValue(root));
+            // Both throw now. This used to be the recorded asymmetry - "" compiled against an exception
+            // interpreted - and it was fixed by the ruling that a member written after a nullable is
+            // read from the value inside it. The compiled path used to resolve ToString against the
+            // Nullable<int> wrapper, which has one and answers "" when empty; it resolves against the
+            // int now, and there is no int, so it fails as the interpreter always did.
+            Assert.Catch<Exception>(
+                () => CompileGetter<EmptyAndFullCollections, object>(
+                    "NoInts.min().ToString()").GetValue(root));
 
-            Assert.Throws<ArgumentException>(
+            Assert.Catch<Exception>(
                 () => InterpretGetter<EmptyAndFullCollections, object>(
                     "NoInts.min().ToString()").GetValue(root));
 
             // the same pair, on a plain int? property - nothing to do with the aggregators
-            Assert.AreEqual(
-                string.Empty,
-                CompileGetter<EmptyAndFullCollections, object>("NoInt.ToString()").GetValue(root));
+            Assert.Catch<Exception>(
+                () => CompileGetter<EmptyAndFullCollections, object>("NoInt.ToString()").GetValue(root));
 
-            Assert.Throws<ArgumentException>(
+            Assert.Catch<Exception>(
                 () => InterpretGetter<EmptyAndFullCollections, object>("NoInt.ToString()").GetValue(root));
 
-            // and with items there is no asymmetry to have
+            // and with items there is no question to answer
             TestCompiledVsInterpreted<EmptyAndFullCollections, object>("Ints.min().ToString()", root)
                 .ResultEqualsTo("3");
         }
