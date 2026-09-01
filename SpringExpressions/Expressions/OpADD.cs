@@ -74,12 +74,22 @@ namespace SpringExpressions
             if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(string))
             {
                 // (DateTime) left + TimeSpan.Parse(right);
-                return LExpression.Call(
+                var added = LExpression.Call(
                     DateTimeMethods.DateTimeAddTimeSpanMethodInfo,
                     leftExpression,
                     LExpression.Call(
                         TimeSpanMethods.TimeSpanParseMethodInfo,
                         rightExpression));
+
+                // A null span propagates rather than reaching TimeSpan.Parse, which answers a null with
+                // ArgumentNullException. The interpreter has no such branch for a null - it is not a
+                // string, so the pair falls to the propagation rule above and answers null - and this
+                // is the same rule seen from the compiled side. The result becomes DateTime? to carry
+                // it, which boxes to a DateTime or to nothing and so is invisible at an object root.
+                return LExpression.Condition(
+                    LExpression.Equal(rightExpression, LExpression.Constant(null, typeof(string))),
+                    LExpression.Constant(null, typeof(DateTime?)),
+                    LExpression.Convert(added, typeof(DateTime?)));
             }
 
             if (leftExpression.Type == typeof(DateTime) && ExpressionTypeHelper.IsNumericExpression(rightExpression))
@@ -129,10 +139,36 @@ namespace SpringExpressions
                 // on its own merits. Boxing only the right one made the operator asymmetric: 'Ana' + 45
                 // compiled because a string needs no boxing, while 45 + 'Ana' handed an unboxed int to
                 // an object parameter and LExpression.Call threw.
-                return BuildCall(
+                var concatenation = BuildCall(
                     null,
                     StrConcatObjObjMethodInfo,
                     new[] { BoxIfValueType(leftExpression), BoxIfValueType(rightExpression) });
+
+                // '+' concatenates only when at least one operand is an actual string at run time;
+                // otherwise null propagates, as it does everywhere else in arithmetic.
+                //
+                // The rule exists because the interpreter cannot see what the compiled path can. With a
+                // null on the left it holds a bare null reference and has no idea the declared type was
+                // string, so 'NullName + Number' was "5" compiled and null interpreted, and
+                // 'NullName + NullName' was "" compiled and an ArgumentException interpreted. Making
+                // both concatenate is not available - only one backend has the information - so the
+                // agreement has to be reached the other way.
+                //
+                // What is *not* affected is any concatenation with a real string in it, which is nearly
+                // all of them: 'NullName + Text' and 'Text + NullName' are "b" on both backends today
+                // and stay that way, because the interpreter can see the string it does have.
+                //
+                // Two deviations from C# come with it, both confined to nulls: '(string)null + 5' is
+                // "5" in C# and null here, and '(string)null + (string)null' is "" in C# and null here.
+                var anyRealString = AtLeastOneIsARealString(leftExpression, rightExpression);
+
+                if (anyRealString == null)
+                    return concatenation;
+
+                return LExpression.Condition(
+                    anyRealString,
+                    concatenation,
+                    LExpression.Constant(null, typeof(string)));
             }
             
                 // todo: error: wbudowane metody? - patrz date()
@@ -277,10 +313,25 @@ namespace SpringExpressions
                 return NumberUtils.Add(leftValue, rightValue);
             }
 
-            // Nullable value types are boxed as values or nulls, so we may get
-            // null values for Nullable<T>
-            // Any math operation involving value and null returns null
-            if ((leftIsNumber || rightIsNumber) && (leftValue == null || rightValue == null))
+            // '+' concatenates only when at least one operand is an actual string; otherwise a null
+            // propagates, as it does everywhere else in arithmetic. This is the interpreter's half of
+            // the rule the concatenation branch of the compiled path implements, and the two are
+            // written to mirror each other deliberately.
+            //
+            // It used to be narrower - "a null beside a *number* propagates" - which left every other
+            // pairing to fall off the end of the method and report that the two cannot be added. So
+            // 'NoNumber + NoNumber' and 'NullName + NullName' threw where the compiled path answered
+            // null and "", and so did 'NullName + Flag'.
+            //
+            // Null is the answer rather than "" because this side cannot tell which it is looking at:
+            // two nulls are two nulls whether they were strings or ints. Only one answer can serve
+            // both, and propagation is the one the rest of arithmetic already uses.
+            //
+            // A real string on either side is untouched: 'NullName + Text' still concatenates to "b",
+            // here and compiled, because there is a string to concatenate to.
+            if ((leftValue == null || rightValue == null)
+                && !(leftValue is string)
+                && !(rightValue is string))
             {
                 return null;
             }
@@ -359,6 +410,44 @@ namespace SpringExpressions
             return expression.Type.IsValueType
                 ? LExpression.Convert(expression, typeof(object))
                 : expression;
+        }
+
+        /// <summary>
+        /// A test for "at least one of these is an actual string once the expression runs", or null when
+        /// the static types already guarantee it and no test is needed.
+        /// </summary>
+        /// <remarks>
+        /// An operand declared <c>string</c> qualifies when it is not null; one declared <c>object</c>
+        /// might hold a string, so it is asked at run time; anything else cannot be a string and is
+        /// ruled out at compile time. A non-null string constant settles the question on its own, which
+        /// is what keeps <c>'a' + 'b'</c> and every literal-bearing concatenation free of the branch.
+        /// </remarks>
+        [CanBeNull]
+        private static LExpression AtLeastOneIsARealString(
+            [NotNull] LExpression left, [NotNull] LExpression right)
+        {
+            if (IsCertainlyARealString(left) || IsCertainlyARealString(right))
+                return null;
+
+            return LExpression.OrElse(MightBeARealString(left), MightBeARealString(right));
+        }
+
+        private static bool IsCertainlyARealString([NotNull] LExpression operand)
+        {
+            return operand is System.Linq.Expressions.ConstantExpression constant
+                && constant.Value is string;
+        }
+
+        private static LExpression MightBeARealString([NotNull] LExpression operand)
+        {
+            if (operand.Type == typeof(string))
+                return LExpression.NotEqual(operand, LExpression.Constant(null, typeof(string)));
+
+            // an object-typed operand can still be holding one
+            if (!operand.Type.IsValueType)
+                return LExpression.TypeIs(operand, typeof(string));
+
+            return LExpression.Constant(false);
         }
 
         private static readonly MethodInfo StrConcatObjObjMethodInfo

@@ -80,6 +80,11 @@ namespace SpringExpressions
 			object leftValue = GetLeftValue( context, evalContext );
             object rightValue = GetRightValue( context, evalContext );
 
+            // Nothing combined with nothing is nothing - see OpADD, where the same gap and the
+            // same reasoning are written out in full.
+            if (leftValue == null && rightValue == null)
+                return null;
+
             // A type's own operator first - see OpADD.
             if (TryInvokeUserDefinedBinary(leftValue, rightValue, "op_Multiply", out var userDefined))
                 return userDefined;

@@ -64,33 +64,23 @@ namespace SpringExpressionsTests.Expressions
         /// <p>Grouped, with the causes behind them:</p>
         /// <list type="bullet">
         /// <item><description>
-        /// <b>The comparison operators are done</b> - open-issues item 21, four stages, and this sweep
-        /// is what found and then measured every one of them. <c>==</c> and <c>!=</c> have no rows here
-        /// at all now, from 540 per operator; the relational operators keep only their
-        /// "values differ" rows, which are item 17's nullable question and a different problem. The
-        /// ruling: the compiled path may only emit a comparison when the static types tell it which
-        /// comparison to make, and otherwise refuses so the interpreter - which sees the runtime values
-        /// - can answer. Do not reintroduce a fallback that always answers; the last one returned
-        /// <c>false</c> for pairs it could not compare and depended on string interning for the rest.
+        /// <b>All six comparison operators are done and have no rows here at all</b> - open-issues
+        /// items 21 and 17, and this sweep is what found and then measured every one of them.
+        /// <c>==</c> and <c>!=</c> went from 540 rows per operator to zero (item 21: the compiled path
+        /// may only emit a comparison when the static types tell it which comparison to make, and
+        /// otherwise refuses so the interpreter can answer from the runtime values); the four relational
+        /// operators went from 116 rows to zero (item 17: a nullable holding nothing sorts before every
+        /// value, like the other two kinds of nothing). Do not reintroduce a comparison fallback that
+        /// always answers - the last one returned <c>false</c> for pairs it could not compare, and
+        /// depended on string interning for the rest.
         /// </description></item>
         /// <item><description>
-        /// <b>Nullable arithmetic where both operands hold nothing</b> - <c>NoNumber + NoNumber</c> is
-        /// null compiled (LINQ's lifted operator) and <c>ArgumentException</c> interpreted. Present in
-        /// the as-constructed data, so it needs no exotic input.
-        /// </description></item>
-        /// <item><description>
-        /// <b>A null reference in a relational operator</b> - <c>Name &lt; Number</c> with a null
-        /// <c>Name</c> is <c>NullReferenceException</c> compiled (the emitted
-        /// <c>IComparable.CompareTo</c> call) and <c>True</c> interpreted (the inherited
-        /// null-sorts-first rule). Adjacent to open-issues item 17 and blocked on the same ruling.
-        /// </description></item>
-        /// <item><description>
-        /// <b>Item 17's null half itself</b> - <c>NullableNumber &lt; Number</c> is <c>False</c> compiled
-        /// and <c>True</c> interpreted. Known, open, and the only entry here already written up.
-        /// </description></item>
-        /// <item><description>
-        /// <b>A null or absent operand of <c>+</c></b> - a null <c>Name</c> concatenates to <c>""</c>
-        /// compiled and throws or answers null interpreted.
+        /// <b>Arithmetic is done too and has no rows here</b> - <c>+ - * / % ^</c> with a null operand.
+        /// The rule: <c>+</c> concatenates only when at least one operand is an actual string at run
+        /// time, and otherwise a null propagates. It had to be null rather than <c>""</c> because the
+        /// interpreter cannot tell two null strings from two null ints - only the compiled path can see
+        /// that - so the answer that serves both is the one the rest of arithmetic already uses.
+        /// A real string on either side still concatenates, which is nearly every use.
         /// </description></item>
         /// <item><description>
         /// <b>A null source reaching a processor or indexer</b> - <c>Name.sort()</c>,
@@ -106,13 +96,6 @@ namespace SpringExpressionsTests.Expressions
         /// </remarks>
         private static readonly string[] KnownDivergences =
         {
-            "6x binary -  ::  compiled answered / interpreted threw ArgumentException",
-            "6x binary *  ::  compiled answered / interpreted threw ArgumentException",
-            "6x binary /  ::  compiled answered / interpreted threw ArgumentException",
-            "6x binary %  ::  compiled answered / interpreted threw ArgumentException",
-            "6x binary ^  ::  compiled answered / interpreted threw ArgumentException",
-            "12x binary +  ::  both answered, values differ",
-            "38x binary +  ::  compiled answered / interpreted threw ArgumentException",
             "6x binary and  ::  both answered, values differ",
             "1x binary and  ::  compiled answered / interpreted threw ArgumentException",
             "2x binary is  ::  both answered, values differ",
