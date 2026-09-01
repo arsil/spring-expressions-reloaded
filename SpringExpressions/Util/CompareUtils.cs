@@ -39,7 +39,7 @@ namespace SpringUtil
     {
         /// <summary>
         /// Whether <c>&lt;</c>, <c>&lt;=</c>, <c>&gt;</c> or <c>&gt;=</c> over these two operands can
-        /// only answer false, because one of them is a NaN.
+        /// only answer false, because one of them is a NaN and the pair compares by IEEE.
         /// </summary>
         /// <remarks>
         /// <p>
@@ -76,7 +76,28 @@ namespace SpringUtil
         /// </remarks>
         public static bool RelationalComparisonIsFalse(object first, object second)
         {
-            return IsNaN(first) || IsNaN(second);
+            if (!IsNaN(first) && !IsNaN(second))
+                return false;
+
+            // A NaN is only an answer where the compiled path compares by IEEE, and that is exactly
+            // where the promotion of the two operands lands on float or double. Without this the rule
+            // fired for any pair holding a NaN and took two agreements apart:
+            //
+            //   'Ana' < NaN   -> the pair is not comparable at all, so both backends threw
+            //                    ArgumentException; short-circuiting answered False instead.
+            //   NaN < 0m      -> decimal-meets-real promotion converts the NaN and throws
+            //                    OverflowException on both backends; short-circuiting skipped it.
+            //
+            // Both were found by the evaluation-time sweep, not by review.
+            if (!TypeCheckingUtils.IsNumber(first) || !TypeCheckingUtils.IsNumber(second))
+                return false;
+
+            var promoted = SpringExpressions.Expressions.Compiling.BinaryNumericOperatorHelper
+                .GetPromotedTypeOrNull(
+                    Type.GetTypeCode(NumberUtils.ToBuiltInRealIfPossible(first).GetType()),
+                    Type.GetTypeCode(NumberUtils.ToBuiltInRealIfPossible(second).GetType()));
+
+            return promoted == typeof(double) || promoted == typeof(float);
         }
 
         private static bool IsNaN(object value)

@@ -207,7 +207,12 @@ namespace SpringExpressionsTests.Expressions
         /// Every binary operator over every pair of operand kinds, then every operand kind through the
         /// unary, conditional, collection and conversion surfaces.
         /// </summary>
-        private static IEnumerable<string> Corpus()
+        /// <remarks>
+        /// Shared with <c>EvaluationNeverDivergesTests</c>, which runs the same expressions against
+        /// several sets of data and compares the two backends' outcomes. One corpus, two invariants:
+        /// nothing escapes compilation, and the backends agree at evaluation.
+        /// </remarks>
+        internal static IEnumerable<string> Corpus()
         {
             var values = new[]
             {
