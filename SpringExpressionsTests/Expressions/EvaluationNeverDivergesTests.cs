@@ -98,7 +98,6 @@ namespace SpringExpressionsTests.Expressions
         {
             "2x binary is  ::  both answered, values differ",
             "6x call  ::  both answered, values differ",
-            "10x call  ::  compiled answered / interpreted threw ArgumentException",
             "4x call  ::  compiled threw ArgumentNullException / interpreted answered",
             "1x call  ::  compiled threw NullReferenceException / interpreted answered",
             "1x indexer  ::  compiled threw KeyNotFoundException / interpreted answered",

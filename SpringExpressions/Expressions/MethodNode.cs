@@ -567,6 +567,33 @@ namespace SpringExpressions
         }
 
 
+        /// <summary>
+        /// A string reaching a collection processor is its characters, which is what the compiled path
+        /// and this engine's own projection nodes have always said.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// Upstream Spring.NET wrote the two halves of this differently in two files: <c>ProjectionNode</c>
+        /// asks for <c>IEnumerable</c>, which a string is, so <c>Text.!{…}</c> has always worked and
+        /// enumerated characters - while <c>ICollectionProcessor.Process</c> takes <c>ICollection</c>,
+        /// which a string is not, so <c>Text.sort()</c> was refused. Nobody chose that; two interface
+        /// names were typed. The compiled path then accepted a string for every processor with an
+        /// open-generic implementation, which is where the divergence came from.
+        /// </p>
+        /// <p>
+        /// C# reads a string the same way - <c>"cab".Min()</c> is <c>'a'</c> and <c>"cab".Distinct()</c>
+        /// enumerates characters, because <c>string</c> is an <c>IEnumerable&lt;char&gt;</c>. Whether
+        /// that is *desirable* is a fair question, and refusing everywhere was considered: nothing in
+        /// either suite uses a string as a collection source, so it would have cost nothing to remove.
+        /// It was not taken because it would have meant deviating from C# and from upstream at once, and
+        /// changing both backends rather than one.
+        /// </p>
+        /// </remarks>
+        private static ICollection AsCollection(object context)
+        {
+            return context is string text ? text.ToCharArray() : (ICollection)context;
+        }
+
         private LExpression TryCollectionProcessors(
             LExpression instance,
             string methodName,
@@ -660,7 +687,7 @@ namespace SpringExpressions
             lock (this)
             {
                 // check if it is a collection and the methodname denotes a collection processor
-                if ((context == null || context is ICollection))
+                if ((context == null || context is ICollection || context is string))
                 {
                     // predefined collection processor?
                     localCollectionProcessor = (ICollectionProcessor)collectionProcessorMap[methodName];
@@ -706,7 +733,7 @@ namespace SpringExpressions
 
             if (localCollectionProcessor != null)
             {
-                return localCollectionProcessor.Process((ICollection)context, argValues);
+                return localCollectionProcessor.Process(AsCollection(context), argValues);
             }
             else if (methodCallProcessor != null)
             {
