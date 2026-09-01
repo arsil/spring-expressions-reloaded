@@ -142,14 +142,16 @@ namespace SpringExpressionsTests.Expressions
 
         /// <summary>
         /// Only equality reads a string as a member name; the relational operators never did, and both
-        /// backends still refuse the pair.
+        /// backends still refuse the pair - the compile phase now says so at parse instead of emitting a
+        /// <c>CompareTo</c> that was always going to throw, which is the paired form the rest of this
+        /// fixture uses.
         /// </summary>
         [Test]
         public void RelationalOperatorsStillRefuseAnEnumAgainstAString()
         {
             var foo = new Foo(FooType.One);
 
-            Assert.Throws<ArgumentException>(() => CompileGetter<Foo, object>("Type > 'One'").GetValue(foo));
+            Assert.Throws<CompileErrorException>(() => CompileGetter<Foo, object>("Type > 'One'"));
             Assert.Throws<ArgumentException>(() => InterpretGetter<Foo, object>("Type > 'One'").GetValue(foo));
         }
     }

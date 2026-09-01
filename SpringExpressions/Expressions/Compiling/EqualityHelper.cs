@@ -63,12 +63,34 @@ namespace SpringExpressions.Expressions.Compiling
             // could not fall back and a shape the interpreter serves became a hard failure.
             if (leftExpression.Type == typeof(string) || rightExpression.Type == typeof(string))
             {
-                if (!leftExpression.Type.IsAssignableFrom(rightExpression.Type)
-                    && !rightExpression.Type.IsAssignableFrom(leftExpression.Type))
+                // Two strings compare by value - String declares op_Equality and LExpression.Equal
+                // resolves it - and a null literal is fine against either. Anything else is refused,
+                // including a string against an `object`, which C# *does* permit as reference equality.
+                //
+                // This engine does not, and the reason is measurable rather than stylistic. Reference
+                // equality on strings answers by interning:
+                //
+                //   Name == Anything, both holding the literal "Ana"        True
+                //   Name == Anything, the right one built at run time       False
+                //
+                // Same characters, same expression, and the answer turns on whether the CLR happened to
+                // intern the string - invisible to the caller, and it flips the day the data comes from
+                // a database instead of a constant. The interpreter compares by value and answers True
+                // for both. Every earlier probe of this shape used a literal, which is why it read as
+                // harmless for so long.
+                //
+                // It is also the odd one out: this engine's '==' promotes numbers, reads an enum against
+                // a string as a member name, honours a type's own op_Equality and compares strings by
+                // value. It is a value-equality operator, so reference identity in one corner is an
+                // accident rather than a rule. Open-issues item 21 stage 4.
+                if (leftExpression.Type != rightExpression.Type
+                    && !IsNullConstant(leftExpression)
+                    && !IsNullConstant(rightExpression))
                 {
                     throw new Expressions.CompileErrorException(
                         $"no compiled equality between [{leftExpression.Type.FullName}] and "
-                        + $"[{rightExpression.Type.FullName}].");
+                        + $"[{rightExpression.Type.FullName}]; a string compares to a string by value, "
+                        + "and comparing it to an untyped operand would answer by reference identity.");
                 }
 
                 return LExpression.Equal(leftExpression, rightExpression);
@@ -110,30 +132,56 @@ namespace SpringExpressions.Expressions.Compiling
                 return LExpression.Call(mi, leftExpression, rightExpression);
             }
 
-            // Two value types that are not the same type have no compiled equality. The tail below
-            // would box both and call object.Equals, which sees two unrelated types and answers
-            // *false* - '45 == true' was False, '45 != true' was True, and neither is an answer anybody
-            // chose. The interpreter refuses every such pair with ArgumentException, so this is the
-            // compiled path failing to implement a rule that already existed.
+            // A comparison the static types do not determine is refused, not guessed. The tail below
+            // boxes both operands and calls object.Equals, which *always answers* - and answers false
+            // for any pair it cannot actually compare. That is a guess dressed as a result: the
+            // interpreter, which sees the runtime values, either promotes them and answers or refuses
+            // the pair, and it never invents. Measured by EvaluationNeverDivergesTests, the tail was
+            // 1,084 of 1,441 divergences, four of them outright wrong answers rather than
+            // refuse-versus-answer mismatches ('Big == Anything', a long against an object holding the
+            // same value as an int, was False compiled and True interpreted).
             //
-            // This generalises the enum guard above, which was the same accident found one type at a
-            // time. Nullables unwrap first, so 'bool? == bool' and 'int? == int' keep comparing - those
-            // agree with the interpreter today, since boxing a nullable yields either the underlying
-            // boxed value or a null reference.
+            // The rule is C#'s, measured slice by slice: it rejects 510 of the 540 pairs per operator
+            // with CS0019. What it permits, and therefore what may still reach the tail:
             //
-            // Deliberately not extended to a value type against an *object*: there the runtime value
-            // decides, and 'Number == Anything' agrees on both backends when the object holds an int.
-            // That is the standing object-typed-operand story, and a static refusal would break it.
-            var leftValueType = Nullable.GetUnderlyingType(leftExpression.Type) ?? leftExpression.Type;
-            var rightValueType = Nullable.GetUnderlyingType(rightExpression.Type) ?? rightExpression.Type;
+            //   * two *reference* types where one is assignable to the other - that is C#'s predefined
+            //     reference equality, and the tail's object.Equals implements it. 'Name == Anything'
+            //     lives here. Whether this engine should permit it at all is a separate question: its
+            //     '==' promotes numbers, reads an enum against a string as a member name and honours a
+            //     type's own op_Equality, so it is a value-equality operator and reference identity in
+            //     one corner reads as an accident. Open-issues item 21 stage 4.
+            //
+            //   * a null literal against anything - the tail's null branches handle it, and C# allows
+            //     'someInt == null' too (always false, with a warning).
+            //
+            // Everything else refuses and the interpreter serves the expression, so no answer changes
+            // on the default path - it is already the interpreter that answers these whenever the shape
+            // did not compile. A value type against an object refuses along with the rest: it agrees
+            // today only when the boxed type happens to match, which is luck rather than a rule, and
+            // the two wrong answers are exactly that luck running out.
+            //
+            // This widens the guard the '45 == true' ruling added for two value types, which was this
+            // same defect found in the one slice static types were enough to see.
+            //   * a nullable against its own underlying type - 'bool? == bool'. That is lifting, not a
+            //     guess: boxing a nullable yields either the underlying boxed value or a null
+            //     reference, so the tail sees exactly what the interpreter sees.
+            var leftUnwrapped = Nullable.GetUnderlyingType(leftExpression.Type) ?? leftExpression.Type;
+            var rightUnwrapped = Nullable.GetUnderlyingType(rightExpression.Type) ?? rightExpression.Type;
 
-            if (leftValueType.IsValueType
-                && rightValueType.IsValueType
-                && leftValueType != rightValueType)
+            // Stage 4 removed the last allowance here - two reference types where one was assignable to
+            // the other, which let 'Inner == Anything' reach the tail and answer from whatever Equals
+            // the left happened to inherit. C# permits that pair as reference equality; this engine does
+            // not, for the reason spelled out in the string branch above. What is left is exactly the
+            // two shapes the tail can answer as the interpreter would: a null literal, and a nullable
+            // against its own underlying type.
+            if (!IsNullConstant(leftExpression)
+                && !IsNullConstant(rightExpression)
+                && leftUnwrapped != rightUnwrapped)
             {
                 throw new Expressions.CompileErrorException(
                     $"no compiled equality between [{leftExpression.Type.FullName}] and "
-                    + $"[{rightExpression.Type.FullName}].");
+                    + $"[{rightExpression.Type.FullName}]; the static types do not determine which "
+                    + "comparison applies, so the interpreter decides from the runtime values.");
             }
 
             // todo: głupie jest to, iż może to nie zadziałać dla boxowanych typów... oto jest pytanie...
@@ -236,6 +284,26 @@ namespace SpringExpressions.Expressions.Compiling
         /// </p>
         /// </remarks>
         [NotNull]
+        /// <summary>
+        /// A reference type, which for this purpose means anything a null can be: not a value type, and
+        /// not a <c>Nullable&lt;T&gt;</c> either - boxing one yields the underlying boxed value, so it
+        /// carries a value type's identity into the tail rather than a reference's.
+        /// </summary>
+        private static bool IsReferenceType(Type type)
+        {
+            return !type.IsValueType;
+        }
+
+        /// <summary>
+        /// The null literal, which the tail's own null branches handle and which C# permits against
+        /// anything.
+        /// </summary>
+        private static bool IsNullConstant(LExpression expression)
+        {
+            return expression is System.Linq.Expressions.ConstantExpression constant
+                && constant.Value == null;
+        }
+
         private static LExpression GuardNullsAroundOperator(
             [NotNull] LExpression leftExpression,
             [NotNull] LExpression rightExpression,

@@ -64,12 +64,14 @@ namespace SpringExpressionsTests.Expressions
         /// <p>Grouped, with the causes behind them:</p>
         /// <list type="bullet">
         /// <item><description>
-        /// <b>An <c>object</c>-typed operand, 1080 of the 1441</b> - <c>Name == Anything</c> is
-        /// <c>False</c> compiled and <c>ArgumentException</c> interpreted. The compiled path compares two
-        /// statically reference-typed operands by reference; the interpreter looks at the runtime values
-        /// and refuses the pair. This is the half the <c>45 == true</c> ruling deliberately left open:
-        /// it covered statically value-typed pairs and let a value type against <c>object</c> reach the
-        /// boxing tail. Ruling it means deciding what <c>==</c> against an untyped operand <i>is</i>.
+        /// <b>The comparison operators are done</b> - open-issues item 21, four stages, and this sweep
+        /// is what found and then measured every one of them. <c>==</c> and <c>!=</c> have no rows here
+        /// at all now, from 540 per operator; the relational operators keep only their
+        /// "values differ" rows, which are item 17's nullable question and a different problem. The
+        /// ruling: the compiled path may only emit a comparison when the static types tell it which
+        /// comparison to make, and otherwise refuses so the interpreter - which sees the runtime values
+        /// - can answer. Do not reintroduce a fallback that always answers; the last one returned
+        /// <c>false</c> for pairs it could not compare and depended on string interning for the rest.
         /// </description></item>
         /// <item><description>
         /// <b>Nullable arithmetic where both operands hold nothing</b> - <c>NoNumber + NoNumber</c> is
@@ -105,9 +107,6 @@ namespace SpringExpressionsTests.Expressions
         private static readonly string[] KnownDivergences =
         {
             "6x binary -  ::  compiled answered / interpreted threw ArgumentException",
-            "2x binary !=  ::  both answered, values differ",
-            "540x binary !=  ::  compiled answered / interpreted threw ArgumentException",
-            "2x binary !=  ::  compiled threw NullReferenceException / interpreted answered",
             "6x binary *  ::  compiled answered / interpreted threw ArgumentException",
             "6x binary /  ::  compiled answered / interpreted threw ArgumentException",
             "6x binary %  ::  compiled answered / interpreted threw ArgumentException",
@@ -115,23 +114,11 @@ namespace SpringExpressionsTests.Expressions
             "12x binary +  ::  both answered, values differ",
             "38x binary +  ::  compiled answered / interpreted threw ArgumentException",
             "26x binary <  ::  both answered, values differ",
-            "4x binary <  ::  compiled threw ArgumentException / interpreted answered",
-            "22x binary <  ::  compiled threw NullReferenceException / interpreted answered",
             "32x binary <=  ::  both answered, values differ",
-            "4x binary <=  ::  compiled threw ArgumentException / interpreted answered",
-            "22x binary <=  ::  compiled threw NullReferenceException / interpreted answered",
-            "2x binary ==  ::  both answered, values differ",
-            "540x binary ==  ::  compiled answered / interpreted threw ArgumentException",
-            "2x binary ==  ::  compiled threw NullReferenceException / interpreted answered",
             "26x binary >  ::  both answered, values differ",
-            "4x binary >  ::  compiled threw ArgumentException / interpreted answered",
-            "22x binary >  ::  compiled threw NullReferenceException / interpreted answered",
             "32x binary >=  ::  both answered, values differ",
-            "4x binary >=  ::  compiled threw ArgumentException / interpreted answered",
-            "22x binary >=  ::  compiled threw NullReferenceException / interpreted answered",
             "6x binary and  ::  both answered, values differ",
             "1x binary and  ::  compiled answered / interpreted threw ArgumentException",
-            "1x binary between  ::  compiled threw NullReferenceException / interpreted answered",
             "2x binary is  ::  both answered, values differ",
             "6x binary or  ::  both answered, values differ",
             "1x binary or  ::  compiled answered / interpreted threw ArgumentException",

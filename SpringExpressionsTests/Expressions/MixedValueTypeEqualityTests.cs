@@ -41,6 +41,7 @@ namespace SpringExpressionsTests.Expressions
             public bool? NullableFlag { get; set; } = true;
             public bool? NoFlag { get; set; }
             public int Number { get; set; } = 45;
+            public long Big { get; set; } = 45L;
             public int? NullableNumber { get; set; } = 45;
             public double Real { get; set; } = 45;
             public char Letter { get; set; } = 'x';
@@ -121,13 +122,45 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// A value type against an object-typed member is left alone: the runtime value decides, and
-        /// this shape agrees on both backends. Do not "fix" it by refusing statically.
+        /// A value type against an object-typed member is refused too, and the answer still comes back
+        /// right - through the interpreter, which is what served this shape whenever it did not compile.
         /// </summary>
+        /// <remarks>
+        /// <p>
+        /// This test previously asserted that the shape compiled, under a note saying the runtime value
+        /// decides and it must not be "fixed" by refusing statically. The note was wrong, and the
+        /// measurement that showed it is in the assertions below: the compiled path was agreeing
+        /// <b>by luck</b>, because a boxed <c>int</c> against a boxed <c>int</c> is what
+        /// <c>object.Equals</c> happens to get right. Put a <c>long</c> on the left holding the same
+        /// number and the luck runs out - <c>Big == Anything</c> was <c>False</c> compiled against
+        /// <c>True</c> interpreted.
+        /// </p>
+        /// <p>
+        /// C# refuses <c>long == object</c> and <c>int == object</c> alike (CS0019), which is what
+        /// settled it. The compiled path cannot see what is in the box, so it cannot know which
+        /// comparison applies, and the ruling is that it must then refuse rather than guess -
+        /// open-issues item 21.
+        /// </p>
+        /// </remarks>
         [Test]
-        public void AValueTypeAgainstAnObjectIsStillCompared()
+        public void AValueTypeAgainstAnObjectIsRefusedAndTheInterpreterAnswers()
         {
-            TestCompiledVsInterpreted<Root, object>("Number == Anything", new Root()).ResultEqualsTo(true);
+            var root = new Root();
+
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseGetter<Root, object>("Number == Anything", EvaluationMode.MustCompile));
+
+            Assert.AreEqual(
+                true,
+                Expression.ParseGetter<Root, object>("Number == Anything").GetValue(root));
+
+            // the luck running out: same values, a long on the left, and the boxed types no longer match
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseGetter<Root, object>("Big == Anything", EvaluationMode.MustCompile));
+
+            Assert.AreEqual(
+                true,
+                Expression.ParseGetter<Root, object>("Big == Anything").GetValue(root));
         }
 
         private static void AssertRefusedThenReportedByTheInterpreter(string expression)

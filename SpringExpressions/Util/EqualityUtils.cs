@@ -42,8 +42,18 @@ namespace SpringExpressions.Util
         /// </p>
         /// </remarks>
         [MustUseReturnValue]
-        public static bool EnumEqualsName([NotNull] object enumValue, [NotNull] string name)
+        public static bool EnumEqualsName([NotNull] object enumValue, [CanBeNull] string name)
         {
+            // A null is not a member name, so it equals no enum value - which is what the interpreter
+            // already answered, though by a different route: its 'rightValue is string' pattern does
+            // not match a null, so the pair fell past this rule entirely and ended up false. The
+            // compiled path emits the call unconditionally and reached name.Split below, so
+            // 'Name == Colour' with a null Name was a NullReferenceException compiled against False
+            // interpreted. Answering here rather than guarding at the emit site keeps the rule in the
+            // one place both backends read it from.
+            if (name == null)
+                return false;
+
             var enumType = enumValue.GetType();
 
             foreach (var part in name.Split(','))
