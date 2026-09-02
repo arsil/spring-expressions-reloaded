@@ -42,7 +42,7 @@ namespace SpringExpressions.Processors
         /// <returns>
         /// The average of the numeric values in the source collection.
         /// </returns>
-        public object Process(ICollection source, object[] args)
+        public object Process(IEnumerable source, object[] args)
         {
             // The accumulator is seeded from the first item's family: decimals accumulate in decimal -
             // 0d + 1.5m is exactly the decimal-double promotion the engine refuses - and everything

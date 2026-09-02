@@ -13,48 +13,51 @@ namespace SpringExpressions.Expressions.GenericProcessors
     /// </summary>
     internal class WeaklyTypedCollectionProcessor
     {
-        public static int count(ICollection collection)
-            => collection?.Count ?? 0;
+        public static object count(IEnumerable collection)
+            => _count.Process(collection, NoParams);
 
-        public static object sum(ICollection collection)
+        public static object sum(IEnumerable collection)
             => _sum.Process(collection, NoParams);
 
-        public static object max(ICollection collection)
+        public static object max(IEnumerable collection)
             => _max.Process(collection, NoParams);
 
-        public static object min(ICollection collection)
+        public static object min(IEnumerable collection)
             => _min.Process(collection, NoParams);
 
-        public static object average(ICollection collection)
+        public static object average(IEnumerable collection)
             => _average.Process(collection, NoParams);
 
-        public static object sort(ICollection collection)
+        public static object sort(IEnumerable collection)
             => _sort.Process(collection, NoParams);
 
-        public static object sort(ICollection collection, bool sortAscending)
+        public static object sort(IEnumerable collection, bool sortAscending)
             => _sort.Process(collection, new object[] { sortAscending });
 
 
-        public static object nonNull(ICollection collection)
+        public static object nonNull(IEnumerable collection)
             => _nonNull.Process(collection, NoParams);
 
-        public static object convert(ICollection collection, Type targetType)
+        public static object convert(IEnumerable collection, Type targetType)
             => _convert.Process(collection, new object[] { targetType });
 
 
-        public static object reverse(ICollection collection)
+        public static object reverse(IEnumerable collection)
             => _reverse.Process(collection, NoParams);
 
-        public static object distinct(ICollection collection)
+        public static object distinct(IEnumerable collection)
             => _distinct.Process(collection, NoParams);
 
-        public static object distinct(ICollection collection, bool includeNulls)
+        public static object distinct(IEnumerable collection, bool includeNulls)
             => _distinct.Process(collection, new object[] { includeNulls });
 
         // ReSharper disable RedundantNameQualifier
         
-        // todo: error:!!!!!
-        //private ICollectionProcessor _count =  new CountAggregator();
+        // count() used to be `collection?.Count ?? 0` here rather than a processor call, which is why
+        // the field below was commented out. It goes through CountAggregator now, so the O(1) test and
+        // the walk-if-you-must fallback are written once - the bridge cannot answer differently from
+        // the interpreter it delegates to.
+        private static ICollectionProcessor _count = new Processors.CountAggregator();
         private static ICollectionProcessor _sum = new Processors.SumAggregator();
         private static ICollectionProcessor _max =  new Processors.MaxAggregator();
         private static ICollectionProcessor _min = new Processors.MinAggregator();

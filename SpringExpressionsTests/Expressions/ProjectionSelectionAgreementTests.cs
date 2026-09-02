@@ -424,10 +424,10 @@ namespace SpringExpressionsTests.Expressions
         /// type, which is what lets the aggregation stay compiled.
         /// </summary>
         /// <remarks>
-        /// Asserted per backend, because the backends disagree on sum()'s result type for ints - int
-        /// compiled, double interpreted. That divergence belongs to the numeric-promotion cluster, not
-        /// to projections; this test pins only that the projection under the aggregator keeps working
-        /// from both sides.
+        /// This used to be asserted per backend, because <c>sum()</c> over ints answered <c>Int32</c>
+        /// compiled and <c>Double</c> interpreted - the interpreter's accumulator seeded at <c>0d</c>
+        /// whatever the item type. That is ruled now (<i>sum() is a fold of '+'</i>), so both answer
+        /// <c>Int32</c> and the test asserts agreement like every other one here.
         /// </remarks>
         [Test]
         public void AggregatorOverAProjectionStaysCompiledAtTheItemType()
@@ -439,8 +439,8 @@ namespace SpringExpressionsTests.Expressions
             Assert.AreEqual(9, compiled);
 
             var interpreted = InterpretGetter<ProjectionSourceHolder, object>("Ints.!{#this + 1}.sum()").GetValue(holder);
-            Assert.AreEqual(typeof(double), interpreted.GetType());
-            Assert.AreEqual(9.0d, interpreted);
+            Assert.AreEqual(typeof(int), interpreted.GetType());
+            Assert.AreEqual(9, interpreted);
         }
     }
 }

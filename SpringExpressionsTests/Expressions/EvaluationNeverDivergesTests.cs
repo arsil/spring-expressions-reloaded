@@ -85,23 +85,29 @@ namespace SpringExpressionsTests.Expressions
         /// <item><description>
         /// <b>A null source reaching a processor or indexer</b> - <c>Name.sort()</c>,
         /// <c>Name.count()</c>, and <c>Map['a']</c> on a map without that key, where the compiled path
-        /// throws and the interpreter answers null.
+        /// throws and the interpreter answers null. All five processor rows report
+        /// <c>ArgumentNullException</c> now: <c>Name.count()</c> used to be the one
+        /// <c>NullReferenceException</c>, from a hand-written loop that ran <c>foreach</c> over the
+        /// null, and it emits <c>Enumerable.Count&lt;char&gt;</c> since the count fast path was fixed -
+        /// same divergence, an exception that names the problem. The total is unmoved.
         /// </description></item>
         /// <item><description>
-        /// <b>Two already documented</b>: <c>sum()</c> over ints is <c>Int32</c> compiled and
-        /// <c>Double</c> interpreted, and a member call on a nullable holding nothing is <c>""</c>
-        /// compiled against a throw interpreted.
+        /// <b><c>sum()</c> used to be 19 of the 27 rows and is gone</b> - item 24, ruled as
+        /// <i>sum() is a fold of '+'</i>. Worth knowing what those 19 were, because they are the shape
+        /// of what widening a corpus reveals: 11 over a non-empty source (the <c>0d</c> accumulator),
+        /// 6 over an empty one (nothing to seed from, so the item type had to be read from the source),
+        /// and 2 an <c>OverflowException</c> class of their own, where
+        /// <c>Enumerable.Sum(IEnumerable&lt;int&gt;)</c> is checked and a <c>double</c> accumulator
+        /// cannot overflow. That last pair needed <i>data at the edge</i> to show at all - it appeared
+        /// only when a <c>List&lt;int&gt;</c> holding <c>{int.MaxValue, 1}</c> joined the roots.
         /// </description></item>
         /// </list>
         /// </remarks>
         private static readonly string[] KnownDivergences =
         {
             "2x binary is  ::  both answered, values differ",
-            "6x call  ::  both answered, values differ",
-            "4x call  ::  compiled threw ArgumentNullException / interpreted answered",
-            "1x call  ::  compiled threw NullReferenceException / interpreted answered",
-            "1x indexer  ::  compiled threw KeyNotFoundException / interpreted answered",
-            "3x literal  ::  both answered, values differ"
+            "5x call  ::  compiled threw ArgumentNullException / interpreted answered",
+            "1x indexer  ::  compiled threw KeyNotFoundException / interpreted answered"
         };
 
         [Test]
@@ -251,7 +257,11 @@ namespace SpringExpressionsTests.Expressions
                     Array = new int[0],
                     Old = new ArrayList(),
                     OldMap = new Hashtable(),
-                    Map = new Dictionary<string, int>()
+                    Map = new Dictionary<string, int>(),
+                    Set = new HashSet<int>(),
+                    Sequence = new int[0].Select(x => x),
+                    Huge = new List<int>(),
+                    Amounts = new List<decimal>()
                 }),
 
                 new NamedRoot("zeros and NaN", new CompilationNeverLeaksTests.Root

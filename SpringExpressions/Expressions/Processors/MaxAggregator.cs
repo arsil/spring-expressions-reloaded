@@ -41,7 +41,7 @@ namespace SpringExpressions.Processors
         /// <returns>
         /// The largest item in the source collection.
         /// </returns>
-        public object Process(ICollection source, object[] args)
+        public object Process(IEnumerable source, object[] args)
         {
             // A null item is skipped, as Enumerable.Max skips it - and unlike min(), max() already
             // answered correctly without the test, because the sorting convention places null at the

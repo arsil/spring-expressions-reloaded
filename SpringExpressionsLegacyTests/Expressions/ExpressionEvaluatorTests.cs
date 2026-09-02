@@ -1798,7 +1798,7 @@ namespace SpringExpressions
 
         private class IntEvenSumCollectionProcessor : ICollectionProcessor
         {
-            public object Process(ICollection source, object[] args)
+            public object Process(IEnumerable source, object[] args)
             {
                 object total = 0d;
                 foreach (object item in source)

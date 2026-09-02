@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Concurrent;
+using System.Linq.Expressions;
 using System.Reflection;
 
 using JetBrains.Annotations;
+
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions.Util
 {
@@ -55,6 +58,44 @@ namespace SpringExpressions.Util
             var key = new OperatorKey(operatorMethodName, leftType, rightType);
 
             return BinaryCache.GetOrAdd(key, k => ResolveBinary(k.Name, k.Left, k.Right));
+        }
+
+        /// <summary>
+        /// A comparison built from the operand types' own relational operator, or null when they
+        /// declare none that answers a <see cref="bool"/>.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// The whole of the relational lookup lives here rather than at its call sites, because there
+        /// are two and they must not drift: the four comparison nodes ask before any conversion runs
+        /// (the operator-before-conversion rule), and <c>ComparisonHelper</c> asks again on operands a
+        /// nullable has been <i>unwrapped</i> from, which is how a nullable operand reaches its own
+        /// type's operator at all.
+        /// </p>
+        /// <p>
+        /// <b>A relational operator must answer a <see cref="bool"/>.</b> The lookup itself only rejects
+        /// <c>void</c>, which is all arithmetic needs, and a comparison node has nowhere to put a
+        /// non-boolean answer - a type declaring <c>operator &lt;</c> returning an <c>int</c> is left to
+        /// the existing path, which throws the inherited "At least one object must implement
+        /// IComparable" at evaluation, exactly as before.
+        /// </p>
+        /// </remarks>
+        [CanBeNull]
+        public static LExpression TryCreateComparison(
+            [NotNull] LExpression left,
+            [NotNull] LExpression right,
+            [NotNull] string operatorMethodName,
+            [NotNull] Func<LExpression, LExpression, MethodInfo, BinaryExpression> factory)
+        {
+            if (IsOwnedByNumericPromotion(left.Type, right.Type))
+                return null;
+
+            var method = FindBinary(operatorMethodName, left.Type, right.Type);
+
+            if (method == null || method.ReturnType != typeof(bool))
+                return null;
+
+            return factory(left, right, method);
         }
 
         /// <summary>

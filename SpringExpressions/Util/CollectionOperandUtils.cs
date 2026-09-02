@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 
 using JetBrains.Annotations;
 
 using SpringCollections;
+
+using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringUtil
 {
@@ -106,6 +109,82 @@ namespace SpringUtil
 
             return itemTypes.Count == 1 ? itemTypes[0] : null;
         }
+
+        /// <summary>
+        /// The number of items in <paramref name="source"/> without enumerating it, where the source can
+        /// answer that. False means the caller has to count by walking.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// The processors take <see cref="IEnumerable"/>, which has no Count, so this is where the O(1)
+        /// answer comes back. Two interfaces are needed and neither is sufficient alone - measured:
+        /// a <c>HashSet&lt;int&gt;</c> is an <c>ICollection&lt;int&gt;</c> but <b>not</b> a non-generic
+        /// <see cref="ICollection"/>, while a <c>Queue&lt;int&gt;</c> is the non-generic one but
+        /// <b>not</b> <c>ICollection&lt;int&gt;</c>. Testing only one of them leaves the other walking.
+        /// </p>
+        /// <p>
+        /// The test is on the <i>runtime</i> type, which is the point: a property declared
+        /// <c>IReadOnlyList&lt;int&gt;</c> holding a <c>List&lt;int&gt;</c> answers in O(1) here, where a
+        /// static test on the declared type would walk it. That was the measured cost of the old
+        /// <see cref="Expressions.GenericProcessors.CountProcessor"/>, which decided statically.
+        /// </p>
+        /// <p>
+        /// The generic read is a compiled delegate cached per runtime type, the pattern
+        /// <c>CastOperations</c> and <c>EqualityUtils</c> already use, so the reflection happens once per
+        /// type rather than once per evaluation. Ambiguity is refused rather than guessed, as
+        /// <see cref="GetEnumerableItemType"/> refuses it: a type implementing
+        /// <c>ICollection&lt;T&gt;</c> more than once is counted by walking.
+        /// </p>
+        /// <p>
+        /// <c>IReadOnlyCollection&lt;T&gt;</c> is deliberately not tested: it does not exist on net40,
+        /// which is a live target here, and nothing reachable needs it - every BCL collection that
+        /// implements it also implements one of the two interfaces above, so the only type it would add
+        /// is one written to be read-only and nothing else.
+        /// </p>
+        /// </remarks>
+        internal static bool TryGetCount([NotNull] IEnumerable source, out int count)
+        {
+            if (source is ICollection collection)
+            {
+                count = collection.Count;
+                return true;
+            }
+
+            var counter = Counters.GetOrAdd(source.GetType(), CreateCounter);
+            if (counter != null)
+            {
+                count = counter(source);
+                return true;
+            }
+
+            count = 0;
+            return false;
+        }
+
+        /// <summary>
+        /// A delegate reading the Count of the single <c>ICollection&lt;T&gt;</c> <paramref name="type"/>
+        /// implements, or null when there is not exactly one.
+        /// </summary>
+        [CanBeNull]
+        private static Func<object, int> CreateCounter([NotNull] Type type)
+        {
+            var matches = type.GetInterfaces()
+                .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICollection<>))
+                .ToList();
+
+            if (matches.Count != 1)
+                return null;
+
+            var parameter = LExpression.Parameter(typeof(object), "source");
+            var read = LExpression.Property(
+                LExpression.Convert(parameter, matches[0]),
+                matches[0].GetProperty("Count"));
+
+            return LExpression.Lambda<Func<object, int>>(read, parameter).Compile();
+        }
+
+        private static readonly ConcurrentDictionary<Type, Func<object, int>> Counters
+            = new ConcurrentDictionary<Type, Func<object, int>>();
 
         /// <summary>
         /// The item type of a <see cref="List{T}"/>, or of anything deriving from one, or null.

@@ -47,7 +47,7 @@ namespace SpringExpressions.Processors
         /// <returns>
         /// The processing result.
         /// </returns>
-        public object Process(ICollection source, object[] args)
+        public object Process(IEnumerable source, object[] args)
         {
             if (source == null)
             {

@@ -589,9 +589,16 @@ namespace SpringExpressions
         /// changing both backends rather than one.
         /// </p>
         /// </remarks>
-        private static ICollection AsCollection(object context)
+        /// <remarks>
+        /// <p>
+        /// The string conversion stays although a string is already an <see cref="IEnumerable"/> of its
+        /// characters, because a <c>char[]</c> is an <see cref="ICollection"/> and so answers
+        /// <c>count()</c> without being walked. Same items, same order, one less traversal.
+        /// </p>
+        /// </remarks>
+        private static IEnumerable AsCollection(object context)
         {
-            return context is string text ? text.ToCharArray() : (ICollection)context;
+            return context is string text ? text.ToCharArray() : (IEnumerable)context;
         }
 
         private LExpression TryCollectionProcessors(
@@ -606,7 +613,7 @@ namespace SpringExpressions
                 && argumentsTypes.Count == 0
                 && arguments.Count == 0)
             {
-                instance = LExpression.Constant(null, typeof(ICollection));
+                instance = LExpression.Constant(null, typeof(IEnumerable));
             }
 
             var processorArgumentTypes = new List<Type> { instance.Type };
@@ -650,14 +657,18 @@ namespace SpringExpressions
                 }
             }
 
-            if (typeof(ICollection).IsAssignableFrom(instance.Type))
+            // IEnumerable, not ICollection: the bridge's own parameter is IEnumerable now, and asking
+            // for ICollection here refused a source declared IList<int> / ICollection<int> /
+            // IReadOnlyList<int> - none of which statically satisfies the non-generic interface - so
+            // convert(), whose only compiled form is this bridge, had no compiled form for them.
+            if (typeof(IEnumerable).IsAssignableFrom(instance.Type))
             {
                 processorType = typeof(WeaklyTypedCollectionProcessor);
                 //var decProcMethodInfo = processorType.GetMethod(methodName, processorArgumentTypes.ToArray());
                 
                 
                 var array = processorArgumentTypes.ToArray();
-                array[0] = typeof(ICollection);
+                array[0] = typeof(IEnumerable);
 
                 var decProcMethodInfo = processorType.GetMethod(methodName, array);
                 if (decProcMethodInfo != null)
@@ -686,8 +697,11 @@ namespace SpringExpressions
             // resolve method, if necessary
             lock (this)
             {
-                // check if it is a collection and the methodname denotes a collection processor
-                if ((context == null || context is ICollection || context is string))
+                // check if it is a collection and the methodname denotes a collection processor.
+                // IEnumerable, not ICollection: a HashSet<T>, a declared ISet<T> and a bare
+                // IEnumerable<T> are not the non-generic ICollection, so asking for that refused them
+                // here while the compiled path - whose first tier asks IsGenericEnumerable - answered.
+                if ((context == null || context is IEnumerable))
                 {
                     // predefined collection processor?
                     localCollectionProcessor = (ICollectionProcessor)collectionProcessorMap[methodName];

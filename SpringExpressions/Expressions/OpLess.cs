@@ -48,10 +48,16 @@ namespace SpringExpressions
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
-            // A type's own operator, before anything else - see TryCreateUserDefinedComparison.
+            // A type's own operator, before anything else - see TryCreateUserDefinedComparison. The
+            // same two are handed to CreateCompare, which asks again on operands it unwraps a nullable
+            // from: 'Ordered? < Ordered' finds nothing here, because the lookup wants exact operand
+            // types and Nullable<Ordered> declares no operators.
+            const string operatorMethodName = "op_LessThan";
+            Func<LExpression, LExpression, MethodInfo, BinaryExpression> userDefinedFactory
+                = (l, r, m) => LExpression.LessThan(l, r, false, m);
+
             var userDefined = TryCreateUserDefinedComparison(
-                leftExpression, rightExpression, "op_LessThan",
-                (l, r, m) => LExpression.LessThan(l, r, false, m));
+                leftExpression, rightExpression, operatorMethodName, userDefinedFactory);
 
             if (userDefined != null)
                 return userDefined;
@@ -59,6 +65,7 @@ namespace SpringExpressions
             if (ComparisonHelper.CreateCompare(
                     leftExpression, rightExpression,
                     LExpression.LessThan, 
+                    operatorMethodName, userDefinedFactory,
                     out var result
                 ))
             {

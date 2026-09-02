@@ -27,6 +27,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using SpringCollections;
 using SpringExpressions.Expressions.LinqExpressionHelpers;
+using SpringUtil;
 
 #endregion
 
@@ -62,7 +63,7 @@ namespace SpringExpressions.Processors
         /// If <paramref name="source"/> collection is not empty and it is 
         /// neither <see cref="IList"/> nor <see cref="ISet"/>.
         /// </exception>
-        public object Process(ICollection source, object[] args)
+        public object Process(IEnumerable source, object[] args)
         {
             if (source == null)
             {
@@ -78,8 +79,11 @@ namespace SpringExpressions.Processors
             // List<object>, not an ArrayList copied into a typed array: the weakly typed path
             // returns object-typed collections for every result the engine builds, and the compiled
             // root is reshaped to match. Always a freshly built list, never the caller's own
-            // collection, whatever the Count.
-            var list = new List<object>(source.Count);
+            // collection, whatever the count.
+            var list = CollectionOperandUtils.TryGetCount(source, out var capacity)
+                ? new List<object>(capacity)
+                : new List<object>();
+
             foreach (object item in source)
             {
                 list.Add(item);
@@ -94,7 +98,7 @@ namespace SpringExpressions.Processors
             return list;
         }
 
-        private static IComparer GetComparer(ICollection source)
+        private static IComparer GetComparer(IEnumerable source)
         {
             // Comparer<T>.Default reaches IComparable<T> where the item type implements it; boxed
             // values compared as object only ever reach the non-generic IComparable. Only the

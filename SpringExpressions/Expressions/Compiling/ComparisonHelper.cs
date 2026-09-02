@@ -3,6 +3,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using JetBrains.Annotations;
 using System.Collections.Generic;
+using SpringExpressions.Util;
 
 using LExpression = System.Linq.Expressions.Expression;
 using LBinaryExpression = System.Linq.Expressions.BinaryExpression;
@@ -31,6 +32,8 @@ namespace SpringExpressions.Expressions.Compiling
                             LExpression,
                             LExpression,
                             LBinaryExpression> comparisonExpression,
+            [CanBeNull] string operatorMethodName,
+            [CanBeNull] Func<LExpression, LExpression, MethodInfo, LBinaryExpression> userDefinedFactory,
             out LExpression resultExpression)
         {
             // A custom real-valued operand converts through its own implicit operator before the
@@ -67,7 +70,8 @@ namespace SpringExpressions.Expressions.Compiling
                     SortOrderAnswer(-1),
                     SortOrderAnswer(1),
                     SortOrderAnswer(0),
-                    (l, r) => HandleValueTypesComparison(l, r, comparisonExpression),
+                    (l, r) => HandleValueTypesComparison(
+                        l, r, comparisonExpression, operatorMethodName, userDefinedFactory),
                     out var binaryExpression1
                     ))
             {
@@ -105,12 +109,54 @@ namespace SpringExpressions.Expressions.Compiling
             return resultExpression != null;
         }
 
+        /// <remarks>
+        /// <p>
+        /// <b>The operands arrive here with any nullable already unwrapped</b> - <c>left.Value</c> and
+        /// <c>right.Value</c>, supplied by <see cref="NullableValueTypesHelper.TryCreateForComparison"/>
+        /// - which is why the user-defined operator lookup has to be repeated here and not only in the
+        /// node. The node asks about the operands as written, so <c>Ordered? &lt; Ordered</c> finds
+        /// nothing there: the lookup demands exact operand types and <c>Nullable&lt;Ordered&gt;</c>
+        /// declares no operators of its own.
+        /// </p>
+        /// <p>
+        /// Without it the pair fell through to the <c>Comparer&lt;T&gt;.Default</c> branch below, which
+        /// <b>compiles and then throws at evaluation</b> for a type that declares operators but no
+        /// <see cref="IComparable"/> - a hard failure in every mode, since compilation succeeded and the
+        /// weakly typed fallback was long finished. Measured: <c>NullableTwo &lt; One</c> threw
+        /// <see cref="ArgumentException"/> on every path while the interpreter, which sees a boxed
+        /// <c>Ordered</c> and never a wrapper, answered correctly. Open-issues item 18.
+        /// </p>
+        /// <p>
+        /// <b>The null behaviour is not decided here and must not be.</b> The caller's three
+        /// sort-order outcomes already say what an empty nullable answers - nothing sorts before
+        /// everything, item 17's ruling - so this only has to produce the comparison for two present
+        /// values. That is also why the factory passed in uses <c>liftToNull: false</c> harmlessly: by
+        /// this point neither operand can be null. Lifting through
+        /// <c>LExpression.LessThan(l, r, liftToNull: true, m)</c> instead would hand C#'s rule
+        /// (any comparison against a null is false) back to a question item 17 settled the other way.
+        /// </p>
+        /// </remarks>
         [CanBeNull]
         private static LExpression HandleValueTypesComparison(
             [NotNull] LExpression leftExpression,
             [NotNull] LExpression rightExpression,
-            Func<LExpression, LExpression, BinaryExpression> comparisonExpression)
+            Func<LExpression, LExpression, BinaryExpression> comparisonExpression,
+            [CanBeNull] string operatorMethodName,
+            [CanBeNull] Func<LExpression, LExpression, MethodInfo, LBinaryExpression> userDefinedFactory)
         {
+            // A type's own operator, before anything else - the same rule and the same code the four
+            // comparison nodes run, just on operands a nullable has been unwrapped from. A caller that
+            // passes no operator is saying it does not want one: 'between' is the only such caller, and
+            // its reason is at that call site.
+            if (operatorMethodName != null && userDefinedFactory != null)
+            {
+                var userDefined = UserDefinedOperatorUtils.TryCreateComparison(
+                    leftExpression, rightExpression, operatorMethodName, userDefinedFactory);
+
+                if (userDefined != null)
+                    return userDefined;
+            }
+
             // try numeric comparision
             if (BinaryNumericOperatorHelper.TryCreate(
                     leftExpression,

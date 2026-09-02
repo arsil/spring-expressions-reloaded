@@ -381,9 +381,16 @@ namespace SpringExpressions
         /// relational operator must answer a <c>bool</c>.
         /// </summary>
         /// <remarks>
-        /// A type may declare <c>op_LessThan</c> returning anything - the lookup only rejects
-        /// <c>void</c>, which is all arithmetic needs - and a comparison node has nowhere to put a
-        /// non-boolean answer. Such a type is left to the existing paths rather than emitted against.
+        /// <p>
+        /// One line, because the rule itself lives in
+        /// <see cref="UserDefinedOperatorUtils.TryCreateComparison"/> - <c>ComparisonHelper</c> asks the
+        /// same question of operands it has unwrapped a nullable from, and the two must not drift.
+        /// </p>
+        /// <p>
+        /// This call site is the one that runs <b>before any conversion</b>, which is the
+        /// operator-before-conversion rule: a type with both an implicit conversion to a built-in
+        /// number and its own operators must answer with its own.
+        /// </p>
         /// </remarks>
         [CanBeNull]
         protected static LExpression TryCreateUserDefinedComparison(
@@ -392,15 +399,7 @@ namespace SpringExpressions
             [NotNull] string operatorMethodName,
             [NotNull] Func<LExpression, LExpression, MethodInfo, System.Linq.Expressions.BinaryExpression> factory)
         {
-            if (UserDefinedOperatorUtils.IsOwnedByNumericPromotion(left.Type, right.Type))
-                return null;
-
-            var method = UserDefinedOperatorUtils.FindBinary(operatorMethodName, left.Type, right.Type);
-
-            if (method == null || method.ReturnType != typeof(bool))
-                return null;
-
-            return factory(left, right, method);
+            return UserDefinedOperatorUtils.TryCreateComparison(left, right, operatorMethodName, factory);
         }
 
         /// <summary>

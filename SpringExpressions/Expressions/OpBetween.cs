@@ -57,16 +57,25 @@ namespace SpringExpressions
 
                     // todo: error! to działa tyko dla numerycznych! nie zadziała dla innych....
                     // todo: error! i też muszą mieć ten sam typ!!! jak nie mają, do też nie działa... bo nie robi się List tylko ArrayList
+
+                // No operator name and no factory, which says deliberately that 'between' does NOT
+                // consult a type's own relational operators. That is open-issues item 12's remaining
+                // question, and passing "op_GreaterThanOrEqual" here would answer half of it in the
+                // wrong place: the interpreter's 'between' goes through CompareUtils.Compare, which
+                // needs an int ordering and refuses a type with no IComparable, so the compiled path
+                // would start answering where the interpreter still throws. A divergence, not a fix.
                 ComparisonHelper.CreateCompare(
                     leftExpression,
                     LExpression.Call(rightExpression, methodInfo, LExpression.Constant(0, typeof(int))),
                     LExpression.GreaterThanOrEqual,
+                    null, null,
                     out var greaterThanOrEqualExpression);
 
                 ComparisonHelper.CreateCompare(
                     leftExpression,
                     LExpression.Call(rightExpression, methodInfo, LExpression.Constant(1, typeof(int))),
                     LExpression.LessThanOrEqual,
+                    null, null,
                     out var lessThanOrEqualExpression);
 
                 // todo: exception!!!!!!!!!!!

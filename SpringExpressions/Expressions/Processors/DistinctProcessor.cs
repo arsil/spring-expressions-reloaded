@@ -52,7 +52,7 @@ namespace SpringExpressions.Processors
         /// If there is more than one argument, or if the single optional argument 
         /// is not <b>Boolean</b>.
         /// </exception>
-        public object Process(ICollection source, object[] args)
+        public object Process(IEnumerable source, object[] args)
         {
             if (source == null)
             {
@@ -95,7 +95,7 @@ namespace SpringExpressions.Processors
             return distinct;
         }
 
-        private static IEqualityComparer<object> GetEqualityComparer(ICollection source)
+        private static IEqualityComparer<object> GetEqualityComparer(IEnumerable source)
         {
             // EqualityComparer<T>.Default reaches IEquatable<T> where the item type implements it;
             // boxed values compared as object never would. Only the equality is item-typed - the

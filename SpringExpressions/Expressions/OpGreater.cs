@@ -19,6 +19,8 @@
 #endregion
 
 using System;
+using System.Linq.Expressions;
+using System.Reflection;
 using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 
@@ -46,9 +48,12 @@ namespace SpringExpressions
             var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
             // A type's own operator, before anything else - see TryCreateUserDefinedComparison.
+            const string operatorMethodName = "op_GreaterThan";
+            Func<LExpression, LExpression, MethodInfo, BinaryExpression> userDefinedFactory
+                = (l, r, m) => LExpression.GreaterThan(l, r, false, m);
+
             var userDefined = TryCreateUserDefinedComparison(
-                leftExpression, rightExpression, "op_GreaterThan",
-                (l, r, m) => LExpression.GreaterThan(l, r, false, m));
+                leftExpression, rightExpression, operatorMethodName, userDefinedFactory);
 
             if (userDefined != null)
                 return userDefined;
@@ -56,6 +61,7 @@ namespace SpringExpressions
             if (ComparisonHelper.CreateCompare(
                 leftExpression, rightExpression,
                 LExpression.GreaterThan,
+                operatorMethodName, userDefinedFactory,
                 out var result))
             {
                 return result;

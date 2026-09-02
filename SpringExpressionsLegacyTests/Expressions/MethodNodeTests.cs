@@ -39,7 +39,7 @@ namespace SpringExpressions
     {
         private class MyTestCollectionProcessor : ICollectionProcessor
         {
-            public object Process(ICollection source, object[] args)
+            public object Process(IEnumerable source, object[] args)
             {
                 return source;
             }

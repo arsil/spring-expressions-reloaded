@@ -121,7 +121,7 @@ namespace SpringExpressions.Processors
         /// <returns>
         /// A sorted array containing collection elements.
         /// </returns>
-        public object Process(ICollection source, object[] args)
+        public object Process(IEnumerable source, object[] args)
         {
             if (source == null)
             {
@@ -164,8 +164,11 @@ namespace SpringExpressions.Processors
 
             // List<object>, not ArrayList: the weakly typed path returns object-typed collections
             // for every result the engine builds, and the compiled root is reshaped to match. Always
-            // a freshly built list, never the caller's own collection, whatever the Count.
-            var list = new List<object>(source.Count);
+            // a freshly built list, never the caller's own collection, whatever the count.
+            var list = CollectionOperandUtils.TryGetCount(source, out var capacity)
+                ? new List<object>(capacity)
+                : new List<object>();
+
             foreach (object item in source)
             {
                 list.Add(item);

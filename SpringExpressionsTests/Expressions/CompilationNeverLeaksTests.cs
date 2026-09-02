@@ -67,6 +67,24 @@ namespace SpringExpressionsTests.Expressions
             public Hashtable OldMap { get; set; } = new Hashtable { { "a", 1 } };
             public Dictionary<string, int> Map { get; set; } = new Dictionary<string, int> { { "a", 1 } };
 
+            // Four collection shapes the corpus had no example of, each added because a divergence was
+            // found by hand in exactly the gap it leaves - see _Docs/open-issues.md items 23 and 24.
+            // A sweep's corpus is a sample, and an empty ledger only means "nothing diverges among the
+            // shapes we generate".
+            //
+            // Set:      a HashSet<T> is not the non-generic ICollection, which used to make every
+            //           processor throw interpreted while the compiled path answered (item 23).
+            // Sequence: a bare IEnumerable<T>, the same gap and the only shape that cannot answer
+            //           count() without being walked.
+            // Huge:     an overflowing List<int>. Enumerable.Sum(IEnumerable<int>) is checked while the
+            //           interpreter accumulates in double, so this row needs data at the edge to show.
+            // Amounts:  a decimal collection, empty in the "nulls and empties" root - SumAggregator's
+            //           `total ?? 0d` hard-codes double when nothing was added.
+            public HashSet<int> Set { get; set; } = new HashSet<int> { 3, 1, 2 };
+            public IEnumerable<int> Sequence { get; set; } = new[] { 3, 1, 2 }.Select(x => x);
+            public List<int> Huge { get; set; } = new List<int> { int.MaxValue, 1 };
+            public List<decimal> Amounts { get; set; } = new List<decimal> { 3m, 1m, 2m };
+
             public string Text(string s) { return s; }
             public int Count(IEnumerable e) { return 1; }
             public void Nothing() { }
@@ -260,7 +278,11 @@ namespace SpringExpressionsTests.Expressions
                 yield return "Anything = " + value;
             }
 
-            var sources = new[] { "Ints", "Names", "Array", "Old", "OldMap", "Map", "{1,2}", "Name" };
+            var sources = new[]
+            {
+                "Ints", "Names", "Array", "Old", "OldMap", "Map", "{1,2}", "Name",
+                "Set", "Sequence", "Huge", "Amounts"
+            };
             var processors = new[]
             {
                 "sort()", "distinct()", "reverse()", "nonNull()", "sum()",

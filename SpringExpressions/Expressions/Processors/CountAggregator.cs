@@ -19,6 +19,7 @@
 #endregion
 
 using System.Collections;
+using SpringUtil;
 
 namespace SpringExpressions.Processors
 {
@@ -41,13 +42,29 @@ namespace SpringExpressions.Processors
         /// The number of items in the source collection, 
         /// or zero if the collection is empty or <c>null</c>.
         /// </returns>
-        public object Process(ICollection source, object[] args)
+        public object Process(IEnumerable source, object[] args)
         {
             if (source == null)
             {
                 return 0;
             }
-            return source.Count;
+
+            // An IEnumerable has no Count, so the O(1) answer comes from testing the runtime type for
+            // the two counting interfaces - a HashSet<T> implements only the generic one, a Queue<T>
+            // only the non-generic one. A source that can answer neither is walked, which is all that
+            // can be done for a genuinely lazy sequence.
+            if (CollectionOperandUtils.TryGetCount(source, out var count))
+            {
+                return count;
+            }
+
+            count = 0;
+            foreach (var unused in source)
+            {
+                ++count;
+            }
+
+            return count;
         }
     }
 }

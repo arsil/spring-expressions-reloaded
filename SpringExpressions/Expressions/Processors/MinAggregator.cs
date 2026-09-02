@@ -41,7 +41,7 @@ namespace SpringExpressions.Processors
         /// <returns>
         /// The smallest item in the source collection.
         /// </returns>
-        public object Process(ICollection source, object[] args)
+        public object Process(IEnumerable source, object[] args)
         {
             // A null item is skipped, as Enumerable.Min skips it. Without that the accumulator holds
             // null after the first null item and stays there: CompareUtils.Compare is a sorting

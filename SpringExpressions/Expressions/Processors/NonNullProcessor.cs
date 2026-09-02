@@ -41,7 +41,7 @@ namespace SpringExpressions.Processors
         /// <returns>
         /// A collection containing non-null source collection elements.
         /// </returns>
-        public object Process(ICollection source, object[] args)
+        public object Process(IEnumerable source, object[] args)
         {
             if (source == null)
             {
