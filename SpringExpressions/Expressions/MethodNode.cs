@@ -601,6 +601,48 @@ namespace SpringExpressions
             return context is string text ? text.ToCharArray() : (IEnumerable)context;
         }
 
+        /// <summary>
+        /// What a processor answers for a null source, or null where the compiled path cannot say it and
+        /// has to keep throwing.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// <b>A null collection has nothing in it, so it answers what the empty-collection ruling
+        /// decided "there is no answer" looks like: null.</b> The interpreter's processors have said so
+        /// all along for the six that return a collection - <c>Assert.IsNull(GetValue(null, "sort()"))</c>
+        /// is pinned in the frozen suite, so it is inherited semantics rather than a choice - while the
+        /// compiled path threw <see cref="ArgumentNullException"/> out of <c>Enumerable</c>, five
+        /// divergent rows per source shape.
+        /// </p>
+        /// <p>
+        /// <c>count()</c> answers <b>0</b>, not null. That is not propagation, and it is deliberate: it
+        /// is what the interpreter has always answered, it is what an empty collection answers, and a
+        /// count that is absent rather than zero is not what anyone means.
+        /// </p>
+        /// <p>
+        /// <b><c>sum()</c> is the carve-out and keeps throwing on both backends.</b> Its result type is
+        /// the item type itself - <c>Enumerable.Sum(IEnumerable&lt;int&gt;)</c> answers <c>int</c> - so
+        /// there is no null to return, and the alternatives are worse than the gap: lifting every sum to
+        /// <c>T?</c> would make a typed <c>int</c> request refuse it by the nullable-request ruling, and
+        /// answering a zero would need an item type that a null source cannot be asked for. Both
+        /// backends throw for a null source today, so this leaves agreement intact rather than creating
+        /// a divergence.
+        /// </p>
+        /// </remarks>
+        [CanBeNull]
+        private static LExpression NullSourceAnswer([NotNull] string methodName, [NotNull] Type resultType)
+        {
+            if (methodName == "count")
+                return resultType == typeof(int) ? LExpression.Constant(0) : null;
+
+            if (methodName == "sum")
+                return null;
+
+            var canHoldNothing = !resultType.IsValueType || Nullable.GetUnderlyingType(resultType) != null;
+
+            return canHoldNothing ? LExpression.Constant(null, resultType) : null;
+        }
+
         private LExpression TryCollectionProcessors(
             LExpression instance,
             string methodName,
@@ -636,24 +678,52 @@ namespace SpringExpressions
                 if (GenericProcessorsFacade.TryGetMethodInfo(
                         methodName, instance.Type, itemType, processorArgumentTypes, out var mi))
                 {
+                    // A null source is guarded where the processor's result type can carry the answer -
+                    // see NullSourceAnswer. The source goes into a local first so the null test and the
+                    // call see one evaluation of it: 'SomeMethod().sort()' must not call SomeMethod
+                    // twice.
+                    var nullSourceAnswer = NullSourceAnswer(methodName, mi.ReturnType);
+                    var source = nullSourceAnswer == null
+                        ? instance
+                        : LExpression.Variable(instance.Type, "source");
+
                     // min(), max() and average() ask for the nullable form of a non-nullable value item
                     // type, so that an empty collection answers null rather than throwing out of
                     // Enumerable. Value-type arguments are not covariant, so the source is lifted item
                     // by item; every other processor asks for the plain item type and is untouched.
+                    // The lift wraps the local rather than the original, so it stays on the far side of
+                    // the null test - it enumerates, and enumerating the null is the thing being
+                    // avoided.
                     processorArguments[0] =
-                        GenericProcessorsFacade.LiftSourceIfNullableItemsWanted(mi, instance, itemType);
+                        GenericProcessorsFacade.LiftSourceIfNullableItemsWanted(mi, source, itemType);
 
-                    var processorCall = LExpression.Call(mi, processorArguments.ToArray());
+                    LExpression result = LExpression.Call(mi, processorArguments.ToArray());
+
+                    if (nullSourceAnswer != null)
+                    {
+                        result = LExpression.Block(
+                            new[] { (ParameterExpression)source },
+                            LExpression.Assign(source, instance),
+                            LExpression.Condition(
+                                LExpression.ReferenceEqual(
+                                    source, LExpression.Constant(null, instance.Type)),
+                                nullSourceAnswer,
+                                result));
+                    }
 
                     // A list a processor builds is the engine's own, so Compiler reshapes the root to
                     // the List<object> the interpreter produces; a scalar result (sum, count, ...) has
                     // no list item type and is left alone. The weakly typed branch below needs no
                     // registration: it delegates to the interpreter processors, so it already returns
                     // List<object> at runtime.
-                    if (CollectionOperandUtils.GetListItemType(processorCall.Type) != null)
-                        compilationContext.MarkAsConstructedCollection(processorCall);
+                    //
+                    // Registered against what is actually returned, not the inner call: the registry is
+                    // keyed on the expression object, so registering the call and then wrapping it in
+                    // the null guard would leave the root unrecognised and untouched by the reshaping.
+                    if (CollectionOperandUtils.GetListItemType(result.Type) != null)
+                        compilationContext.MarkAsConstructedCollection(result);
 
-                    return processorCall;
+                    return result;
                 }
             }
 

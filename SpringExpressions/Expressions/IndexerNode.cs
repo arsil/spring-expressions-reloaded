@@ -82,6 +82,13 @@ namespace SpringExpressions
 		        }
 	        }
 
+            // A key a generic dictionary does not hold reads as nothing, not as an exception - see
+            // TryCreateGenericDictionaryRead. Before the accessor resolution below, which would emit
+            // get_Item and take Dictionary's own throw.
+            var dictionaryRead = TryCreateGenericDictionaryRead(contextExpression, arguments);
+            if (dictionaryRead != null)
+                return dictionaryRead;
+
 	        var indexerPropertyName = GetIndexerPropertyName(contextExpression.Type);
 
             // An indexer's accessor is an ordinary method, so the compiled resolution is
@@ -104,6 +111,88 @@ namespace SpringExpressions
             MethodNode.ConvertParameters(resolved.Item1, finalArguments);
 
             return LExpression.Call(contextExpression, resolved.Item1, finalArguments);
+        }
+
+        /// <summary>
+        /// A read from a generic dictionary, answering nothing for a key it does not hold, or null when
+        /// the shape does not qualify.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// <b>The interpreter has always answered null for a missing key, and this is what it takes for
+        /// the compiled path to say the same thing.</b> Not a decision of the interpreter's, either:
+        /// <c>Get</c> dispatches on <c>context is IDictionary</c> - the <i>non-generic</i> interface,
+        /// which a <c>Dictionary&lt;K, V&gt;</c> also implements - and that indexer is
+        /// <c>object this[object]</c>, which returns null for a missing key where
+        /// <c>IDictionary&lt;K, V&gt;</c>'s throws. So it read every dictionary through the pre-generics
+        /// interface and got <c>Hashtable</c> behaviour for free, while the compiled path emitted
+        /// <c>get_Item</c> and took <see cref="KeyNotFoundException"/>. The last row of the evaluation
+        /// sweep.
+        /// </p>
+        /// <p>
+        /// <b>The result is <c>V?</c> where <c>V</c> cannot hold null</b>, which is the cost and it was
+        /// measured rather than assumed. An <c>int?</c> behaves as an <c>int</c> everywhere it matters:
+        /// arithmetic, comparison, equality and member access all keep their compiled forms and still
+        /// answer <c>Int32</c>, and an <c>int?</c> argument still binds to an <c>int</c> parameter (this
+        /// engine is more permissive than C#, which needs the cast). What is lost is one thing - a
+        /// <i>non-nullable typed request</i> over the read, <c>ParseGetter&lt;Root, int&gt;("Map['a']")</c>,
+        /// which the nullable-request ruling refuses, so it is interpreted instead. The escapes are that
+        /// ruling's own: ask for <c>int?</c>, or write <c>Map['a'] as int</c>.
+        /// </p>
+        /// <p>
+        /// <b>What deliberately does not come here.</b> A non-generic <c>Hashtable</c> has no
+        /// <c>IDictionary&lt;K, V&gt;</c>, so it keeps the accessor path - and needs nothing, since its
+        /// own indexer already answers null. A null index literal keeps the legacy exact-match quirk
+        /// (<see cref="TryExactAccessorForNullLiterals"/>) rather than being handed to
+        /// <c>TryGetValue</c>, which would throw <see cref="ArgumentNullException"/> for a
+        /// <c>Dictionary</c>. And the setter is untouched: writing a key is not this question.
+        /// </p>
+        /// </remarks>
+        [CanBeNull]
+        private static LExpression TryCreateGenericDictionaryRead(
+            [NotNull] LExpression contextExpression, [NotNull] List<LExpression> arguments)
+        {
+            if (arguments.Count != 1)
+                return null;
+
+            var key = arguments[0];
+
+            // the null-index quirk stays with the accessor path
+            if (key is System.Linq.Expressions.ConstantExpression constant && constant.Value == null)
+                return null;
+
+            if (!CollectionOperandUtils.TryGetGenericDictionaryTypes(
+                    contextExpression.Type, out var keyType, out var valueType))
+            {
+                return null;
+            }
+
+            if (!keyType.IsAssignableFrom(key.Type))
+                return null;
+
+            var tryGetValue = typeof(IDictionary<,>)
+                .MakeGenericType(keyType, valueType)
+                .GetMethod("TryGetValue");
+
+            if (tryGetValue == null)
+                return null;
+
+            // V? where V is a non-nullable value type, V itself where it can already hold nothing
+            var resultType =
+                valueType.IsValueType && Nullable.GetUnderlyingType(valueType) == null
+                    ? typeof(Nullable<>).MakeGenericType(valueType)
+                    : valueType;
+
+            var found = LExpression.Variable(valueType, "found");
+
+            return LExpression.Block(
+                new[] { found },
+                LExpression.Condition(
+                    LExpression.Call(contextExpression, tryGetValue, key, found),
+                    resultType == valueType
+                        ? (LExpression)found
+                        : LExpression.Convert(found, resultType),
+                    LExpression.Constant(null, resultType)));
         }
 
         protected override LExpression GetExpressionTreeForSetterIfPossible(

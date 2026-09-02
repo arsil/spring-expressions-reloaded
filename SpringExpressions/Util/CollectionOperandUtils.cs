@@ -214,11 +214,16 @@ namespace SpringUtil
         /// <remarks>
         /// Used where a list the engine built is reshaped at the boundary to the item type the caller asked
         /// for. CompilationContext.MarkAsConstructedCollection is how "the engine built it" is known.
+        /// <p>
+        /// A null in gives a null out, for the reason given on <see cref="ToListOfObjects"/>: a processor
+        /// answers null for a null source and the reshaping runs over whatever it produced.
+        /// </p>
         /// </remarks>
-        [NotNull]
-        internal static List<T> ToTypedList<T>([NotNull] IEnumerable<T> elements)
+        [CanBeNull]
+        [ContractAnnotation("null=>null;notnull=>notnull")]
+        internal static List<T> ToTypedList<T>([CanBeNull] IEnumerable<T> elements)
         {
-            return new List<T>(elements);
+            return elements == null ? null : new List<T>(elements);
         }
 
         /// <summary>
@@ -228,9 +233,20 @@ namespace SpringUtil
         /// Unlike <see cref="ToHashSetOfObjects"/> this must not deduplicate: it reprojects a list, where
         /// order and repeats are part of the value.
         /// </remarks>
-        [NotNull]
-        internal static List<object> ToListOfObjects([NotNull] IEnumerable elements)
+        /// <remarks>
+        /// A null in gives a null out, and that is load-bearing rather than defensive: a collection
+        /// processor answers null for a null source, and the root reshaping runs over whatever the
+        /// processor produced. Dereferencing here turned the guarded answer back into a
+        /// <see cref="NullReferenceException"/> - caught by the evaluation sweep, which saw the
+        /// exception type change rather than the divergence disappear.
+        /// </remarks>
+        [CanBeNull]
+        [ContractAnnotation("null=>null;notnull=>notnull")]
+        internal static List<object> ToListOfObjects([CanBeNull] IEnumerable elements)
         {
+            if (elements == null)
+                return null;
+
             var list = new List<object>();
 
             foreach (var element in elements)
@@ -289,6 +305,47 @@ namespace SpringUtil
         /// Walks the base chain rather than testing the generic definition for equality, so a caller's
         /// own Dictionary subclass counts too - the same reasoning as <see cref="GetListItemType"/>.
         /// </remarks>
+        /// <summary>
+        /// The key and value types of the single <c>IDictionary&lt;K, V&gt;</c> <paramref name="type"/>
+        /// implements, or false when there is not exactly one.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// The <i>interface</i> rather than the concrete <c>Dictionary&lt;,&gt;</c>
+        /// (<see cref="TryGetDictionaryItemTypes"/> answers that), so a property declared
+        /// <c>IDictionary&lt;string, int&gt;</c> is recognised too - which is what the compiled indexer
+        /// needs, since it works from the declared type.
+        /// </p>
+        /// <p>
+        /// Ambiguity is refused rather than guessed, as <see cref="GetEnumerableItemType"/> refuses it:
+        /// a type implementing the interface twice has no single key type, and the interpreter - which
+        /// reads runtime values - still serves those.
+        /// </p>
+        /// </remarks>
+        internal static bool TryGetGenericDictionaryTypes(
+            [NotNull] Type type, out Type keyType, out Type valueType)
+        {
+            var candidates = (type.IsInterface && type.IsGenericType
+                              && type.GetGenericTypeDefinition() == typeof(IDictionary<,>)
+                                  ? new[] { type }
+                                  : type.GetInterfaces()
+                                        .Where(i => i.IsGenericType
+                                                    && i.GetGenericTypeDefinition() == typeof(IDictionary<,>))
+                                        .ToArray());
+
+            if (candidates.Length == 1)
+            {
+                var arguments = candidates[0].GetGenericArguments();
+                keyType = arguments[0];
+                valueType = arguments[1];
+                return true;
+            }
+
+            keyType = null;
+            valueType = null;
+            return false;
+        }
+
         internal static bool TryGetDictionaryItemTypes(
             [NotNull] Type type, out Type keyType, out Type valueType)
         {

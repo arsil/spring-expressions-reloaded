@@ -43,6 +43,15 @@ namespace SpringExpressions.Processors
         /// </returns>
         public object Process(IEnumerable source, object[] args)
         {
+            // A null collection has nothing to take a minimum of, and null is how this engine says
+            // there is no answer - the empty-collection ruling decided that, and an empty source and an
+            // absent one are the same situation. Without the guard the foreach below dereferenced the
+            // null: 'null.min()' was a NullReferenceException on both backends, which is a missing
+            // check rather than a decision, since the six collection-returning processors have had
+            // theirs all along.
+            if (source == null)
+                return null;
+
             // A null item is skipped, as Enumerable.Min skips it. Without that the accumulator holds
             // null after the first null item and stays there: CompareUtils.Compare is a sorting
             // function, so it calls null the smaller of every pair and nothing can displace it - which

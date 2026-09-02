@@ -44,6 +44,11 @@ namespace SpringExpressions.Processors
         /// </returns>
         public object Process(IEnumerable source, object[] args)
         {
+            // A null collection has no average - the same reasoning as MinAggregator, and it lands on
+            // the answer this processor already gives when nothing was counted.
+            if (source == null)
+                return null;
+
             // The accumulator is seeded from the first item's family: decimals accumulate in decimal -
             // 0d + 1.5m is exactly the decimal-double promotion the engine refuses - and everything
             // else in double, as it always did.

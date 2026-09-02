@@ -43,6 +43,11 @@ namespace SpringExpressions.Processors
         /// </returns>
         public object Process(IEnumerable source, object[] args)
         {
+            // A null collection has no maximum - see MinAggregator for the reasoning; the two say the
+            // same thing.
+            if (source == null)
+                return null;
+
             // A null item is skipped, as Enumerable.Max skips it - and unlike min(), max() already
             // answered correctly without the test, because the sorting convention places null at the
             // end that max() is walking away from. The skip is written anyway so both aggregators say

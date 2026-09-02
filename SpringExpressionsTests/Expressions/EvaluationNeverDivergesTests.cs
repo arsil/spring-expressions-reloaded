@@ -57,11 +57,24 @@ namespace SpringExpressionsTests.Expressions
     public class EvaluationNeverDivergesTests
     {
         /// <summary>
-        /// The divergences this sweep finds, as <c>"COUNTx SURFACE :: OUTCOME"</c>. Every row is a
-        /// standing invitation to rule; none is an accident nobody has looked at.
+        /// The divergences this sweep finds, as <c>"COUNTx SURFACE :: OUTCOME"</c>. <b>Empty: the two
+        /// backends agree on every row of the corpus.</b>
         /// </summary>
         /// <remarks>
-        /// <p>Grouped, with the causes behind them:</p>
+        /// <p>
+        /// <b>It started at 1,441 and reached zero.</b> Keeping it empty is the point of the fixture -
+        /// a new row means either the backends disagree somewhere new, or a rule that was settled has
+        /// come undone, and the list below is what was settled so that a reader knows which. Nothing
+        /// here is a permanent exception: there are none left.
+        /// </p>
+        /// <p>
+        /// The one thing an empty ledger does <b>not</b> mean is that the backends agree everywhere. It
+        /// means they agree on the shapes this corpus generates, and every group below turned out wider
+        /// than the ledger showed once somebody measured the surface by hand rather than reading the
+        /// row count. <b>Prefer widening the corpus to reasoning about whether a shape is covered</b> -
+        /// a source costs 16 generated expressions per root.
+        /// </p>
+        /// <p>What was settled, with the causes behind it:</p>
         /// <list type="bullet">
         /// <item><description>
         /// <b>All six comparison operators are done and have no rows here at all</b> - open-issues
@@ -83,13 +96,15 @@ namespace SpringExpressionsTests.Expressions
         /// A real string on either side still concatenates, which is nearly every use.
         /// </description></item>
         /// <item><description>
-        /// <b>A null source reaching a processor or indexer</b> - <c>Name.sort()</c>,
-        /// <c>Name.count()</c>, and <c>Map['a']</c> on a map without that key, where the compiled path
-        /// throws and the interpreter answers null. All five processor rows report
-        /// <c>ArgumentNullException</c> now: <c>Name.count()</c> used to be the one
-        /// <c>NullReferenceException</c>, from a hand-written loop that ran <c>foreach</c> over the
-        /// null, and it emits <c>Enumerable.Count&lt;char&gt;</c> since the count fast path was fixed -
-        /// same divergence, an exception that names the problem. The total is unmoved.
+        /// <b>A null collection source is done and has no rows here</b> - it had 5, and 25 once the
+        /// surface was measured rather than read off the ledger. A null collection has nothing in it, so
+        /// it answers what the empty-collection ruling says "there is no answer" looks like: null, or
+        /// <c>0</c> for <c>count()</c>. The interpreter said so already for the six processors that
+        /// return a collection and the frozen suite pins it
+        /// (<c>Assert.IsNull(GetValue(null, "sort()"))</c>); <c>min()</c>, <c>max()</c> and
+        /// <c>average()</c> were missing the guard on both backends and crashed. <c>sum()</c> is the
+        /// carve-out and still throws on both: its result type is the item type, so there is no null to
+        /// return - see <c>MethodNode.NullSourceAnswer</c>.
         /// </description></item>
         /// <item><description>
         /// <b><c>sum()</c> used to be 19 of the 27 rows and is gone</b> - item 24, ruled as
@@ -101,14 +116,28 @@ namespace SpringExpressionsTests.Expressions
         /// cannot overflow. That last pair needed <i>data at the edge</i> to show at all - it appeared
         /// only when a <c>List&lt;int&gt;</c> holding <c>{int.MaxValue, 1}</c> joined the roots.
         /// </description></item>
+        /// <item><description>
+        /// <b><c>is</c> had 2 rows and is gone</b> - and it was never the nullable question the ledger
+        /// made it look like. The compiled <c>is</c> emitted a <i>compile-time constant</i> from the
+        /// static type, so it never looked at the value: 8 of 20 measured shapes diverged, including an
+        /// <c>object</c> holding an int, a base-typed variable holding a derived instance, and a null
+        /// string reported as <i>being</i> a string. It emits <c>LExpression.TypeIs</c> now, which C#
+        /// compiles <c>is</c> to and which matches the interpreter on every row. The corpus generates
+        /// one <c>is</c> shape, over an operand kind that happened to be a nullable, which is the whole
+        /// reason it read as two nullable rows.
+        /// </description></item>
+        /// <item><description>
+        /// <b>An indexer on a missing key was the last row</b> - <c>Map['a']</c>,
+        /// <see cref="System.Collections.Generic.KeyNotFoundException"/> compiled against null
+        /// interpreted. The interpreter was not deciding anything: <c>IndexerNode.Get</c> dispatches on
+        /// <c>context is IDictionary</c>, the non-generic interface, whose <c>object this[object]</c>
+        /// returns null for a missing key. The compiled path emits <c>TryGetValue</c> into a <c>V?</c>
+        /// now - see <c>IndexerNode.TryCreateGenericDictionaryRead</c> for what that costs, which is one
+        /// thing and was measured.
+        /// </description></item>
         /// </list>
         /// </remarks>
-        private static readonly string[] KnownDivergences =
-        {
-            "2x binary is  ::  both answered, values differ",
-            "5x call  ::  compiled threw ArgumentNullException / interpreted answered",
-            "1x indexer  ::  compiled threw KeyNotFoundException / interpreted answered"
-        };
+        private static readonly string[] KnownDivergences = new string[0];
 
         [Test]
         public void TheBackendsAgreeOrTheDivergenceIsOneOfTheKnownOnes()
