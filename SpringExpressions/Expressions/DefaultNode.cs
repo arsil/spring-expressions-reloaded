@@ -18,6 +18,7 @@
 
 #endregion
 
+using SpringExpressions.Expressions.Compiling;
 using SpringExpressions.Expressions.LinqExpressionHelpers;
 using System;
 using System.Linq.Expressions;
@@ -48,30 +49,48 @@ namespace SpringExpressions
             if (leftExpression is ConstantExpression constExpr && constExpr.Value == null)
                 return rightExpression;
 
-            if (MethodBaseHelpers.IsNullableType(leftExpression.Type))
+            if (leftExpression.Type.IsValueType
+                && !MethodBaseHelpers.IsNullableType(leftExpression.Type))
             {
-                var propHasValue = leftExpression.Type.GetProperty("HasValue");
-                var propValue = leftExpression.Type.GetProperty("Value");
-
-                var hasValue = LExpression.Property(leftExpression, propHasValue);
-                var leftValue = (LExpression)LExpression.Property(leftExpression, propValue);
-
-                UnifyOperandTypes(ref leftValue, ref rightExpression);
-
-                return LExpression.Condition(hasValue, leftValue, rightExpression);
+                // A non-nullable value type is never null, so '??' is its left operand and the right one
+                // is never evaluated. That is what C# does with the same shape - it is not even legal
+                // there - and what the interpreter does since it stopped evaluating the right operand
+                // eagerly.
+                return leftExpression;
             }
 
-            if (leftExpression.Type.IsValueType)
-                return leftExpression;
+            // The left operand is mentioned twice below - once to ask whether it is there and once as
+            // the answer - and mentioning an emitted operand twice evaluates it twice: 'LText() ?? R()'
+            // called LText() two times compiled against once interpreted, and once in C#. The right
+            // operand needs no hoisting: it appears only in the false branch, which is exactly the
+            // short-circuiting '??' is for.
+            return OperandLocals.UseOnce(
+                leftExpression,
+                left =>
+                {
+                    if (MethodBaseHelpers.IsNullableType(left.Type))
+                    {
+                        var hasValue = LExpression.Property(left, left.Type.GetProperty("HasValue"));
+                        var leftValue = (LExpression)LExpression.Property(
+                            left, left.Type.GetProperty("Value"));
 
-            // Built before unifying, so the null check tests the operand as it arrived rather than a widened
-            // form of it.
-            var leftIsNotNull = LExpression.NotEqual(
-                leftExpression, LExpression.Constant(null, leftExpression.Type));
+                        var right = rightExpression;
+                        UnifyOperandTypes(ref leftValue, ref right);
 
-            UnifyOperandTypes(ref leftExpression, ref rightExpression);
+                        return LExpression.Condition(hasValue, leftValue, right);
+                    }
 
-            return LExpression.Condition(leftIsNotNull, leftExpression, rightExpression);
+                    // Built before unifying, so the null check tests the operand as it arrived rather
+                    // than a widened form of it.
+                    var leftIsNotNull = LExpression.NotEqual(
+                        left, LExpression.Constant(null, left.Type));
+
+                    var unifiedLeft = left;
+                    var unifiedRight = rightExpression;
+                    UnifyOperandTypes(ref unifiedLeft, ref unifiedRight);
+
+                    return LExpression.Condition(leftIsNotNull, unifiedLeft, unifiedRight);
+                });
             /*
          if (leftExpression.Type == typeof(bool) && rightExpression.Type == typeof(bool))
          {
@@ -146,15 +165,25 @@ namespace SpringExpressions
         /// <summary>
         /// Returns left operand if it is not null, or the right operand if it is.
         /// </summary>
+        /// <remarks>
+        /// <b>The right operand is evaluated only when it is needed</b>, which is the whole point of
+        /// the operator and was not what this did: it read both and then chose, so
+        /// <c>Name ?? Expensive()</c> called <c>Expensive()</c> even with a name in hand. Invisible
+        /// unless an operand does something - the answer was always right - and the compiled path had
+        /// short-circuited all along, since its right operand sits in the false branch of a conditional.
+        /// <p>
+        /// C# does the same and the six <c>??</c> rows the frozen suite pins are unaffected: every one
+        /// of them asserts a value and none has a side-effecting operand.
+        /// </p>
+        /// </remarks>
         /// <param name="context">Context to evaluate expressions against.</param>
         /// <param name="evalContext">Current expression evaluation context.</param>
         /// <returns>Node's value.</returns>
         protected override object Get(object context, EvaluationContext evalContext)
         {
-            object leftVal = GetValue(Left, context, evalContext);
-            object rightVal = GetValue(Right, context, evalContext);
+            var leftVal = GetValue(Left, context, evalContext);
 
-            return (leftVal != null ? leftVal : rightVal);
+            return leftVal ?? GetValue(Right, context, evalContext);
         }
     }
 }

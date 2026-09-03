@@ -100,11 +100,28 @@ namespace SpringExpressions.Expressions.Compiling
 
         [ContractAnnotation(
             "=>true,resultExpression:notnull;=>false,resultExpression:null")]
+        /// <summary>
+        /// The promoted binary operation over the two operands, with both of them evaluated once each,
+        /// left before right.
+        /// </summary>
+        /// <remarks>
+        /// <b>LINQ's lifted operators do not evaluate the second operand when the first holds
+        /// nothing</b>, so <c>Nothing() - Amount()</c> never ran <c>Amount()</c> compiled while the
+        /// interpreter ran it - and so does C#, which evaluates both operands and only then applies the
+        /// lifted operator. Nothing in this language says <c>-</c> conditionally evaluates an operand;
+        /// the answer is null either way and only the caller's side effects differed.
+        /// <p>
+        /// The operands go into block variables before the operator is built, which leaves the lifted
+        /// operator's own null handling exactly as it was - null in, null out - while guaranteeing both
+        /// operands have run by the time it is reached. Only a nullable pair needs it: a non-nullable
+        /// one emits no conditional, so hoisting there would add a slot for nothing.
+        /// </p>
+        /// </remarks>
         public static bool TryCreate(
             [NotNull] LExpression left,
             [NotNull] LExpression right,
             [NotNull] Func<LExpression, LExpression, LBinaryExpression> binaryFunctionCreator,
-            out LBinaryExpression resultExpression)
+            out LExpression resultExpression)
         {
             // A custom real-valued operand converts through its own implicit operator before the
             // promotion rules run, so a caller's decimal-like struct participates in arithmetic like
@@ -112,6 +129,37 @@ namespace SpringExpressions.Expressions.Compiling
             left = ConvertCustomReal(left);
             right = ConvertCustomReal(right);
 
+            if (MethodBaseHelpers.IsNullableType(left.Type)
+                || MethodBaseHelpers.IsNullableType(right.Type))
+            {
+                return OperandLocals.TryUseOnce(
+                    left,
+                    right,
+                    (hoistedLeft, hoistedRight) =>
+                        TryCreateOverSingleUseOperands(
+                            hoistedLeft, hoistedRight, binaryFunctionCreator, out var lifted)
+                            ? lifted
+                            : null,
+                    out resultExpression);
+            }
+
+            var created = TryCreateOverSingleUseOperands(
+                left, right, binaryFunctionCreator, out var plain);
+
+            resultExpression = plain;
+
+            return created;
+        }
+
+        /// <summary>
+        /// The operation itself, over operands the caller has already made safe to mention twice.
+        /// </summary>
+        private static bool TryCreateOverSingleUseOperands(
+            [NotNull] LExpression left,
+            [NotNull] LExpression right,
+            [NotNull] Func<LExpression, LExpression, LBinaryExpression> binaryFunctionCreator,
+            out LBinaryExpression resultExpression)
+        {
             resultExpression = null;
 
             var leftExpressionType = left.Type;

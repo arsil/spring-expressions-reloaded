@@ -50,6 +50,25 @@ namespace SpringExpressionsTests.Expressions
     /// which operator short-circuits is a decided part of this language. What must not happen is the two
     /// backends disagreeing, because which one runs is not the caller's choice.
     /// </p>
+    /// <p>
+    /// <b>A row where one backend fails and the other answers is reported here too</b>, even though
+    /// that is a value divergence and <c>EvaluationNeverDivergesTests</c> would normally own it. Its
+    /// corpus has no operand that <i>can</i> fail - every value in it is a property read - so this is
+    /// the only fixture where such a row can appear at all. It matters because that is the worst form
+    /// of the defect this sweep exists for: before the lifted-arithmetic fix,
+    /// <c>Nothing() + Boom()</c> answered <c>null</c> compiled, because the compiled path never ran
+    /// <c>Boom()</c>, while the interpreter ran it and threw. <b>A swallowed exception.</b> This sweep
+    /// used to skip every throwing row and so could not see it either; both blind spots are closed.
+    /// Where <i>both</i> backends fail, the reads before the failure are still compared - each ran the
+    /// operands it needed and then stopped, so a difference means they needed different ones.
+    /// </p>
+    /// <p>
+    /// <b>Corpus width is the thing to keep growing here</b>, and it is the lesson all three sweeps
+    /// keep relearning: every gap any of them has left had something real in it. The first version of
+    /// this one had four collection sources, no empty source, no set, no bare sequence, no decimal
+    /// collection, no assignments and no failing operand. All of those were found by hand rather than
+    /// by the test, which is exactly the situation the test is meant to remove.
+    /// </p>
     /// </remarks>
     [TestFixture]
     public class OperandReadsNeverDivergeTests
@@ -69,6 +88,11 @@ namespace SpringExpressionsTests.Expressions
         public class Counting
         {
             public readonly SortedDictionary<string, int> Reads = new SortedDictionary<string, int>();
+
+            /// <summary>Assignment targets, so the corpus can generate writes as well as reads.</summary>
+            public object Target { get; set; }
+            public int Number { get; set; }
+            public string Name { get; set; }
 
             public string Text() { return Record("Text", "lit"); }
             public string NoText() { return Record("NoText", (string)null); }
@@ -98,6 +122,39 @@ namespace SpringExpressionsTests.Expressions
                 return Record("Map", new Dictionary<string, int> { { "a", 1 } });
             }
 
+            // Collection shapes the first version of this corpus had no example of, added for the same
+            // reason the other two sweeps grew theirs: every gap either of them left had something real
+            // in it. An empty source takes a different branch in six processors; a HashSet is not the
+            // non-generic ICollection; a bare IEnumerable cannot answer count() without being walked;
+            // and a decimal collection accumulates in a different family.
+            public List<int> Empty() { return Record("Empty", new List<int>()); }
+            public HashSet<int> Set() { return Record("Set", new HashSet<int> { 3, 1, 2 }); }
+            public IEnumerable<int> Sequence()
+            {
+                return Record("Sequence", new[] { 3, 1, 2 }.Select(x => x));
+            }
+            public List<decimal> Amounts()
+            {
+                return Record("Amounts", new List<decimal> { 3m, 1m, 2m });
+            }
+
+            /// <summary>
+            /// An operand that fails rather than answering.
+            /// </summary>
+            /// <remarks>
+            /// The sweep used to skip every row where either backend threw, so the worst form of the
+            /// operand-reuse defect was invisible to it: before the arithmetic fix,
+            /// <c>Nothing() + Boom()</c> answered <c>null</c> compiled - the compiled path never ran
+            /// <c>Boom()</c> - while the interpreter ran it and threw. **A swallowed exception**, not
+            /// merely a doubled side effect, and neither this sweep nor the evaluation sweep could see
+            /// it: this one skipped the row and that one has no throwing operand in its corpus.
+            /// </remarks>
+            public int Boom()
+            {
+                Record("Boom", 0);
+                throw new InvalidOperationException("this operand fails");
+            }
+
             private T Record<T>(string name, T value)
             {
                 Reads[name] = Reads.TryGetValue(name, out var n) ? n + 1 : 1;
@@ -107,26 +164,27 @@ namespace SpringExpressionsTests.Expressions
 
         /// <summary>
         /// The read-count disagreements this sweep finds, as <c>"COUNTx SURFACE :: OUTCOME"</c>.
-        /// <b>241 rows in 13 classes when it was written; 25 in 7 now, and every one of the 25 is a
-        /// question rather than a defect.</b>
+        /// <b>Empty: the backends read every operand of every corpus expression the same number of
+        /// times. It started at 241 rows in 13 classes.</b>
         /// </summary>
         /// <remarks>
         /// <p>
-        /// Empty is the goal, for the reason its two sibling ledgers are: a row means the backends
-        /// disagree about how many times a caller's own code runs, which no caller can defend against
-        /// because which backend serves them is not their choice.
+        /// Keeping it empty is the point, for the reason its two sibling ledgers are: a row means the
+        /// backends disagree about how many times a caller's own code runs, which no caller can defend
+        /// against because which backend serves them is not their choice.
         /// </p>
         /// <p>
-        /// <b>The counts are identical on netcoreapp2.1, net472 and net8.0</b>, which was checked before
-        /// writing them down: <c>TimeSpan</c> declares different operators per framework, so a counted
-        /// ledger over an operand of that type could have been TFM-dependent. It is not.
+        /// <b>The counts were identical on netcoreapp2.1, net472 and net8.0</b> throughout, checked
+        /// before any of them was written down: <c>TimeSpan</c> declares different operators per
+        /// framework, so a counted ledger over an operand of that type could have been TFM-dependent.
         /// </p>
         /// <p>
-        /// <b>Four causes are fixed, 216 rows, and all four were one mistake.</b> An emitted operand is
-        /// an <i>expression</i>, and writing it into two places in the tree evaluates it twice. Each
-        /// site now hoists into block variables through
-        /// <c>SpringExpressions.Expressions.Compiling.OperandLocals</c>, assigning left before right,
-        /// which is the order the interpreter reads them:
+        /// <b>216 of the 241 were one mistake at four sites.</b> An emitted operand is an
+        /// <i>expression</i>, so writing it into two places in the tree evaluates it twice, and writing
+        /// it into one branch of a conditional evaluates it not at all when the other branch is taken.
+        /// <c>SpringExpressions.Expressions.Compiling.OperandLocals</c> is the one implementation:
+        /// a block variable per operand, assigned left before right, which is the order <c>Get</c>
+        /// reads them.
         /// </p>
         /// <list type="bullet">
         /// <item><description>
@@ -137,55 +195,47 @@ namespace SpringExpressionsTests.Expressions
         /// <item><description>
         /// <b>A nullable operand of <c>&lt; &lt;= &gt; &gt;=</c> was read twice</b> - 21 rows each, 84
         /// in all, from <c>HasValue</c> and <c>Value</c> both mentioning it. Two more faults went with
-        /// it at that site: the operands were evaluated <i>right before left</i>, because the
-        /// conditional tests the nullable one and the other sits inside a branch, and
+        /// it at that site: the operands were evaluated <i>right before left</i>, and
         /// <c>Num() &lt; Nothing()</c> never evaluated <c>Num()</c> at all.
         /// </description></item>
         /// <item><description>
-        /// <b><c>between</c> read both operands twice</b> - 7 rows. It is two comparisons over the same
-        /// operands, so needing them again is structural rather than accidental.
+        /// <b><c>between</c> read both operands twice</b> - 7 rows, structural rather than accidental:
+        /// it is two comparisons over the same operands.
         /// </description></item>
         /// <item><description>
         /// <b>A nullable receiver was read twice</b> - 1 row, <c>Maybe().ToString()</c>.
         /// <c>GuardWithHasValue</c> takes a builder rather than a finished member access now, so the
-        /// hoisting can wrap both halves.
+        /// hoisting wraps both halves.
         /// </description></item>
         /// </list>
-        /// <p><b>The two that remain are rulings, and neither is a wrong answer:</b></p>
+        /// <p>
+        /// <b>The last 25 were filed as two open rulings and were neither open nor rulings.</b>
+        /// Measuring the same operations in real C# - the engine's two backends and C# side by side -
+        /// showed both had a known-correct answer, and that one of them was broken on <i>both</i>
+        /// backends in opposite directions:
+        /// </p>
         /// <list type="bullet">
         /// <item><description>
-        /// <b>Lifted arithmetic skips the right operand compiled when the left is empty</b> - 12 rows
-        /// over <c>+ - * / % ^</c>. LINQ's lifted operators short-circuit; the interpreter reads both
-        /// operands and then decides. Whether nullable arithmetic <i>should</i> short-circuit is a
-        /// language question, not a defect at a site.
+        /// <b>Lifted arithmetic did not evaluate the right operand when the left held nothing</b> - 12
+        /// rows over <c>+ - * / % ^</c>, and compiled only. C# evaluates both operands and then applies
+        /// the lifted operator, our interpreter did too, and nothing in this language says <c>-</c>
+        /// conditionally evaluates an operand. <c>BinaryNumericOperatorHelper.TryCreate</c> hoists a
+        /// nullable pair before building the operator, which leaves its null-in-null-out semantics
+        /// untouched.
         /// </description></item>
         /// <item><description>
-        /// <b><c>??</c> reads its right operand interpreted when the left is a non-nullable value
-        /// type</b> - 13 rows, <c>Num() ?? Num()</c>. The compiled path can see that an <c>int</c> is
-        /// never null and drops the right operand; the interpreter evaluates it and discards the result.
-        /// <b>Neither backend short-circuits <c>??</c> for a reference type</b> - <c>Text() ?? Text()</c>
-        /// reads twice on both - so the question is "does <c>??</c> short-circuit at all", which C#
-        /// answers yes, and these 13 rows are only the slice where the compiled path can prove it.
+        /// <b><c>??</c> was wrong on both sides</b> - 13 rows. The compiled path read its <i>left</i>
+        /// operand twice (the same reuse mistake as the four above), and the interpreter evaluated its
+        /// <i>right</i> operand whether it needed it or not, so <c>Name ?? Expensive()</c> called
+        /// <c>Expensive()</c> with a name in hand. C# skips it; the compiled path always had, since its
+        /// right operand sits in the false branch of a conditional. <c>??</c> is inherited, so the
+        /// frozen suite was the authority on whether eager evaluation was decided behaviour - it pins
+        /// six rows, every one asserting a value and none with a side-effecting operand, so the cost of
+        /// short-circuiting was measured at zero.
         /// </description></item>
         /// </list>
         /// </remarks>
-        private static readonly string[] KnownReadDifferences =
-        {
-            "1x binary -  ::  read counts differ",
-                // e.g. Nothing() - Amount()   compiled=Nothing=1   interpreted=Amount=1 Nothing=1
-            "13x binary ??  ::  read counts differ",
-                // e.g. Num() ?? Num()   compiled=Num=1   interpreted=Num=2
-            "1x binary *  ::  read counts differ",
-                // e.g. Nothing() * Amount()   compiled=Nothing=1   interpreted=Amount=1 Nothing=1
-            "1x binary /  ::  read counts differ",
-                // e.g. Nothing() / Amount()   compiled=Nothing=1   interpreted=Amount=1 Nothing=1
-            "1x binary %  ::  read counts differ",
-                // e.g. Nothing() % Amount()   compiled=Nothing=1   interpreted=Amount=1 Nothing=1
-            "7x binary ^  ::  read counts differ",
-                // e.g. Nothing() ^ Num()   compiled=Nothing=1   interpreted=Nothing=1 Num=1
-            "1x binary +  ::  read counts differ",
-                // e.g. Nothing() + Amount()   compiled=Nothing=1   interpreted=Amount=1 Nothing=1
-        };
+        private static readonly string[] KnownReadDifferences = new string[0];
 
         [Test]
         public void TheBackendsReadEachOperandTheSameNumberOfTimes()
@@ -227,30 +277,54 @@ namespace SpringExpressionsTests.Expressions
                 var compiledThrew = Evaluate(compiled, compiledRoot);
                 var interpretedThrew = Evaluate(interpreted, interpretedRoot);
 
-                // A failure stops evaluation part-way, so the reads before it carry no information
-                // about the shape. Which exception each backend raises is EvaluationNeverDivergesTests'
-                // subject, not this one's.
-                if (compiledThrew || interpretedThrew)
-                    continue;
-
                 var compiledReads = Render(compiledRoot);
                 var interpretedReads = Render(interpretedRoot);
 
-                if (compiledReads == interpretedReads)
+                string outcome = null;
+
+                if (compiledThrew != interpretedThrew)
+                {
+                    // One backend failed and the other answered. That is a value divergence rather than
+                    // a read-count one, and EvaluationNeverDivergesTests would normally own it - but its
+                    // corpus has no operand that can fail, so this fixture is the only place such a row
+                    // can appear. Before the lifted-arithmetic fix 'Nothing() + Boom()' was exactly
+                    // this: the compiled path never ran Boom() and answered null, while the interpreter
+                    // ran it and threw. A swallowed exception, and both sweeps were blind to it - this
+                    // one skipped the row outright, which is the gap this branch closes.
+                    outcome = compiledThrew
+                        ? "compiled threw / interpreted answered"
+                        : "compiled answered / interpreted threw";
+                }
+                else if (compiledReads != interpretedReads)
+                {
+                    // Reads before a failure are still comparable when *both* backends failed: each ran
+                    // the operands it needed and then stopped, so a difference means they needed
+                    // different ones. Which exception either raises is not this fixture's subject.
+                    outcome = compiledThrew
+                        ? "read counts differ, both threw"
+                        : "read counts differ";
+                }
+
+                if (outcome == null)
                     continue;
 
-                var key = SurfaceOf(expression) + "  ::  read counts differ";
+                var key = SurfaceOf(expression) + "  ::  " + outcome;
                 found[key] = found.TryGetValue(key, out var n) ? n + 1 : 1;
 
                 if (!samples.ContainsKey(key))
                     samples[key] = expression
-                        + "   compiled=" + compiledReads + "   interpreted=" + interpretedReads;
+                        + "   compiled=" + compiledReads + (compiledThrew ? " (threw)" : "")
+                        + "   interpreted=" + interpretedReads + (interpretedThrew ? " (threw)" : "");
             }
 
             Assert.Greater(
-                compared, 500,
+                compared, 1400,
                 "the sweep should be large enough to be worth running - most of the corpus has no "
-                    + "compiled form, so this counts only the shapes where there is something to compare");
+                    + "compiled form, so this counts only the shapes where there is something to "
+                    + "compare. A floor rather than the exact count, because the count is TFM-dependent: "
+                    + "1,524 on netcoreapp2.1 and net8.0 against 1,520 on net472, where TimeSpan "
+                    + "declares no multiplication or division operators and four rows therefore have no "
+                    + "compiled form. The floor is what catches the corpus silently shrinking.");
 
             AssertDifferencesAreTheKnownOnes(found, samples);
         }
@@ -385,6 +459,143 @@ namespace SpringExpressionsTests.Expressions
             }
         }
 
+        /// <summary>
+        /// Arithmetic evaluates both operands even when the left one holds nothing and the answer is
+        /// already null. LINQ's lifted operators do not, which is the whole of what was wrong.
+        /// </summary>
+        /// <remarks>
+        /// C# was measured on the same operations while this was decided: it evaluates both operands and
+        /// only then applies the lifted operator, and our interpreter already did. So there was no
+        /// ruling to make - three witnesses agreed and only the compiled path dissented.
+        /// </remarks>
+        [Test]
+        public void ArithmeticEvaluatesBothOperandsEvenWhenTheLeftHoldsNothing()
+        {
+            foreach (var expression in new[]
+            {
+                "Nothing() + Amount()", "Nothing() - Amount()", "Nothing() * Amount()",
+                "Nothing() / Amount()", "Nothing() % Amount()", "Nothing() ^ Num()"
+            })
+            {
+                var compiled = new Counting();
+                var value = Expression
+                    .ParseGetter<Counting, object>(expression, EvaluationMode.MustCompile)
+                    .GetValue(compiled);
+
+                var interpreted = new Counting();
+                Expression.ParseGetter<Counting, object>(expression, EvaluationMode.MustInterpret)
+                    .GetValue(interpreted);
+
+                Assert.IsNull(value, expression + " - nothing in, nothing out, unchanged");
+                Assert.AreEqual(1, compiled.Reads["Nothing"], expression + " - the left operand");
+                Assert.AreEqual(
+                    interpreted.Reads.Count, compiled.Reads.Count,
+                    expression + " - both operands must run on both backends");
+            }
+        }
+
+        /// <summary>
+        /// <c>??</c> does not evaluate its right operand when the left one has a value, and reads the
+        /// left operand once. It was wrong on both backends, in opposite directions.
+        /// </summary>
+        /// <remarks>
+        /// The compiled path read the left operand twice - it tests it and then returns it - while the
+        /// interpreter read both operands and then chose, so <c>Name ?? Expensive()</c> called
+        /// <c>Expensive()</c> with a name in hand. C# skips it, and the frozen suite's six inherited
+        /// <c>??</c> rows all assert values over side-effect-free operands, so nothing pinned the eager
+        /// behaviour.
+        /// </remarks>
+        [Test]
+        public void TheDefaultOperatorReadsItsLeftOperandOnceAndSkipsTheRightWhenItCan()
+        {
+            foreach (var mode in new[] { EvaluationMode.MustCompile, EvaluationMode.MustInterpret })
+            {
+                // Both operands are strings: '??' requires one operand type to convert to the other,
+                // and 'Text() ?? Num()' is refused for that reason on both backends - a pre-existing
+                // and separate rule, which a first draft of this test tripped over.
+                var present = new Counting();
+                Assert.AreEqual(
+                    "lit",
+                    Expression.ParseGetter<Counting, object>("Text() ?? SpanText()", mode)
+                        .GetValue(present),
+                    mode.ToString());
+
+                Assert.AreEqual(1, present.Reads["Text"], "the left operand, once, " + mode);
+                Assert.IsFalse(
+                    present.Reads.ContainsKey("SpanText"),
+                    "the right operand must not be evaluated when the left has a value, " + mode);
+
+                var absent = new Counting();
+                Assert.AreEqual(
+                    "02:00:00",
+                    Expression.ParseGetter<Counting, object>("NoText() ?? SpanText()", mode)
+                        .GetValue(absent),
+                    mode.ToString());
+
+                Assert.AreEqual(1, absent.Reads["NoText"], "the left operand, once, " + mode);
+                Assert.AreEqual(1, absent.Reads["SpanText"], "and the right one, once, " + mode);
+
+                var nullable = new Counting();
+                Assert.AreEqual(
+                    7,
+                    Expression.ParseGetter<Counting, object>("Maybe() ?? Num()", mode).GetValue(nullable),
+                    mode.ToString());
+
+                Assert.AreEqual(1, nullable.Reads["Maybe"], "a nullable left operand, once, " + mode);
+                Assert.IsFalse(
+                    nullable.Reads.ContainsKey("Num"),
+                    "and it has a value, so the right operand is skipped, " + mode);
+            }
+        }
+
+        /// <summary>
+        /// A failing operand fails on both backends. This is the shape that made the
+        /// lifted-arithmetic defect worse than a doubled side effect, and the shape no sweep could see.
+        /// </summary>
+        /// <remarks>
+        /// <c>Nothing() + Boom()</c> answered <c>null</c> compiled - LINQ's lifted operator saw the
+        /// left operand held nothing and never ran the right one - while the interpreter ran it and
+        /// threw. <b>The compiled path swallowed the caller's exception and invented an answer.</b>
+        /// <c>CompilationNeverLeaksTests</c> could not see it (compilation succeeded),
+        /// <c>EvaluationNeverDivergesTests</c> could not (no operand in its corpus can fail), and this
+        /// sweep skipped every throwing row. All three gaps are closed.
+        /// </remarks>
+        [Test]
+        public void AFailingOperandFailsOnBothBackends()
+        {
+            foreach (var expression in new[]
+            {
+                "Nothing() + Boom()", "Nothing() - Boom()", "Nothing() * Boom()",
+                "Num() + Boom()", "Boom() + Num()", "Nothing() < Boom()", "Num() between {Boom(), 10}"
+            })
+            {
+                foreach (var mode in new[] { EvaluationMode.MustCompile, EvaluationMode.MustInterpret })
+                {
+                    IGetterExpression<Counting, object> built;
+
+                    try
+                    {
+                        built = Expression.ParseGetter<Counting, object>(expression, mode);
+                    }
+                    catch (Exception)
+                    {
+                        // no compiled form for this shape - nothing to assert about evaluation
+                        continue;
+                    }
+
+                    var root = new Counting();
+
+                    Assert.Throws<InvalidOperationException>(
+                        () => built.GetValue(root),
+                        expression + " must not swallow the operand's failure, " + mode);
+
+                    Assert.AreEqual(
+                        1, root.Reads["Boom"],
+                        expression + " - the failing operand ran exactly once, " + mode);
+                }
+            }
+        }
+
         private static void AssertReadsOnce(string expression, string operand, int expected)
         {
             var compiled = new Counting();
@@ -465,7 +676,7 @@ namespace SpringExpressionsTests.Expressions
             {
                 "Text()", "NoText()", "Num()", "Other()", "Big()", "Real()", "Amount()", "On()",
                 "Off()", "Letter()", "Colour()", "Maybe()", "Nothing()", "When()", "Span()",
-                "SpanText()", "NoSpanText()", "Anything()", "Ints()", "Map()"
+                "SpanText()", "NoSpanText()", "Anything()", "Ints()", "Map()", "Boom()"
             };
 
             var operators = new[]
@@ -493,9 +704,20 @@ namespace SpringExpressionsTests.Expressions
                 yield return "#{'k' : " + value + "}";
                 yield return "new int[] {" + value + "}";
                 yield return value + " as string";
+
+                // Writes, which the first version of this corpus generated none of. A setter is emitted
+                // by a different path from a getter and has two operands of its own - the target and
+                // the value - so it can reuse either.
+                yield return "Target = " + value;
+                yield return "Number = " + value;
+                yield return "Name = " + value;
             }
 
-            var sources = new[] { "Ints()", "NoInts()", "Map()", "Text()" };
+            var sources = new[]
+            {
+                "Ints()", "NoInts()", "Map()", "Text()",
+                "Empty()", "Set()", "Sequence()", "Amounts()"
+            };
             var processors = new[]
             {
                 "sort()", "distinct()", "reverse()", "nonNull()", "sum()",
