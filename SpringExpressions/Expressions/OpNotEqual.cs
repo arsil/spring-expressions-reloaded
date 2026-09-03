@@ -47,7 +47,7 @@ namespace SpringExpressions
 			var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
 			var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
-            return EqualityHelper.CreateNotEqualExpression(leftExpression, rightExpression);
+            return EqualityHelper.CreateNotEqualExpression(this, leftExpression, rightExpression);
 
             /*
 			if (leftExpression.Type == typeof(bool) && rightExpression.Type == typeof(bool))

@@ -112,13 +112,19 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
                 yield return interfaceType;
         }
 
+        /// <param name="node">
+        /// The node being compiled, carried only so an ambiguity refusal below can name it. A scan has
+        /// no node of its own, and a refusal that names none leaves
+        /// <see cref="Expressions.CompileErrorException.NodeType"/> null.
+        /// </param>
         [CanBeNull]
         public static Tuple<MethodInfo, LExpression[]> GetMethodByArgumentValues(
+            [NotNull] BaseNode node,
             [NotNull, ItemNotNull] IEnumerable<MethodInfo> methods, [CanBeNull, ItemNotNull] LExpression[] arguments)
         {
             // No overload accepting the arguments' static types is "no method", not a crash: the caller
             // treats null as unresolved and reports the miss as a CompileErrorException.
-            var result = GetMethodBaseByArgumentValues("method", methods, arguments);
+            var result = GetMethodBaseByArgumentValues(node, "method", methods, arguments);
 
             if (result == null)
                 return null;
@@ -126,11 +132,13 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
             return new Tuple<MethodInfo, LExpression[]>((MethodInfo)result.Item1, result.Item2);
         }
 
+        /// <param name="node">The node being compiled - see GetMethodByArgumentValues.</param>
         [CanBeNull]
         public static Tuple<ConstructorInfo, LExpression[]> GetConstructorByArgumentValues(
+            [NotNull] BaseNode node,
             [NotNull, ItemNotNull] IEnumerable<ConstructorInfo> constructors, [CanBeNull, ItemNotNull] LExpression[] arguments)
         {
-            var result = GetMethodBaseByArgumentValues("constructor", constructors, arguments);
+            var result = GetMethodBaseByArgumentValues(node, "constructor", constructors, arguments);
 
             if (result == null)
                 return null;
@@ -140,6 +148,7 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
 
         [CanBeNull]
         private static Tuple<MethodBase, LExpression[]> GetMethodBaseByArgumentValues<T>(
+            [NotNull] BaseNode node,
             [NotNull] string baseMethodNameForExceptionText,
             [NotNull, ItemNotNull] IEnumerable<T> methods,
             [CanBeNull, ItemNotNull] LExpression[] arguments) where T : MethodBase
@@ -318,6 +327,7 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
                 }
 
                 throw new CompileErrorException(
+                    node,
                     $"Ambiguous match for {baseMethodNameForExceptionText} '{lowerTier[0].Item1.Name}' for " +
                     $"the specified number and static types of arguments.");
             }
@@ -341,6 +351,7 @@ namespace SpringExpressions.Expressions.LinqExpressionHelpers
             }
 
             throw new CompileErrorException(
+                node,
                 $"Ambiguous match for {baseMethodNameForExceptionText} '{matches[0].Item1.Name}' for " +
                 $"the specified number and static types of arguments.");
         }

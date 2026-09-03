@@ -118,13 +118,13 @@ namespace SpringExpressions
             // The same tiers and the same overload gate as MethodNode - see ResolveMethod there. The
             // old exact-type GetConstructor ran the DefaultBinder, whose AmbiguousMatchException
             // escaped compilation and whose primitive widening the interpreter never had.
-            var resolved = ResolveConstructor(objectType, arguments, argumentsTypes.ToArray());
+            var resolved = ResolveConstructor(this, objectType, arguments, argumentsTypes.ToArray());
 
             if (resolved == null)
                 throw CannotCompile("no compiled constructor matching these arguments");
 
             var finalArguments = new List<LExpression>(resolved.Item2);
-            MethodNode.ConvertParameters(resolved.Item1, finalArguments);
+            MethodNode.ConvertParameters(this, resolved.Item1, finalArguments);
 
             var newExpression = LExpression.New(resolved.Item1, finalArguments);
 
@@ -210,7 +210,9 @@ namespace SpringExpressions
         /// a constructor call that compiles can only pick the constructor the interpreter would pick.
         /// </summary>
         [CanBeNull]
+        /// <param name="node">The node being compiled, so a refusal can name it - see MethodNode.ResolveMethod.</param>
         private static Tuple<ConstructorInfo, LExpression[]> ResolveConstructor(
+            [NotNull] BaseNode node,
             [NotNull] Type objectType,
             [NotNull, ItemNotNull] List<LExpression> arguments,
             [NotNull, ItemNotNull] Type[] argumentTypes)
@@ -225,7 +227,8 @@ namespace SpringExpressions
                 return Tuple.Create(
                     candidates[0],
                     MethodNode.BindToSingleCandidate(
-                        candidates[0], arguments, "the constructor of '" + objectType.Name + "'"));
+                        node, candidates[0], arguments,
+                        "the constructor of '" + objectType.Name + "'"));
             }
 
             for (var position = 0; position < arguments.Count; position++)
@@ -234,13 +237,14 @@ namespace SpringExpressions
                     continue;
 
                 throw new CompileErrorException(
+                    node,
                     $"Overload choice for the constructor of '{objectType.Name}' depends on the "
                     + $"runtime type of an argument statically typed '{arguments[position].Type}'; "
                     + "there is no compiled form - the interpreter chooses from the runtime values. "
                     + "Add a cast to pick an overload.");
             }
 
-            var scanned = MethodBaseHelpers.GetConstructorByArgumentValues(candidates, arguments.ToArray());
+            var scanned = MethodBaseHelpers.GetConstructorByArgumentValues(node, candidates, arguments.ToArray());
             if (scanned != null)
                 return scanned;
 
@@ -248,6 +252,7 @@ namespace SpringExpressions
             if (ambiguous)
             {
                 throw new CompileErrorException(
+                    node,
                     $"Ambiguous match for the constructor of '{objectType.Name}': the arguments "
                     + "convert implicitly to more than one overload and neither is better - C# "
                     + "refuses this call too. Add a cast to pick one.");

@@ -99,6 +99,7 @@ namespace SpringExpressions
                 TryExactAccessorForNullLiterals(
                     contextExpression.Type, "get_" + indexerPropertyName, arguments, argumentsTypes)
                 ?? MethodNode.ResolveMethod(
+                    this,
                     contextExpression.Type,
                     "get_" + indexerPropertyName,
                     arguments,
@@ -108,7 +109,7 @@ namespace SpringExpressions
                 throw CannotCompile("no compiled indexer for this container and index type");
 
             var finalArguments = new List<LExpression>(resolved.Item2);
-            MethodNode.ConvertParameters(resolved.Item1, finalArguments);
+            MethodNode.ConvertParameters(this, resolved.Item1, finalArguments);
 
             return LExpression.Call(contextExpression, resolved.Item1, finalArguments);
         }
@@ -234,6 +235,7 @@ namespace SpringExpressions
                 TryExactAccessorForNullLiterals(
                     contextExpression.Type, "set_" + indexerPropertyName, arguments, argumentsTypes)
                 ?? MethodNode.ResolveMethod(
+                    this,
                     contextExpression.Type,
                     "set_" + indexerPropertyName,
                     arguments,
@@ -243,7 +245,7 @@ namespace SpringExpressions
                 throw CannotCompile("no compiled indexer for this container and index type");
 
             var finalArguments = new List<LExpression>(resolved.Item2);
-            MethodNode.ConvertParameters(resolved.Item1, finalArguments);
+            MethodNode.ConvertParameters(this, resolved.Item1, finalArguments);
 
             return LExpression.Call(contextExpression, resolved.Item1, finalArguments);
         }

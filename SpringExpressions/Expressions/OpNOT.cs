@@ -139,9 +139,7 @@ namespace SpringExpressions
             }
 
             if (!operandIsBoolean && !operandIsInteger)
-                throw CannotCompile(
-                    $"no compiled complement for '{operandExpression.Type}'; only a boolean is negated "
-                    + "and only an integer or enum is complemented");
+                throw CannotCompile(NoCompiledComplement(operandExpression.Type));
 
             if (leftTypeCode == 3)
             {
@@ -164,7 +162,27 @@ namespace SpringExpressions
                 return result;
             }
 
-            return base.GetExpressionTreeIfPossible(contextExpression, compilationContext);
+            // Unreachable as the guards above stand, and a refusal rather than the base method for the
+            // reason OpPOWER's is: the base message claims this node has no compiled implementation,
+            // which is false - '!someBoolean' and '!someInt' both compile. Everything arriving here is
+            // a non-enum of TypeCode 5..12, and UnaryNumericOperatorHelper.TryCreate answers all of
+            // those: it refuses only an enum (claimed above), a non-number (claimed by the guard), and
+            // 'ulong' for unary minus, which is not this operator.
+            //
+            // Kept as a truthful refusal instead of being deleted, because "unreachable" is a property
+            // of two guards several lines apart. If either moves, a caller should be told which operand
+            // was not taken rather than that this node cannot be compiled at all.
+            throw CannotCompile(NoCompiledComplement(operandExpression.Type));
+        }
+
+        /// <summary>
+        /// The one wording for "this operand has no complement", used by both refusals above.
+        /// </summary>
+        [NotNull]
+        private static string NoCompiledComplement([NotNull] Type operandType)
+        {
+            return $"no compiled complement for '{operandType}'; only a boolean is negated "
+                + "and only an integer or enum is complemented";
         }
 
 	    /// <summary>

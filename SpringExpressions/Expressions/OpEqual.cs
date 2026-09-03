@@ -49,7 +49,7 @@ namespace SpringExpressions
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
-            return EqualityHelper.CreateEqualExpression(leftExpression, rightExpression);
+            return EqualityHelper.CreateEqualExpression(this, leftExpression, rightExpression);
         }
 
         /// <summary>

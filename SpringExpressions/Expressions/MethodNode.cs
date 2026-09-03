@@ -165,7 +165,7 @@ namespace SpringExpressions
 
 				// try inner type (e.g. Int32)
 				var innerResolved = ResolveMethod(
-					contextExpressionType, methodName, arguments, argumentTypesArray);
+					this, contextExpressionType, methodName, arguments, argumentTypesArray);
 
 				if (innerResolved != null)
 				{
@@ -184,7 +184,7 @@ namespace SpringExpressions
 		    if (methodInfo == null)
 		    {
 			    var resolved = ResolveMethod(
-				    contextExpressionType, methodName, arguments, argumentTypesArray);
+				    this, contextExpressionType, methodName, arguments, argumentTypesArray);
 
 			    if (resolved != null)
 			    {
@@ -214,7 +214,7 @@ namespace SpringExpressions
 
             if (methodInfo == null)
             {
-                throw new CompileErrorException(
+                throw CannotCompile(
                     $"Method '{methodName}' with the specified number and types of arguments does not exist.");
             }
 
@@ -224,7 +224,7 @@ namespace SpringExpressions
                 ? new List<LExpression>(resolvedArguments)
                 : arguments;
 
-            ConvertParameters(methodInfo, finalArguments);
+            ConvertParameters(this, methodInfo, finalArguments);
 			return BuildCall(instance, methodInfo, finalArguments);
 	    }
 
@@ -247,7 +247,13 @@ namespace SpringExpressions
         ///   CS0121).
         /// </summary>
         [CanBeNull]
+        /// <param name="node">
+        /// The node being compiled, carried only so a refusal can name it. This method serves
+        /// <see cref="MethodNode"/>, <see cref="ConstructorNode"/> and <see cref="IndexerNode"/>, so it
+        /// cannot reach an instance <c>CannotCompile</c> of its own.
+        /// </param>
         internal static Tuple<MethodInfo, LExpression[]> ResolveMethod(
+            [NotNull] BaseNode node,
             [NotNull] Type contextType,
             [NotNull] string methodName,
             [NotNull, ItemNotNull] List<LExpression> arguments,
@@ -259,7 +265,8 @@ namespace SpringExpressions
                 return null;
 
             if (candidates.Count == 1)
-                return Tuple.Create(candidates[0], BindToSingleCandidate(candidates[0], arguments, methodName));
+                return Tuple.Create(
+                    candidates[0], BindToSingleCandidate(node, candidates[0], arguments, methodName));
 
             for (var position = 0; position < arguments.Count; position++)
             {
@@ -267,12 +274,13 @@ namespace SpringExpressions
                     continue;
 
                 throw new CompileErrorException(
+                    node,
                     $"Overload choice for method '{methodName}' depends on the runtime type of an "
                     + $"argument statically typed '{arguments[position].Type}'; there is no compiled form - the "
                     + "interpreter chooses from the runtime values. Add a cast to pick an overload.");
             }
 
-            var scanned = MethodBaseHelpers.GetMethodByArgumentValues(candidates, arguments.ToArray());
+            var scanned = MethodBaseHelpers.GetMethodByArgumentValues(node, candidates, arguments.ToArray());
             if (scanned != null)
                 return scanned;
 
@@ -280,6 +288,7 @@ namespace SpringExpressions
             if (ambiguous)
             {
                 throw new CompileErrorException(
+                    node,
                     $"Ambiguous match for method '{methodName}': the arguments convert implicitly to "
                     + "more than one overload and neither is better - C# refuses this call too. Add a "
                     + "cast to pick one.");
@@ -303,7 +312,9 @@ namespace SpringExpressions
         /// refuses a shape the runtime values would decide.
         /// </remarks>
         [NotNull, ItemNotNull]
+        /// <param name="node">The node being compiled, so a refusal can name it - see ResolveMethod.</param>
         internal static LExpression[] BindToSingleCandidate(
+            [NotNull] BaseNode node,
             [NotNull] MethodBase candidate,
             [NotNull, ItemNotNull] List<LExpression> arguments,
             [NotNull] string calleeName)
@@ -320,6 +331,7 @@ namespace SpringExpressions
 
                 case ArgumentBinding.Undecidable:
                     throw new CompileErrorException(
+                        node,
                         $"The last argument of '{calleeName}' is statically typed "
                         + $"'{argumentArray[argumentArray.Length - 1].Type}', so whether it is the "
                         + "params array itself or the one element of it depends on whether it is null "
@@ -497,7 +509,8 @@ namespace SpringExpressions
 
         // Shared with ConstructorNode: the conversion gate is identical for method and constructor
         // arguments, so it takes MethodBase and labels its messages accordingly.
-        internal static void ConvertParameters([NotNull] MethodBase method, [NotNull, ItemNotNull] List<LExpression> arguments)
+        /// <param name="node">The node being compiled, so a refusal can name it - see ResolveMethod.</param>
+        internal static void ConvertParameters([NotNull] BaseNode node, [NotNull] MethodBase method, [NotNull, ItemNotNull] List<LExpression> arguments)
         {
             var methodParameters = method.GetParameters();
 
@@ -513,6 +526,7 @@ namespace SpringExpressions
             if (arguments.Count != methodParameters.Length)
             {
                 throw new CompileErrorException(
+                    node,
                     $"{label} takes {methodParameters.Length} parameter(s) but was given "
                     + $"{arguments.Count} argument(s), and they do not bind to its params array.");
             }
@@ -545,6 +559,7 @@ namespace SpringExpressions
                     && TypeCheckingUtils.IsIntegralKind(parameterType))
                 {
                     throw new CompileErrorException(
+                        node,
                         $"{label} parameter {i} is '{parameterType}' but the argument is "
                         + $"'{argument.Type}': a real-to-integral argument conversion rounds in the "
                         + "interpreter and would truncate compiled, so it has no compiled form.");
@@ -560,6 +575,7 @@ namespace SpringExpressions
                     // InvalidOperationException is not this codebase's "cannot compile" signal, so the
                     // weakly typed path's fallback would never see it.
                     throw new CompileErrorException(
+                        node,
                         $"{label} parameter {i} is '{parameterType}' but the argument is "
                         + $"'{argument.Type}': {ex.Message}");
                 }

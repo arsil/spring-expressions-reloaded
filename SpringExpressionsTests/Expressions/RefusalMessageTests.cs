@@ -242,6 +242,44 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
+        /// A refusal raised inside a shared static helper still names the node, because the node is
+        /// passed in. <c>CompileErrorException.NodeType</c> is public, and it used to be null for 918
+        /// of the compilation sweep's 7,556 refusals - so a caller grouping refusals by node could not
+        /// see 12% of them, and the message lost the expression text as well.
+        /// </summary>
+        /// <remarks>
+        /// <c>EqualityHelper</c>, <c>MethodNode</c>'s argument binding, <c>ConstructorNode</c>'s
+        /// resolution and <c>MethodBaseHelpers</c>' candidate scan are all <c>static</c>, so none can
+        /// reach <c>BaseNode.CannotCompile</c>, which is an instance method. They take the node as a
+        /// parameter rather than raising a nodeless exception.
+        /// </remarks>
+        [Test]
+        public void ARefusalFromAStaticHelperStillNamesTheNodeAndTheExpression()
+        {
+            var equality = Assert.Throws<CompileErrorException>(
+                () => Expression.ParseGetter<Root, object>("Number == Flag", EvaluationMode.MustCompile));
+
+            Assert.AreEqual(typeof(OpEqual), equality.NodeType);
+            StringAssert.StartsWith("Cannot compile OpEqual '==': ", equality.Message);
+            StringAssert.Contains("the static types do not determine", equality.Reason);
+
+            var inequality = Assert.Throws<CompileErrorException>(
+                () => Expression.ParseGetter<Root, object>("Number != Flag", EvaluationMode.MustCompile));
+
+            Assert.AreEqual(
+                typeof(OpNotEqual), inequality.NodeType,
+                "'!=' is the negation of '==', but the refusal must name the operator that was written");
+
+            StringAssert.StartsWith("Cannot compile OpNotEqual '!=': ", inequality.Message);
+
+            var argument = Assert.Throws<CompileErrorException>(
+                () => Expression.ParseGetter<Root, object>("Text(Number)", EvaluationMode.MustCompile));
+
+            Assert.AreEqual(typeof(MethodNode), argument.NodeType);
+            StringAssert.StartsWith("Cannot compile MethodNode 'Text': ", argument.Message);
+        }
+
+        /// <summary>
         /// The refused shapes are all still served by the interpreter, which is what makes this a
         /// message change rather than a behaviour change.
         /// </summary>

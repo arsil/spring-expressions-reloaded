@@ -12,8 +12,15 @@ namespace SpringExpressions.Expressions.Compiling
 {
     internal static class EqualityHelper
     {
+        /// <param name="node">
+        /// The node being compiled, so a refusal can name it. Without it every refusal below arrived
+        /// with a null <see cref="Expressions.CompileErrorException.NodeType"/> and no
+        /// "Cannot compile OpEqual '=='" prefix - 888 of the compilation sweep's refusals, and the
+        /// reason a caller grouping refusals by node could not see 12% of them.
+        /// </param>
         [NotNull]
         public static LExpression CreateEqualExpression(
+            [NotNull] BaseNode node,
             [NotNull] LExpression leftExpression,
             [NotNull] LExpression rightExpression)
         {
@@ -52,6 +59,7 @@ namespace SpringExpressions.Expressions.Compiling
                 if (Nullable.GetUnderlyingType(otherType) != enumType)
                 {
                     throw new Expressions.CompileErrorException(
+                        node,
                         $"no compiled equality between the enum [{enumType.FullName}] and "
                         + $"[{otherType.FullName}]; an enum compares to the same enum or to a member name.");
                 }
@@ -88,6 +96,7 @@ namespace SpringExpressions.Expressions.Compiling
                     && !IsNullConstant(rightExpression))
                 {
                     throw new Expressions.CompileErrorException(
+                        node,
                         $"no compiled equality between [{leftExpression.Type.FullName}] and "
                         + $"[{rightExpression.Type.FullName}]; a string compares to a string by value, "
                         + "and comparing it to an untyped operand would answer by reference identity.");
@@ -179,6 +188,7 @@ namespace SpringExpressions.Expressions.Compiling
                 && leftUnwrapped != rightUnwrapped)
             {
                 throw new Expressions.CompileErrorException(
+                    node,
                     $"no compiled equality between [{leftExpression.Type.FullName}] and "
                     + $"[{rightExpression.Type.FullName}]; the static types do not determine which "
                     + "comparison applies, so the interpreter decides from the runtime values.");
@@ -212,15 +222,20 @@ namespace SpringExpressions.Expressions.Compiling
                 );
         }
 
+        /// <param name="node">
+        /// The OpNotEqual node, so a refusal names the operator the caller actually wrote - '!=' is
+        /// the exact negation of '==' here, but the message should not claim the caller wrote '=='.
+        /// </param>
         [NotNull]
         public static LExpression CreateNotEqualExpression(
+            [NotNull] BaseNode node,
             [NotNull] LExpression leftExpression,
             [NotNull] LExpression rightExpression)
         {
                // todo: error: not exactly???? ----------------------------- operator != can be different than == ?
                // todo: error: LExpression.NotEqual() can be different than NOT LExpression.Equal()
 
-               return LExpression.Not(CreateEqualExpression(leftExpression, rightExpression));
+               return LExpression.Not(CreateEqualExpression(node, leftExpression, rightExpression));
         }
 
         /// <summary>

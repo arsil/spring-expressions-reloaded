@@ -216,12 +216,22 @@ namespace SpringExpressionsTests.Expressions
         /// legitimate nodes, so the message must not appear here at all - and if a future corpus row
         /// reaches one, this assertion names it rather than hiding it.
         /// </p>
+        /// <p>
+        /// The third assertion is about the structured field rather than the text. A refusal raised by
+        /// a <c>static</c> helper through the message-only <c>CompileErrorException</c> constructor has
+        /// a null <c>NodeType</c>, so nothing can group it by node - which is exactly what happened
+        /// when this corpus was first censused: 918 refusals came back nodeless, all of them from
+        /// <c>EqualityHelper</c> and <c>MethodNode</c>'s argument binding. The helpers are passed the
+        /// node being compiled now. <c>Compiler</c>'s three entry points are legitimately nodeless -
+        /// they run outside node emit - and are not reachable from here.
+        /// </p>
         /// </remarks>
         [Test]
         public void EveryRefusalStatesAReason()
         {
             var contractBreaks = new List<string>();
             var standIns = new List<string>();
+            var nodeless = new List<string>();
 
             foreach (var expression in Corpus())
             {
@@ -231,6 +241,9 @@ namespace SpringExpressionsTests.Expressions
                 }
                 catch (CompileErrorException e)
                 {
+                    if (e.NodeType == null)
+                        nodeless.Add(expression + " => " + e.Message);
+
                     if (e.Message.Contains("node produced no expression tree")
                         || e.Message.Contains("node produced no assignment expression tree"))
                     {
@@ -246,6 +259,15 @@ namespace SpringExpressionsTests.Expressions
                 {
                 }
             }
+
+            Assert.IsEmpty(
+                nodeless,
+                "a refusal reached the caller with a null NodeType, so nothing can group it by node. "
+                    + "That happens when a static helper uses the message-only CompileErrorException "
+                    + "constructor instead of being passed the node being compiled - it was 918 of "
+                    + "this corpus' refusals before EqualityHelper, MethodNode, ConstructorNode and "
+                    + "MethodBaseHelpers were given one:"
+                    + Environment.NewLine + string.Join(Environment.NewLine, nodeless.Take(20)));
 
             Assert.IsEmpty(
                 contractBreaks,
