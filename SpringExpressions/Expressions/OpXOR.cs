@@ -55,9 +55,18 @@ namespace SpringExpressions
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
-            return BitwiseOrLogicalOperatorHelper.CreateXorExpression(
+            var expression = BitwiseOrLogicalOperatorHelper.CreateXorExpression(
                 leftExpression,
                 rightExpression);
+
+            // A [CanBeNull] result out of a [NotNull] method - see OpAND, where the reason this has to
+            // refuse here rather than inside the helper is written out in full.
+            if (expression == null)
+                throw CannotCompile(
+                    "no compiled 'xor' for '" + leftExpression.Type + "' and '" + rightExpression.Type
+                    + "'; the logical form takes two booleans and the bitwise form two integers or enums");
+
+            return expression;
         }
 
 		/// <summary>

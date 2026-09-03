@@ -47,6 +47,12 @@ namespace SpringExpressions
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
+            // Kept for the refusal at the bottom, and it has to be taken here rather than there: both
+            // locals are reassigned below - by the custom-real normalization, and again by the
+            // to-double conversion - so by the time the refusal is reached they can both read
+            // 'System.Double' whatever the caller wrote.
+            var writtenTypes = "'" + leftExpression.Type + "' and '" + rightExpression.Type + "'";
+
             // Custom real-valued operands convert through their own implicit operator first, the same
             // normalization the other arithmetic operators get inside BinaryNumericOperatorHelper -
             // power bypasses the promotion rules with its own to-double conversion below.
@@ -96,7 +102,14 @@ namespace SpringExpressions
                     LExpression.Convert(rightExpression, typeof(double)));
             }
             */
-            return base.GetExpressionTreeIfPossible(contextExpression, compilationContext);
+
+            // Not the base method. Its message is "no compiled implementation for this node type",
+            // which is meant for a node that has none at all - and this node has one: 2 ^ 3 compiles.
+            // So the message was not merely vague but false, telling a caller the operator is
+            // uncompiled when it is their operands that are.
+            throw CannotCompile(
+                "no compiled exponent for " + writtenTypes
+                + "; '^' is computed in double, so both operands must be numbers");
         }
 
         /// <summary>

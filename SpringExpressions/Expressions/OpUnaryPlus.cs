@@ -62,7 +62,11 @@ namespace SpringExpressions
                 return operandExpression;
             }*/
 
-            return base.GetExpressionTreeIfPossible(contextExpression, compilationContext);
+            // Not the base method - see OpPOWER. This is OpUnaryMinus' twin and was found by probing
+            // for it: the corpus generates '-value' and never '+value', so nothing measured this site.
+            throw CannotCompile(
+                "no compiled unary plus for '" + operandExpression.Type
+                + "'; only a number, or a type declaring its own unary '+', is accepted");
         }
 
         /// <summary>

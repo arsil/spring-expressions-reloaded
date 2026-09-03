@@ -87,7 +87,14 @@ namespace SpringExpressions
                     lessThanOrEqualExpression);
             }
 
-            return base.GetExpressionTreeIfPossible(contextExpression, compilationContext);
+            // Not the base method - see OpPOWER. 'Number between {1, 10}' compiles, so this node has a
+            // compiled implementation and the base message was false. What is wrong here is the right
+            // operand: the branch above wants a list to read the two bounds out of, and the
+            // interpreter demands the same thing at evaluation ("has to be a two-element list"), so
+            // both halves now say so.
+            throw CannotCompile(
+                "the 'between' bounds must be a two-element list, and this is of type '"
+                + rightExpression.Type + "'");
         }
 
         /// <summary>

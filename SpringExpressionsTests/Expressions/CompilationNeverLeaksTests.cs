@@ -195,6 +195,73 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
+        /// A refusal states a reason. Two generic messages used to stand in for one, and each meant
+        /// something worse than vagueness.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// <c>"node produced no expression tree"</c> is what <see cref="SpringExpressions.BaseNode"/>
+        /// says when an emit method returns null - and an emit method is <c>[NotNull]</c>, so the
+        /// message can only ever mean a node broke its own contract. <c>OpAND</c>, <c>OpOR</c> and
+        /// <c>OpXOR</c> each returned a <c>[CanBeNull]</c> helper result straight out, which was 1,638
+        /// of this corpus' 7,556 refusals stating no reason whatsoever. Nothing may reach it again.
+        /// </p>
+        /// <p>
+        /// <c>"no compiled implementation for this node type"</c> is the base method's own message and
+        /// is legitimate for a node that genuinely has none - <c>FunctionNode</c>,
+        /// <c>LocalFunctionNode</c>, <c>OpLike</c> and <c>QualifiedIdentifier</c>. What it must not do
+        /// is stand in for "not these operands", which is how four nodes with a working compiled
+        /// implementation used to refuse: they ended their emit with
+        /// <c>return base.GetExpressionTreeIfPossible(...)</c>. This corpus reaches none of the four
+        /// legitimate nodes, so the message must not appear here at all - and if a future corpus row
+        /// reaches one, this assertion names it rather than hiding it.
+        /// </p>
+        /// </remarks>
+        [Test]
+        public void EveryRefusalStatesAReason()
+        {
+            var contractBreaks = new List<string>();
+            var standIns = new List<string>();
+
+            foreach (var expression in Corpus())
+            {
+                try
+                {
+                    Expression.ParseGetter<Root, object>(expression, EvaluationMode.MustCompile);
+                }
+                catch (CompileErrorException e)
+                {
+                    if (e.Message.Contains("node produced no expression tree")
+                        || e.Message.Contains("node produced no assignment expression tree"))
+                    {
+                        contractBreaks.Add(expression + " => " + e.Message);
+                    }
+                    else if (e.Message.Contains("no compiled implementation for this node type")
+                        || e.Message.Contains("no compiled assignment implementation for this node type"))
+                    {
+                        standIns.Add(expression + " => " + e.Message);
+                    }
+                }
+                catch (Exception e) when (e.GetType().Name == "SyntaxErrorException")
+                {
+                }
+            }
+
+            Assert.IsEmpty(
+                contractBreaks,
+                "an emit method returned null, which its [NotNull] forbids. The node has to throw "
+                    + "CannotCompile itself - only it can name itself and its operands:"
+                    + Environment.NewLine + string.Join(Environment.NewLine, contractBreaks.Take(20)));
+
+            Assert.IsEmpty(
+                standIns,
+                "these refused through the base method's message, which claims the node has no compiled "
+                    + "implementation at all. If that is true the node belongs on the list in this "
+                    + "test's remarks; if it is false the node must say which operands it could not "
+                    + "take:" + Environment.NewLine + string.Join(Environment.NewLine, standIns.Take(20)));
+        }
+
+        /// <summary>
         /// A name the caller got wrong is the caller's mistake, and must be reported as a refusal
         /// naming the node - never absorbed and returned as "internal compiler error … please report
         /// it", which blames the engine for a typo.

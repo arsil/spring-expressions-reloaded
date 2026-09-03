@@ -56,8 +56,27 @@ namespace SpringExpressions
             var leftExpression = GetExpressionTreeIfPossible(Left, contextExpression, compilationContext);
             var rightExpression = GetExpressionTreeIfPossible(Right, contextExpression, compilationContext);
 
-            return BitwiseOrLogicalOperatorHelper.CreateAndExpression(
+            var expression = BitwiseOrLogicalOperatorHelper.CreateAndExpression(
                 leftExpression, rightExpression);
+
+            // The helper is [CanBeNull] and answers null for "no compiled form"; this method is
+            // [NotNull]. Returning that null straight out left BaseNode's dispatcher to turn it into
+            // "node produced no expression tree" - a refusal naming no reason at all, and 1,638 of the
+            // compilation sweep's 7,556 refusals came from these three operators doing it. The node is
+            // also the only one that can name itself, which is why the refusal is thrown here rather
+            // than inside the helper: CannotCompile is an instance method, and a helper in
+            // Expressions/Compiling has no BaseNode to name.
+            //
+            // What the message has to say is which role was undecidable. 'and' is one operator serving
+            // two - logical for booleans, bitwise for integers and enums - and the operand types are
+            // what choose between them, so they are what the reader needs. OpNOT already words the
+            // same problem this way for the unary spelling.
+            if (expression == null)
+                throw CannotCompile(
+                    "no compiled 'and' for '" + leftExpression.Type + "' and '" + rightExpression.Type
+                    + "'; the logical form takes two booleans and the bitwise form two integers or enums");
+
+            return expression;
         }
 
         /// <summary>

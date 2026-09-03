@@ -64,7 +64,12 @@ namespace SpringExpressions
                 return LExpression.Negate(operandExpression);
             }*/
 
-            return base.GetExpressionTreeIfPossible(contextExpression, compilationContext);
+            // Not the base method - see OpPOWER. '-Number' compiles, so "no compiled implementation for
+            // this node type" was false rather than vague. The ulong operand has its own refusal inside
+            // UnaryNumericOperatorHelper, which is why it is not named here.
+            throw CannotCompile(
+                "no compiled negation for '" + operandExpression.Type
+                + "'; only a number, or a type declaring its own unary '-', is negated");
         }
 
         /// <summary>
