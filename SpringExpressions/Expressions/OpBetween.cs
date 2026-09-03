@@ -58,33 +58,44 @@ namespace SpringExpressions
                     // todo: error! to działa tyko dla numerycznych! nie zadziała dla innych....
                     // todo: error! i też muszą mieć ten sam typ!!! jak nie mają, do też nie działa... bo nie robi się List tylko ArrayList
 
-                // No operator name and no factory, which says deliberately that 'between' does NOT
-                // consult a type's own relational operators. That is open-issues item 12's remaining
-                // question, and passing "op_GreaterThanOrEqual" here would answer half of it in the
-                // wrong place: the interpreter's 'between' goes through CompareUtils.Compare, which
-                // needs an int ordering and refuses a type with no IComparable, so the compiled path
-                // would start answering where the interpreter still throws. A divergence, not a fix.
-                ComparisonHelper.CreateCompare(
+                // 'between' is two comparisons over the same operands, so both are mentioned twice and
+                // both go into block variables first - 'Num() between {1, 10}' evaluated Num() twice.
+                // Structural rather than accidental: the shape of the operator is what needs them again.
+                return OperandLocals.UseOnce(
                     leftExpression,
-                    LExpression.Call(rightExpression, methodInfo, LExpression.Constant(0, typeof(int))),
-                    LExpression.GreaterThanOrEqual,
-                    null, null,
-                    out var greaterThanOrEqualExpression);
+                    rightExpression,
+                    (left, right) =>
+                    {
+                        // No operator name and no factory, which says deliberately that 'between' does
+                        // NOT consult a type's own relational operators. That is open-issues item 12's
+                        // remaining question, and passing "op_GreaterThanOrEqual" here would answer half
+                        // of it in the wrong place: the interpreter's 'between' goes through
+                        // CompareUtils.Compare, which needs an int ordering and refuses a type with no
+                        // IComparable, so the compiled path would start answering where the interpreter
+                        // still throws. A divergence, not a fix.
+                        ComparisonHelper.CreateCompare(
+                            left,
+                            LExpression.Call(right, methodInfo, LExpression.Constant(0, typeof(int))),
+                            LExpression.GreaterThanOrEqual,
+                            null, null,
+                            out var greaterThanOrEqualExpression);
 
-                ComparisonHelper.CreateCompare(
-                    leftExpression,
-                    LExpression.Call(rightExpression, methodInfo, LExpression.Constant(1, typeof(int))),
-                    LExpression.LessThanOrEqual,
-                    null, null,
-                    out var lessThanOrEqualExpression);
+                        ComparisonHelper.CreateCompare(
+                            left,
+                            LExpression.Call(right, methodInfo, LExpression.Constant(1, typeof(int))),
+                            LExpression.LessThanOrEqual,
+                            null, null,
+                            out var lessThanOrEqualExpression);
 
-                // todo: exception!!!!!!!!!!!
-                if (lessThanOrEqualExpression == null | greaterThanOrEqualExpression == null)
-                    throw CannotCompile("no compiled 'between' test for these operand types");
+                        if (lessThanOrEqualExpression == null || greaterThanOrEqualExpression == null)
+                            throw CannotCompile("no compiled 'between' test for these operand types");
 
-                return LExpression.And(
-                    greaterThanOrEqualExpression,
-                    lessThanOrEqualExpression);
+                        // And, not AndAlso: both halves compare the same two locals, so there is no
+                        // second evaluation to short-circuit away from.
+                        return LExpression.And(
+                            greaterThanOrEqualExpression,
+                            lessThanOrEqualExpression);
+                    });
             }
 
             // Not the base method - see OpPOWER. 'Number between {1, 10}' compiles, so this node has a

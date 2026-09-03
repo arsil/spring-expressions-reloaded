@@ -100,11 +100,11 @@ namespace SpringExpressions
             // interpreter - which only ever sees the unwrapped value - could find no method at all.
             if (Nullable.GetUnderlyingType(contextExpression.Type) != null)
             {
-                var onTheValue = GetExpressionTreeIfPossible(
-                    LExpression.Property(contextExpression, "Value"), compilationContext);
-
                 return SpringExpressions.Util.NullableReceiver.GuardWithHasValue(
-                    contextExpression, onTheValue, methodName);
+                    contextExpression,
+                    receiver => GetExpressionTreeIfPossible(
+                        LExpression.Property(receiver, "Value"), compilationContext),
+                    methodName);
             }
 
 		    var instance = contextExpression;

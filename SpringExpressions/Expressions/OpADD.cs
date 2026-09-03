@@ -148,15 +148,6 @@ namespace SpringExpressions
             // one of exp is a string expression - we use Concat
             if (leftExpression.Type == typeof(string) || rightExpression.Type == typeof(string))
             {
-                // Both arguments of String.Concat(object, object) are object, so each operand is boxed
-                // on its own merits. Boxing only the right one made the operator asymmetric: 'Ana' + 45
-                // compiled because a string needs no boxing, while 45 + 'Ana' handed an unboxed int to
-                // an object parameter and LExpression.Call threw.
-                var concatenation = BuildCall(
-                    null,
-                    StrConcatObjObjMethodInfo,
-                    new[] { BoxIfValueType(leftExpression), BoxIfValueType(rightExpression) });
-
                 // '+' concatenates only when at least one operand is an actual string at run time;
                 // otherwise null propagates, as it does everywhere else in arithmetic.
                 //
@@ -173,15 +164,21 @@ namespace SpringExpressions
                 //
                 // Two deviations from C# come with it, both confined to nulls: '(string)null + 5' is
                 // "5" in C# and null here, and '(string)null + (string)null' is "" in C# and null here.
-                var anyRealString = AtLeastOneIsARealString(leftExpression, rightExpression);
+                // When the static types already guarantee a real string, no test is emitted and each
+                // operand is mentioned once - so nothing is hoisted and the tree is what it always was.
+                if (AtLeastOneIsARealString(leftExpression, rightExpression) == null)
+                    return Concatenate(leftExpression, rightExpression);
 
-                if (anyRealString == null)
-                    return concatenation;
-
-                return LExpression.Condition(
-                    anyRealString,
-                    concatenation,
-                    LExpression.Constant(null, typeof(string)));
+                // Otherwise the test and the concatenation both need the operands, and mentioning an
+                // operand twice evaluates it twice: 'Text() + Text()' read one of them three times.
+                // The block assigns each once, left before right.
+                return OperandLocals.UseOnce(
+                    leftExpression,
+                    rightExpression,
+                    (left, right) => LExpression.Condition(
+                        AtLeastOneIsARealString(left, right),
+                        Concatenate(left, right),
+                        LExpression.Constant(null, typeof(string))));
             }
             
                 // todo: error: wbudowane metody? - patrz date()
@@ -452,6 +449,24 @@ namespace SpringExpressions
                 + "' and '"
                 + rightValue?.GetType().FullName
                 + "'.");
+        }
+
+        /// <summary>
+        /// <c>String.Concat(left, right)</c>, with each operand boxed on its own merits.
+        /// </summary>
+        /// <remarks>
+        /// Both parameters of <c>String.Concat(object, object)</c> are <c>object</c>. Boxing only the
+        /// right one made the operator asymmetric: <c>'Ana' + 45</c> compiled, because a string needs no
+        /// boxing, while <c>45 + 'Ana'</c> handed an unboxed int to an <c>object</c> parameter and
+        /// <c>LExpression.Call</c> threw.
+        /// </remarks>
+        [NotNull]
+        private LExpression Concatenate([NotNull] LExpression left, [NotNull] LExpression right)
+        {
+            return BuildCall(
+                null,
+                StrConcatObjObjMethodInfo,
+                new[] { BoxIfValueType(left), BoxIfValueType(right) });
         }
 
         /// <summary>

@@ -280,11 +280,11 @@ namespace SpringExpressions
                 // consts, enums - working against the underlying type without any of them knowing.
                 if (Nullable.GetUnderlyingType(contextExpressionType) != null)
                 {
-                    var member = GetExpressionTreeIfPossible(
-                        LExpression.Property(contextExpression, "Value"), compilationContext);
-
                     return SpringExpressions.Util.NullableReceiver.GuardWithHasValue(
-                        contextExpression, member, name);
+                        contextExpression,
+                        receiver => GetExpressionTreeIfPossible(
+                            LExpression.Property(receiver, "Value"), compilationContext),
+                        name);
                 }
 
                 if (contextExpressionType == typeof(Type)

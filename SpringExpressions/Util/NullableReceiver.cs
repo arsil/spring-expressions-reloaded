@@ -4,6 +4,8 @@ using JetBrains.Annotations;
 
 using SpringCore;
 
+using SpringExpressions.Expressions.Compiling;
+
 using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions.Util
@@ -58,18 +60,32 @@ namespace SpringExpressions.Util
         /// <summary>
         /// <c>receiver.HasValue ? memberOfTheValue : Fail&lt;T&gt;(name)</c>.
         /// </summary>
+        /// <param name="buildMemberOfTheValue">
+        /// Builds the member access, given the receiver to read <c>Value</c> from. A builder rather than
+        /// a finished expression because the receiver is mentioned twice - once for <c>HasValue</c> and
+        /// once inside the member access - and mentioning an emitted operand twice evaluates it twice:
+        /// <c>Maybe().ToString()</c> called <c>Maybe()</c> two times compiled against one interpreted.
+        /// The receiver goes into a block variable and the builder is handed that.
+        /// </param>
         [NotNull]
         public static LExpression GuardWithHasValue(
             [NotNull] LExpression nullableReceiver,
-            [NotNull] LExpression memberOfTheValue,
+            [NotNull] Func<LExpression, LExpression> buildMemberOfTheValue,
             [NotNull] string memberName)
         {
-            return LExpression.Condition(
-                LExpression.Property(nullableReceiver, "HasValue"),
-                memberOfTheValue,
-                LExpression.Call(
-                    MiFail.MakeGenericMethod(memberOfTheValue.Type),
-                    LExpression.Constant(memberName)));
+            return OperandLocals.UseOnce(
+                nullableReceiver,
+                receiver =>
+                {
+                    var memberOfTheValue = buildMemberOfTheValue(receiver);
+
+                    return LExpression.Condition(
+                        LExpression.Property(receiver, "HasValue"),
+                        memberOfTheValue,
+                        LExpression.Call(
+                            MiFail.MakeGenericMethod(memberOfTheValue.Type),
+                            LExpression.Constant(memberName)));
+                });
         }
 
         private static readonly System.Reflection.MethodInfo MiFail

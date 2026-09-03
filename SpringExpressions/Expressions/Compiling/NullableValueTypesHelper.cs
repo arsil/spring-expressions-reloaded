@@ -64,8 +64,54 @@ namespace SpringExpressions.Expressions.Compiling
             if (!leftIsNullable && !rightIsNullable)
             {
                 resultExpression = bothSidesReturnsNotNullBinaryFunctionCreator(left, right);
+                return resultExpression != null;
             }
-            else if (leftIsNullable && !rightIsNullable)
+
+            // Every branch below mentions a nullable operand at least twice - once for HasValue and
+            // once for Value, and the both-nullable branch tests each of them twice - so each operand
+            // goes into a block variable first. Three things were wrong without it, and only a
+            // side-effecting operand could see any of them: 'Num() < Maybe()' evaluated Maybe() twice;
+            // the operands were evaluated right-before-left, because the conditional tests the nullable
+            // one and the other sits inside a branch; and 'Num() < Nothing()' never evaluated Num() at
+            // all, since the branch holding it is not taken when the right operand is empty. The
+            // interpreter reads left then right, once each, whatever the comparison then does.
+            return OperandLocals.TryUseOnce(
+                left,
+                right,
+                (hoistedLeft, hoistedRight) => CreateForHoistedOperands(
+                    hoistedLeft,
+                    hoistedRight,
+                    leftIsNullable ? leftNullableTypeInfo : null,
+                    rightIsNullable ? rightNullableTypeInfo : null,
+                    leftIsNothingResult,
+                    rightIsNothingResult,
+                    bothAreNothingResult,
+                    bothSidesReturnsNotNullBinaryFunctionCreator),
+                out resultExpression);
+        }
+
+        /// <summary>
+        /// The comparison over operands that are already single-use, so mentioning one twice costs
+        /// nothing. Null when the inner creator refused the unwrapped operands.
+        /// </summary>
+        [CanBeNull]
+        private static LExpression CreateForHoistedOperands(
+            [NotNull] LExpression left,
+            [NotNull] LExpression right,
+            [CanBeNull] NullableTypeInfo leftNullableTypeInfo,
+            [CanBeNull] NullableTypeInfo rightNullableTypeInfo,
+            [NotNull] LExpression leftIsNothingResult,
+            [NotNull] LExpression rightIsNothingResult,
+            [NotNull] LExpression bothAreNothingResult,
+            [NotNull] Func<LExpression, LExpression, LExpression>
+                bothSidesReturnsNotNullBinaryFunctionCreator)
+        {
+            var leftIsNullable = leftNullableTypeInfo != null;
+            var rightIsNullable = rightNullableTypeInfo != null;
+
+            LExpression resultExpression;
+
+            if (leftIsNullable && !rightIsNullable)
             {
                 var bothSidesNotNullExpression = bothSidesReturnsNotNullBinaryFunctionCreator(
                     LExpression.Property(left, leftNullableTypeInfo.Value), 
@@ -73,8 +119,7 @@ namespace SpringExpressions.Expressions.Compiling
 
                 if (bothSidesNotNullExpression == null)
                 {
-                    resultExpression = null;
-                    return false;
+                    return null;
                 }
 
                 // if (left.HasValue) creator() else false
@@ -93,8 +138,7 @@ namespace SpringExpressions.Expressions.Compiling
 
                 if (bothSidesNotNullExpression == null)
                 {
-                    resultExpression = null;
-                    return false;
+                    return null;
                 }
 
                 // if (right.HasValue) creator() else false
@@ -112,8 +156,7 @@ namespace SpringExpressions.Expressions.Compiling
 
                 if (bothSidesNotNullExpression == null)
                 {
-                    resultExpression = null;
-                    return false;
+                    return null;
                 }
 
                 resultExpression
@@ -138,9 +181,7 @@ namespace SpringExpressions.Expressions.Compiling
             }
 
 
-            // both are null
-
-            return resultExpression != null;
+            return resultExpression;
         }
 
         static NullableValueTypesHelper()
