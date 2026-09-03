@@ -109,10 +109,35 @@ namespace SpringExpressions.Processors
             return Comparer.Default;
         }
 
+        /// <remarks>
+        /// A type this engine already treats as a number sorts too, even without
+        /// <see cref="IComparable"/> - see <c>CompareUtils.RequiresConversionToOrder</c>, which is where
+        /// the rule lives so that the compiled sort asks the same question.
+        /// </remarks>
         private static IComparer CreateComparer(Type itemType)
-            => (IComparer)typeof(Comparer<>).MakeGenericType(itemType)
+        {
+            if (CompareUtils.RequiresConversionToOrder(itemType))
+                return ConvertingComparer.Instance;
+
+            return (IComparer)typeof(Comparer<>).MakeGenericType(itemType)
                 .GetProperty("Default", BindingFlags.Public | BindingFlags.Static)
                 .GetValue(null, null);
+        }
+
+        /// <summary>
+        /// Orders by what the items convert to, which is what <c>CompareUtils.Compare</c> does for the
+        /// same values - so <c>sort()</c>, <c>min()</c>, <c>max()</c> and <c>between</c> agree on one
+        /// notion of order for these types.
+        /// </summary>
+        private sealed class ConvertingComparer : IComparer
+        {
+            public static readonly ConvertingComparer Instance = new ConvertingComparer();
+
+            public int Compare(object x, object y)
+            {
+                return CompareUtils.Compare(x, y);
+            }
+        }
 
         private static readonly ConcurrentDictionary<Type, IComparer> Comparers
             = new ConcurrentDictionary<Type, IComparer>();

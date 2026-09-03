@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Reflection;
 
+using SpringUtil;
+
 namespace SpringExpressions.Expressions.GenericProcessors
 {
     internal class SortProcessor : IGenericProcessor
@@ -118,11 +120,24 @@ namespace SpringExpressions.Expressions.GenericProcessors
             return SortWithParam<T>(collection, true);
         }
 
+        /// <remarks>
+        /// The parameterless <c>List&lt;T&gt;.Sort()</c> is <c>Comparer&lt;T&gt;.Default</c>, which
+        /// throws for a type this engine treats as a number without its being
+        /// <see cref="IComparable"/> - a caller's own struct with an implicit conversion to a built-in
+        /// real. <c>CompareUtils.RequiresConversionToOrder</c> is the one place that question is asked;
+        /// the interpreter's <c>SortProcessor</c> asks it too, and answering it differently here is what
+        /// made <c>Ds.sort()</c> throw compiled while the interpreter answered. Every item type in the
+        /// dictionaries above is <see cref="IComparable"/>, so they never reach the test.
+        /// </remarks>
         private static List<T> SortWithParam<T>(IEnumerable<T> collection, bool sortAscending)
         {
             var result = new List<T>(collection);
 
-            result.Sort();
+            if (CompareUtils.RequiresConversionToOrder(typeof(T)))
+                result.Sort((a, b) => CompareUtils.Compare(a, b));
+            else
+                result.Sort();
+
             if (!sortAscending)
                 result.Reverse();
 

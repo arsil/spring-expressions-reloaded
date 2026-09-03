@@ -174,6 +174,52 @@ namespace SpringUtil
         }
 
 
+        /// <summary>
+        /// Whether ordering values of <paramref name="itemType"/> has to go through
+        /// <see cref="Compare(object, object)"/> because <c>Comparer&lt;T&gt;.Default</c> cannot do it.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// <b>One rule, asked by both sorting paths</b>, which is the point of it living here: the
+        /// interpreter's <c>SortProcessor</c> picks a non-generic <see cref="IComparer"/> and the
+        /// compiled one sorts a <c>List&lt;T&gt;</c>, so they build different comparers and would
+        /// otherwise each carry their own copy of the question.
+        /// </p>
+        /// <p>
+        /// It says true for a type this engine already treats as a number without its being
+        /// <see cref="IComparable"/> - a caller's own struct with an implicit conversion to decimal,
+        /// double or float. <c>min()</c>, <c>max()</c> and <c>between</c> have always ordered those,
+        /// since they go through <see cref="Compare(object, object)"/>, which normalizes through the
+        /// conversion; <c>sort()</c> did not, because <c>Comparer&lt;T&gt;.Default</c> has never heard
+        /// of it. Same type, same notion of order, two answers depending on which function was called.
+        /// </p>
+        /// <p>
+        /// <b><see cref="IComparable"/> is asked first, so nothing that sorts today is affected.</b>
+        /// Every item type that sorts implements it and answers false here by construction; this can
+        /// only turn true where the default comparer was going to throw. It has to be decided by asking
+        /// the type rather than by catching a failure - <c>Comparer&lt;T&gt;.Default</c> exists for any
+        /// <c>T</c> and only throws when <c>Compare</c> is called.
+        /// </p>
+        /// <p>
+        /// Relational operators are deliberately not consulted, by any of the four. Deriving an order
+        /// from <c>op_LessThan</c> plus <c>op_GreaterThan</c> would invoke an operator the expression
+        /// never wrote: a type with a working <c>&lt;</c> and a <c>&gt;</c> that throws answers
+        /// <c>a &lt; b</c> today and would begin throwing inside <c>min()</c>.
+        /// <see cref="IComparable"/> is how a type declares a total order, and it yields the <c>int</c>
+        /// an ordering needs.
+        /// </p>
+        /// </remarks>
+        internal static bool RequiresConversionToOrder(Type itemType)
+        {
+            if (typeof(IComparable).IsAssignableFrom(itemType)
+                || typeof(IComparable<>).MakeGenericType(itemType).IsAssignableFrom(itemType))
+            {
+                return false;
+            }
+
+            return TypeCheckingUtils.TryGetImplicitRealConversion(itemType, out _);
+        }
+
         private static int CompareSameTypes<T>(object first, object second)
         {
             return Comparer<T>.Default.Compare((T)first, (T)second);

@@ -290,7 +290,8 @@ namespace SpringExpressionsTests.Expressions
                     Set = new HashSet<int>(),
                     Sequence = new int[0].Select(x => x),
                     Huge = new List<int>(),
-                    Amounts = new List<decimal>()
+                    Amounts = new List<decimal>(),
+                    Reals = new List<float>()
                 }),
 
                 new NamedRoot("zeros and NaN", new CompilationNeverLeaksTests.Root

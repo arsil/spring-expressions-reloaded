@@ -1,6 +1,8 @@
 ﻿using NUnit.Framework;
 
+using System;
 using SpringExpressions;
+using SpringExpressions.Expressions.Compiling.Expressions;
 
 namespace SpringExpressionsTests.Expressions
 {
@@ -236,6 +238,78 @@ namespace SpringExpressionsTests.Expressions
             var max = TestCompiledVsInterpreted<CustomRealHolder, object>("Monies.max()", holder)
                 .Result;
             Assert.AreEqual(new MoneyLike(2.5m), max);
+        }
+
+        /// <summary>
+        /// <c>sort()</c> orders these too, which brings it into line with the three above.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// It used to throw <c>InvalidOperationException</c> out of <c>Comparer&lt;T&gt;.Default</c>,
+        /// which has never heard of an implicit conversion - while <c>min()</c>, <c>max()</c> and
+        /// <c>between</c> answered, because they go through <c>CompareUtils.Compare</c>, which
+        /// normalizes through it. The same type, the same notion of order, and two different answers
+        /// depending on which function was called.
+        /// </p>
+        /// <p>
+        /// <c>CompareUtils.RequiresConversionToOrder</c> is the one place that decides, asked by the
+        /// interpreter's comparer and by the compiled <c>SortWithParam&lt;T&gt;</c>. Answering it in
+        /// only one of them is what made <c>Monies.sort()</c> throw compiled while the interpreter
+        /// answered - a divergence introduced and then caught while building this.
+        /// </p>
+        /// <p>
+        /// <b><see cref="IComparable"/> is asked first, so no type that sorted before is affected.</b>
+        /// Relational operators are still not consulted by any of the four: deriving an order from
+        /// <c>op_LessThan</c> plus <c>op_GreaterThan</c> would call an operator the expression never
+        /// wrote.
+        /// </p>
+        /// </remarks>
+        [Test]
+        public void SortOrdersCustomDecimalsToo()
+        {
+            var holder = new CustomRealHolder();
+
+            var sorted = (System.Collections.IEnumerable)
+                TestCompiledVsInterpreted<CustomRealHolder, object>("Monies.sort()", holder).Result;
+
+            CollectionAssert.AreEqual(
+                new object[] { new MoneyLike(1.5m), new MoneyLike(2m), new MoneyLike(2.5m) },
+                sorted);
+
+            // reverse() and distinct() never needed an order and are unmoved
+            TestCompiledVsInterpreted<CustomRealHolder, object>("Monies.reverse()", holder);
+            TestCompiledVsInterpreted<CustomRealHolder, object>("Monies.distinct()", holder);
+            TestCompiledVsInterpreted<CustomRealHolder, object>("Monies.count()", holder)
+                .ResultEqualsTo(3);
+        }
+
+        /// <summary>
+        /// A comparer lambda that does not answer an <c>int</c> is the caller's mistake, and is reported
+        /// as one.
+        /// </summary>
+        /// <remarks>
+        /// <c>$a - $b</c> over these yields a <c>decimal</c>, so the emitted call hands a
+        /// <c>Func&lt;T,T,decimal&gt;</c> to a <c>Func&lt;T,T,int&gt;</c> parameter. The
+        /// <c>ArgumentException</c> out of <c>LExpression.Call</c> used to reach the absorber, which
+        /// reported the caller's own error as an internal compiler defect with "please report it"
+        /// attached - the one thing the compile-failure convention says an emitter must never do. It is
+        /// a plain refusal now, and the interpreter raises the real error at evaluation.
+        /// </remarks>
+        [Test]
+        public void AComparerLambdaThatDoesNotAnswerAnIntIsTheCallersMistake()
+        {
+            var holder = new CustomRealHolder();
+
+            var refusal = Assert.Catch<CompileErrorException>(
+                () => Expression.ParseGetter<CustomRealHolder, object>(
+                    "Monies.orderBy({|a,b| $a - $b})", EvaluationMode.MustCompile));
+
+            Assert.IsFalse(refusal.Message.Contains("internal compiler error"),
+                "the caller's mistake must not be reported as ours");
+
+            Assert.Catch<Exception>(
+                () => Expression.ParseGetter<CustomRealHolder, object>(
+                    "Monies.orderBy({|a,b| $a - $b})", EvaluationMode.MustInterpret).GetValue(holder));
         }
     }
 }

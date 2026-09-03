@@ -697,7 +697,13 @@ namespace SpringExpressions
                     processorArguments[0] =
                         GenericProcessorsFacade.LiftSourceIfNullableItemsWanted(mi, source, itemType);
 
-                    LExpression result = LExpression.Call(mi, processorArguments.ToArray());
+                    // Through BuildCall, so an argument the processor cannot accept is a refusal rather
+                    // than an absorbed defect. 'Ds.orderBy({|a,b| $a - $b})' over a type whose
+                    // subtraction yields a decimal hands Func<T,T,decimal> to a Func<T,T,int>
+                    // parameter, and LExpression.Call's ArgumentException was reaching the absorber -
+                    // so the caller's own mistake was reported as an internal compiler error with
+                    // "please report it" attached, which is the one thing an emitter must never do.
+                    LExpression result = BuildCall(null, mi, processorArguments);
 
                     if (nullSourceAnswer != null)
                     {

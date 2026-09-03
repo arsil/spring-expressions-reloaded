@@ -85,6 +85,12 @@ namespace SpringExpressionsTests.Expressions
             public List<int> Huge { get; set; } = new List<int> { int.MaxValue, 1 };
             public List<decimal> Amounts { get; set; } = new List<decimal> { 3m, 1m, 2m };
 
+            // Reals:   a float collection, because float is the one item type whose average() and
+            //          sum() do not widen into double, and the corpus had no example - which is why
+            //          'Floats.average()' answering Single compiled and Double interpreted was found
+            //          by hand rather than by this sweep.
+            public List<float> Reals { get; set; } = new List<float> { 3f, 1f, 2f };
+
             public string Text(string s) { return s; }
             public int Count(IEnumerable e) { return 1; }
             public void Nothing() { }
@@ -281,7 +287,7 @@ namespace SpringExpressionsTests.Expressions
             var sources = new[]
             {
                 "Ints", "Names", "Array", "Old", "OldMap", "Map", "{1,2}", "Name",
-                "Set", "Sequence", "Huge", "Amounts"
+                "Set", "Sequence", "Huge", "Amounts", "Reals"
             };
             var processors = new[]
             {

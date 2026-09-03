@@ -48,6 +48,23 @@ namespace SpringExpressionsTests.Expressions
             public List<byte> Bytes { get; set; } = new List<byte> { 200, 200 };
             public List<short> Shorts { get; set; } = new List<short> { 30000, 30000 };
             public List<int?> NullableInts { get; set; } = new List<int?> { 3, null, 2 };
+            public List<float?> NullableFloats { get; set; } = new List<float?> { 3, null, 2 };
+            public List<float> Thirds { get; set; } = new List<float> { 1, 2, 4 };
+
+            /// <summary>
+            /// The two sets that catch a float accumulation. <c>Tenths</c> is ordinary data;
+            /// <c>PastTheLimit</c> starts above float's exactly-representable integer range, 2^24, so
+            /// each following <c>1f</c> is lost if the running total is a float.
+            /// </summary>
+            public List<float> Tenths { get; set; } =
+                new List<float> { .1f, .1f, .1f, .1f, .1f, .1f, .1f, .1f, .1f, .1f };
+
+            public List<float> PastTheLimit { get; set; } =
+                new List<float> { 1e8f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f };
+
+            /// <summary>Below 2^24, so nothing is lost either way - it catches nothing.</summary>
+            public List<float> BelowTheLimit { get; set; } =
+                new List<float> { 1e7f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f };
             public int[] Array { get; set; } = { 3, 1, 2 };
             public HashSet<int> Set { get; set; } = new HashSet<int> { 3, 1, 2 };
             public IEnumerable<int> Sequence { get; set; } = new[] { 3, 1, 2 }.Select(x => x);
@@ -81,8 +98,11 @@ namespace SpringExpressionsTests.Expressions
 
         static void Both<TExpected>(string expression, TExpected expected)
         {
-            var root = new Root();
+            Both(expression, expected, new Root());
+        }
 
+        static void Both<TExpected>(string expression, TExpected expected, Root root)
+        {
             var compiled = CompileGetter<Root, object>(expression).GetValue(root);
             Assert.AreEqual(typeof(TExpected), compiled.GetType(), "compiled type: " + expression);
             Assert.AreEqual(expected, compiled, "compiled value: " + expression);
@@ -264,9 +284,9 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// <c>average()</c> was deliberately not touched. It divides, so it must accumulate in a real
-        /// type - <c>Enumerable.Average(IEnumerable&lt;int&gt;)</c> answers a <c>double</c> too, and
-        /// giving it <c>sum()</c>'s seed would have made an int collection average to <c>Int32</c> and
+        /// <c>average()</c> did not take <c>sum()</c>'s seed. It divides, so it must accumulate in a
+        /// real type - <c>Enumerable.Average(IEnumerable&lt;int&gt;)</c> answers a <c>double</c> too, and
+        /// giving an int collection <c>sum()</c>'s seed would have averaged it to <c>Int32</c> and
         /// created a divergence rather than closing one.
         /// </summary>
         [Test]
@@ -275,6 +295,119 @@ namespace SpringExpressionsTests.Expressions
             Both<double>("Ints.average()", 2d);
             Both<double>("Bytes.average()", 200d);
             Both<double>("IntAndDouble.average()", 1.75d);
+            Both<double>("Longs.average()", 2d);
+            Both<decimal>("Decimals.average()", 2m);
+        }
+
+        /// <summary>
+        /// <c>float</c> is the one family <c>average()</c> did have to learn: it answers a
+        /// <c>Single</c>, matching <c>Enumerable.Average(IEnumerable&lt;float&gt;)</c> and matching what
+        /// <c>Floats.sum()</c> has answered on both backends since <c>sum()</c> became a fold of
+        /// <c>+</c>.
+        /// </summary>
+        /// <remarks>
+        /// The interpreter seeded <c>0d</c> for everything but decimals, so a float collection averaged
+        /// to a <c>Double</c> while the compiled path answered a <c>Single</c> - and the engine
+        /// disagreed with itself, since summing the same collection gave a <c>Single</c> either way.
+        /// <p>
+        /// <b>The accumulation is still in <c>double</c>; only the quotient narrows.</b> That is not a
+        /// detail: <c>Enumerable.Average(IEnumerable&lt;float&gt;)</c> sums in double, so accumulating
+        /// in float instead diverges from it - see
+        /// <see cref="AFloatAccumulationWouldDivergeAndTheseAreTheSetsThatShowIt"/>, which is the pair
+        /// that caught exactly that being written here.
+        /// </p>
+        /// </remarks>
+        [Test]
+        public void AverageOverFloatsAnswersAFloat()
+        {
+            Both<float>("Floats.average()", 2f);
+            Both<float>("NullableFloats.average()", 2.5f);
+            Both<float>("Thirds.average()", 7f / 3f);
+
+            // the engine's own precedent, asserted beside it
+            Both<float>("Floats.sum()", 6f);
+            Both<float>("NullableFloats.sum()", 5f);
+
+            // and C#'s answer for the same collection
+            Assert.AreEqual(new[] { 1f, 2f, 4f }.Average(), 7f / 3f);
+            Assert.AreEqual(typeof(float), new[] { 1f, 2f, 4f }.Average().GetType());
+        }
+
+        /// <summary>
+        /// The two sets that tell a double accumulation from a float one, and the one that does not.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// <b>Do not "simplify" the aggregator by seeding <c>0f</c> for the float family.</b> It reads
+        /// as the obvious way to make a float collection answer a float, it was written that way first,
+        /// and it is wrong: <c>Enumerable.Average(IEnumerable&lt;float&gt;)</c> sums in <c>double</c>
+        /// and narrows only the quotient, so a float accumulation loses addends the compiled path keeps.
+        /// Measured with the seed in place:
+        /// </p>
+        /// <code>
+        /// {0.1f x 10}      compiled Single:0.1        interpreted Single:0.10000001
+        /// {1e8f, 1f x 9}   compiled Single:10000001   interpreted Single:10000000
+        /// </code>
+        /// <p>
+        /// <c>BelowTheLimit</c> is here as the counter-example: <c>1e7</c> is under float's
+        /// exactly-representable integer range (2^24 = 16,777,216), so no addend is lost either way and
+        /// both routes agree. It was the only set the first measurement used, which is why the seed
+        /// looked safe.
+        /// </p>
+        /// </remarks>
+        [Test]
+        public void AFloatAccumulationWouldDivergeAndTheseAreTheSetsThatShowIt()
+        {
+            Both<float>("Tenths.average()", 0.1f);
+            Both<float>("PastTheLimit.average()", 10000001f);
+            Both<float>("BelowTheLimit.average()", 1000000.9f);
+
+            // each matches Enumerable.Average, which is the reference
+            var root = new Root();
+            Assert.AreEqual(root.Tenths.Average(), 0.1f);
+            Assert.AreEqual(root.PastTheLimit.Average(), 10000001f);
+            Assert.AreEqual(root.BelowTheLimit.Average(), 1000000.9f);
+
+            // the fact that makes the first two sets discriminating and the third not
+            Assert.IsTrue(1e8f + 1f == 1e8f, "1e8 is above float's exact-integer range");
+            Assert.IsFalse(1e7f + 1f == 1e7f, "1e7 is below it, so it catches nothing");
+        }
+
+        /// <summary>
+        /// The family is read from the item's <b>value</b>, not from the collection's declared item
+        /// type, so an untyped collection of floats averages to a <c>Single</c> as well.
+        /// </summary>
+        /// <remarks>
+        /// That is how the decimal family has always worked here, and it is asserted beside the float
+        /// rows so the two read as one rule rather than two.
+        /// <p>
+        /// <b>Every item has to be a float, not just the first.</b> A float meeting anything wider is
+        /// that wider type - <c>1f + 2.0</c> is a <c>double</c> - so a collection holding both averages
+        /// to a double, which is what the promotion rules say and what <c>sum()</c> answers for the same
+        /// items. Deciding from the first item alone narrowed <c>{1f, 2.0}</c> to a float, and a failing
+        /// assertion here is what caught it.
+        /// </p>
+        /// </remarks>
+        [Test]
+        public void TheFamilyComesFromTheItemsValueNotTheDeclaredItemType()
+        {
+            var floats = new Root { IntAndLong = new List<object> { 1f, 2f, 4f } };
+            Both<float>("IntAndLong.average()", 7f / 3f, floats);
+
+            var decimals = new Root { IntAndLong = new List<object> { 1m, 2m, 4m } };
+            Both<decimal>("IntAndLong.average()", 7m / 3m, decimals);
+
+            // a float meeting a double is a double, so the collection averages to one
+            var floatThenDouble = new Root { IntAndLong = new List<object> { 1f, 2.0 } };
+            Both<double>("IntAndLong.average()", 1.5d, floatThenDouble);
+
+            // and in the other order, so it is not "the first item decides"
+            var doubleThenFloat = new Root { IntAndLong = new List<object> { 2.0, 1f } };
+            Both<double>("IntAndLong.average()", 1.5d, doubleThenFloat);
+
+            // a float meeting an int is still a float, as '1f + 2' is
+            var floatAndInt = new Root { IntAndLong = new List<object> { 1f, 2 } };
+            Both<double>("IntAndLong.average()", 1.5d, floatAndInt);
         }
 
         /// <summary>
