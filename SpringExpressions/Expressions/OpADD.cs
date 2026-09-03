@@ -73,34 +73,47 @@ namespace SpringExpressions
 
             if (leftExpression.Type == typeof(DateTime) && rightExpression.Type == typeof(string))
             {
-                // (DateTime) left + TimeSpan.Parse(right);
-                var added = LExpression.Call(
-                    DateTimeMethods.DateTimeAddTimeSpanMethodInfo,
-                    leftExpression,
-                    LExpression.Call(
-                        TimeSpanMethods.TimeSpanParseMethodInfo,
-                        rightExpression));
-
                 // A null span propagates rather than reaching TimeSpan.Parse, which answers a null with
                 // ArgumentNullException. The interpreter has no such branch for a null - it is not a
                 // string, so the pair falls to the propagation rule above and answers null - and this
                 // is the same rule seen from the compiled side. The result becomes DateTime? to carry
                 // it, which boxes to a DateTime or to nothing and so is invisible at an object root.
-                return LExpression.Condition(
-                    LExpression.Equal(rightExpression, LExpression.Constant(null, typeof(string))),
-                    LExpression.Constant(null, typeof(DateTime?)),
-                    LExpression.Convert(added, typeof(DateTime?)));
+                return AddDateTimeAndSpanIfPresent(
+                    leftExpression,
+                    rightExpression,
+                    span => LExpression.Equal(span, LExpression.Constant(null, typeof(string))),
+                    span => LExpression.Call(TimeSpanMethods.TimeSpanParseMethodInfo, span));
             }
 
-            if (leftExpression.Type == typeof(DateTime) && ExpressionTypeHelper.IsNumericExpression(rightExpression))
+            if (leftExpression.Type == typeof(DateTime)
+                && ExpressionTypeHelper.IsNumericOrNullableNumericExpression(
+                    rightExpression, out var daysAreNullable, out _))
             {
-                // (DateTime) left + TimeSpan.FromDays(Convert.ToDouble(right));
-                return LExpression.Call(
-                    DateTimeMethods.DateTimeAddTimeSpanMethodInfo,
+                if (!daysAreNullable)
+                {
+                    // (DateTime) left + TimeSpan.FromDays(Convert.ToDouble(right));
+                    return LExpression.Call(
+                        DateTimeMethods.DateTimeAddTimeSpanMethodInfo,
+                        leftExpression,
+                        LExpression.Call(
+                            TimeSpanMethods.TimeSpanFromDaysMethodInfo,
+                            LExpression.Convert(rightExpression, typeof(double))));
+                }
+
+                // 'When + NullableNumber' had no compiled form at all, because the guard above asked
+                // IsNumericExpression, which an 'int?' fails. Nothing else was missing: a nothing added
+                // to a date is nothing, which is the standing rule for every arithmetic operator, and
+                // the string branch a few lines up already produces a DateTime? for exactly that
+                // reason. The interpreter answered all along - it sees an unwrapped value or a bare
+                // null - so no answer changes here; the shape simply compiles now.
+                return AddDateTimeAndSpanIfPresent(
                     leftExpression,
-                    LExpression.Call(
+                    rightExpression,
+                    days => LExpression.Not(LExpression.Property(days, "HasValue")),
+                    days => LExpression.Call(
                         TimeSpanMethods.TimeSpanFromDaysMethodInfo,
-                        LExpression.Convert(rightExpression, typeof(double))));
+                        LExpression.Convert(
+                            LExpression.Property(days, "Value"), typeof(double))));
             }
 
             // There is deliberately no DateTime + DateTime branch. The BCL has no such operation -
@@ -245,6 +258,52 @@ namespace SpringExpressions
             }
 
             throw CannotCompile("no compiled addition for these operand types");
+        }
+
+        /// <summary>
+        /// Adds a span to a date where the span's source carries one, answering a
+        /// <c>DateTime?</c> holding nothing where it does not.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// Two operand shapes share this: a <c>string</c> to be parsed as a TimeSpan, and a nullable
+        /// number of days. Both have to answer "nothing" for an absent operand, and neither can do it
+        /// with a plain <c>DateTime</c>, so both results are <c>DateTime?</c> - which boxes to a
+        /// <c>DateTime</c> or to the null reference and is therefore invisible to a caller.
+        /// </p>
+        /// <p>
+        /// <b>Both operands go into locals first, and that is the point of the method.</b> Written as a
+        /// bare conditional over the operand expressions - which is what the string branch did - the
+        /// right operand is emitted twice and evaluated twice, so <c>When + Span()</c> called
+        /// <c>Span()</c> two times compiled against one interpreted; and the left operand, appearing
+        /// only inside the true branch, was not evaluated at all when the right turned out to be
+        /// absent. Measured both ways. That is the same defect <c>OpAND</c> and <c>OpOR</c> had, where
+        /// <c>0 or SideEffect()</c> ran the side effect twice, and only a side-effecting operand can
+        /// see it. The block assigns left then right, once each, in the order
+        /// <see cref="Get"/> evaluates them.
+        /// </p>
+        /// </remarks>
+        [NotNull]
+        private static LExpression AddDateTimeAndSpanIfPresent(
+            [NotNull] LExpression dateExpression,
+            [NotNull] LExpression spanSourceExpression,
+            [NotNull] Func<LExpression, LExpression> isAbsent,
+            [NotNull] Func<LExpression, LExpression> toTimeSpan)
+        {
+            var date = LExpression.Variable(dateExpression.Type, "date");
+            var spanSource = LExpression.Variable(spanSourceExpression.Type, "spanSource");
+
+            var added = LExpression.Call(
+                DateTimeMethods.DateTimeAddTimeSpanMethodInfo, date, toTimeSpan(spanSource));
+
+            return LExpression.Block(
+                new[] { date, spanSource },
+                LExpression.Assign(date, dateExpression),
+                LExpression.Assign(spanSource, spanSourceExpression),
+                LExpression.Condition(
+                    isAbsent(spanSource),
+                    LExpression.Constant(null, typeof(DateTime?)),
+                    LExpression.Convert(added, typeof(DateTime?))));
         }
 
         /// <summary>
