@@ -292,7 +292,13 @@ namespace SpringExpressionsTests.Expressions
             var processors = new[]
             {
                 "sort()", "distinct()", "reverse()", "nonNull()", "sum()",
-                "average()", "min()", "max()", "count()", "convert(decimal)"
+                "average()", "min()", "max()", "count()", "convert(decimal)",
+
+                // orderBy was in neither sweep at all, which is how an absorbed compiler defect in it
+                // survived: a comparer lambda whose subtraction does not yield an int handed a
+                // Func<T,T,decimal> to a Func<T,T,int> parameter, and the ledger that exists to catch
+                // exactly that never saw the expression.
+                "orderBy({|a,b| $a - $b})"
             };
 
             foreach (var source in sources)

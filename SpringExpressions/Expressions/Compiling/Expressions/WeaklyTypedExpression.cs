@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 
 namespace SpringExpressions.Expressions.Compiling.Expressions
 {
@@ -177,10 +176,18 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         /// happened once. Measured, with the observer inside a <c>GetOrAdd</c> factory and eight threads
         /// released together onto two declared types: eight notifications rather than two, on every run.
         /// <p>
-        /// A throwing observer is swallowed: it runs during somebody else's <c>GetValue</c>, and a broken
-        /// logger must not surface as a failure in unrelated code. It is traced rather than dropped,
-        /// because silent-forever is the real cost of swallowing. Swallowing here is also what keeps a
-        /// broken observer from reaching the dictionary at all, whatever shape the lookup takes.
+        /// A throwing observer is swallowed, and swallowed silently: it runs during somebody else's
+        /// <c>GetValue</c>, and a broken logger must not surface as a failure in unrelated code.
+        /// Swallowing here is also what keeps a broken observer from reaching the dictionary at all,
+        /// whatever shape the lookup takes.
+        /// </p>
+        /// <p>
+        /// It used to be <c>Trace.WriteLine</c>'d on the reasoning that silent-forever is the cost of
+        /// swallowing. <b>Ruled out (2026-09-03): no <c>Trace</c> in this library.</b> Trace output
+        /// serves someone attached to a debugger and nobody else, so it buys a consumer nothing they
+        /// can act on - and for the one case it was really wanted, an absorbed compiler defect,
+        /// <c>CompilationNeverLeaksTests</c>' empty defect ledger already fails the build instead.
+        /// This was the only <c>Trace</c> call in the engine.
         /// </p>
         /// </remarks>
         private void Notify(
@@ -194,10 +201,9 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
             {
                 observer(new EvaluationDecision(contextType, valueType, operation, status));
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                Trace.WriteLine(
-                    "An expression evaluation-decision observer threw and was ignored: " + e);
+                // the observer's own failure is not this caller's problem - see the remarks
             }
         }
 
