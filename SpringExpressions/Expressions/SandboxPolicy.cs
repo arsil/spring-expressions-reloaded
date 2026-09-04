@@ -218,7 +218,7 @@ namespace SpringExpressions
         /// The exception names the part that was actually denied rather than the composite that
         /// contained it, so <c>T(List&lt;Process&gt;)</c> reports <c>Process</c>.
         /// </remarks>
-        internal void DemandTypeIsPermitted([NotNull] Type type)
+        internal void RequirePermittedType([NotNull] Type type)
         {
             AssertUtils.ArgumentNotNull(type, "type");
 
@@ -278,7 +278,7 @@ namespace SpringExpressions
         /// only, and <c>Assembly</c> is not among them.
         /// </p>
         /// </remarks>
-        internal void DemandMemberIsPermitted([NotNull] Type receiverType, [NotNull] string memberName)
+        internal void RequirePermittedMember([NotNull] Type receiverType, [NotNull] string memberName)
         {
             AssertUtils.ArgumentNotNull(receiverType, "receiverType");
 

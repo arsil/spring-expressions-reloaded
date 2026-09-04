@@ -173,9 +173,17 @@ namespace SpringExpressions
         /// if specified <paramref name="memberName"/> cannot be resolved.
         /// </returns>
         /// <param name="sandboxPolicy">
-        /// Checked before anything is resolved. Five call sites reach this - two interpreted, three
-        /// emitted - which is why the property and field half of the member gate is one line here
-        /// rather than one per backend.
+        /// Checked once a member has actually been found, never before the lookup. Five call sites
+        /// reach this - two interpreted, three emitted - which is why the property and field half of
+        /// the member gate is one place rather than one per backend.
+        /// <p>
+        /// <b>After, not before</b>, for the reason <c>MethodNode</c> gates after resolution too:
+        /// every caller here probes the context type and then falls back - to <c>System.Type</c>, or
+        /// to reading the name as a type name entirely. Gating the probe would turn "not on this type,
+        /// try the next thing" into a denial, so <c>FooType.FullName</c> would be refused against the
+        /// enum rather than resolved against <see cref="Type"/>. A lookup that finds nothing is not a
+        /// member access and there is nothing to permit or deny about it.
+        /// </p>
         /// </param>
         private static IValueAccessor GetPropertyOrFieldAccessor(
             Type contextType,
@@ -183,8 +191,18 @@ namespace SpringExpressions
             BindingFlags bindingFlags,
             [NotNull] SandboxPolicy sandboxPolicy)
         {
-            sandboxPolicy.DemandMemberIsPermitted(contextType, memberName);
+            var accessor = FindPropertyOrFieldAccessor(contextType, memberName, bindingFlags);
 
+            if (accessor != null)
+                sandboxPolicy.RequirePermittedMember(contextType, memberName);
+
+            return accessor;
+        }
+
+        [CanBeNull]
+        private static IValueAccessor FindPropertyOrFieldAccessor(
+            Type contextType, string memberName, BindingFlags bindingFlags)
+        {
                   // todo: error; getProperty does not work for interfaces------------------------------------------------------------------------------------------
             try
             {

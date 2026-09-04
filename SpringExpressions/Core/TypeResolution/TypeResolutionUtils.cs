@@ -145,7 +145,7 @@ namespace SpringCore.TypeResolution
 
             var resolved = internalTypeResolver.Resolve(typeName);
 
-            sandboxPolicy.DemandTypeIsPermitted(resolved);
+            sandboxPolicy.RequirePermittedType(resolved);
 
             return resolved;
         }

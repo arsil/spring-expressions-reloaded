@@ -173,7 +173,7 @@ namespace SpringExpressions
 					// Gating each probe eagerly would turn "not on this type, try System.Type" into a
 					// denial, so T(int).GetMethods() would be refused for Int32 rather than judged
 					// against System.Type, where GetMethods is really declared.
-					compilationContext.SandboxPolicy.DemandMemberIsPermitted(
+					compilationContext.SandboxPolicy.RequirePermittedMember(
 						contextExpressionType, methodName);
 
 					methodInfo = innerResolved.Item1;
@@ -195,7 +195,7 @@ namespace SpringExpressions
 
 			    if (resolved != null)
 			    {
-				    compilationContext.SandboxPolicy.DemandMemberIsPermitted(
+				    compilationContext.SandboxPolicy.RequirePermittedMember(
 					    contextExpressionType, methodName);
 
 				    methodInfo = resolved.Item1;
@@ -271,7 +271,7 @@ namespace SpringExpressions
         {
             // No sandbox check here on purpose. This resolves accessors for IndexerNode as well as
             // methods for MethodNode, and indexing is gated as a language operation rather than as a
-            // member (SandboxPolicy.DemandTypeIsReachable). The member gate belongs to the node that
+            // member (SandboxPolicy.RequirePermittedType). The member gate belongs to the node that
             // knows which question it is asking, and it runs on the type the method was actually
             // found on rather than on the first type probed.
             var candidates = GetCompiledCandidateMethods(contextType, methodName, argumentTypes.Length);
@@ -909,7 +909,7 @@ namespace SpringExpressions
             // on. Gating before the probe would turn "not here, try System.Type" into a denial.
             if (mi != null)
             {
-                sandboxPolicy.DemandMemberIsPermitted(contextType, methodName);
+                sandboxPolicy.RequirePermittedMember(contextType, methodName);
             }
             else
             {
@@ -917,7 +917,7 @@ namespace SpringExpressions
                 mi = GetBestMethod(typeof(Type), methodName, BINDING_FLAGS, argValues);
 
                 if (mi != null)
-                    sandboxPolicy.DemandMemberIsPermitted(typeof(Type), methodName);
+                    sandboxPolicy.RequirePermittedMember(typeof(Type), methodName);
             }
 
             if (mi == null)
