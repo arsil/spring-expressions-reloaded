@@ -101,7 +101,7 @@ namespace SpringExpressions
             Type objectType;
             try
             {
-                objectType = GetObjectType(getText().Trim());
+                objectType = GetObjectType(getText().Trim(), compilationContext.SandboxPolicy);
             }
             catch (TypeLoadException)
             {
@@ -278,7 +278,8 @@ namespace SpringExpressions
                 {
                     if (constructor == null)
                     {
-                        constructor = InitializeNode(argValues, namedArgValues);
+                        constructor = InitializeNode(
+                            argValues, namedArgValues, evalContext.SandboxPolicy);
                     }
                 }
             }
@@ -312,9 +313,9 @@ namespace SpringExpressions
         /// <exception cref="TypeLoadException">
         /// If the type cannot be resolved.
         /// </exception>
-        protected virtual Type GetObjectType(string typeName)
+        protected virtual Type GetObjectType(string typeName, [NotNull] SandboxPolicy sandboxPolicy)
         {
-            return TypeResolutionUtils.ResolveType(typeName);
+            return TypeResolutionUtils.ResolveTypeForExpression(typeName, sandboxPolicy);
         }
 
         /// <summary>
@@ -322,10 +323,11 @@ namespace SpringExpressions
         /// </summary>
         /// <param name="argValues"></param>
         /// <param name="namedArgValues"></param>
-        private SafeConstructor InitializeNode(object[] argValues, IDictionary namedArgValues)
+        private SafeConstructor InitializeNode(
+            object[] argValues, IDictionary namedArgValues, [NotNull] SandboxPolicy sandboxPolicy)
         {
             SafeConstructor ctor = null;
-            Type objectType = GetObjectType(this.getText().Trim());
+            Type objectType = GetObjectType(this.getText().Trim(), sandboxPolicy);
                 
             // cache constructor info
             ConstructorInfo ci = GetBestConstructor(objectType, argValues);

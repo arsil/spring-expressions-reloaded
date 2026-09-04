@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 
+using JetBrains.Annotations;
+
 using static SpringExpressions.BaseNode;
 
 namespace SpringExpressions.Expressions.Compiling.Expressions
@@ -10,15 +12,16 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         /// <summary>Compilation happens here, once, or not at all - see BaseGetterExpression.</summary>
         protected BaseSetterExpression(
                 BaseNode expressionNode,
-                EvaluationMode mode)
-            : base(expressionNode, mode)
+                EvaluationMode mode,
+                [NotNull] SandboxPolicy sandboxPolicy)
+            : base(expressionNode, mode, sandboxPolicy)
         {
             if (mode == EvaluationMode.MustInterpret)
                 return;
 
             try
             {
-                _compiledExpression = Compiler.CompileSetter<TRoot, TArgument>(_expressionNode);
+                _compiledExpression = Compiler.CompileSetter<TRoot, TArgument>(_expressionNode, sandboxPolicy);
             }
             catch (CompileErrorException ex) when (mode == EvaluationMode.CompileOrInterpret)
             {
@@ -44,7 +47,7 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
             {
                 // A context of its own per evaluation - the interpreter mutates it.
                 _expressionNode.SetValueUsingInterpreter(
-                    context, new EvaluationContext(context, variables), newValue);
+                    context, new EvaluationContext(context, variables, _sandboxPolicy), newValue);
                 return;
             }
 
@@ -61,8 +64,9 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         : BaseSetterExpression<TRoot, TArgument>
         , ISetterExpression<TRoot, TArgument>
     {
-        public SetterExpression(BaseNode expressionNode, EvaluationMode mode)
-            : base(expressionNode, mode)
+        public SetterExpression(
+            BaseNode expressionNode, EvaluationMode mode, [NotNull] SandboxPolicy sandboxPolicy)
+            : base(expressionNode, mode, sandboxPolicy)
         { }
 
         public void SetValue(TRoot context, TArgument newValue, IDictionary<string, object> variables = null)
@@ -73,8 +77,9 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         : BaseSetterExpression<object, TArgument>
             , ISetterExpression<TArgument>
     {
-        public SetterExpression(BaseNode expressionNode, EvaluationMode mode)
-            : base(expressionNode, mode)
+        public SetterExpression(
+            BaseNode expressionNode, EvaluationMode mode, [NotNull] SandboxPolicy sandboxPolicy)
+            : base(expressionNode, mode, sandboxPolicy)
         { }
 
         public void SetValue(TArgument newValue, IDictionary<string, object> variables = null)

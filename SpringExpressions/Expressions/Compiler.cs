@@ -189,11 +189,11 @@ namespace SpringExpressions.Expressions
         /// for the sweep that measured how much used to escape.
         /// </remarks>
         public static Func<TContext, IDictionary<string, object>, TResult> CompileGetter<TResult, TContext>(
-            BaseNode expressionNode)
+            BaseNode expressionNode, [NotNull] SandboxPolicy sandboxPolicy)
         {
             try
             {
-                return CompileGetterCore<TResult, TContext>(expressionNode);
+                return CompileGetterCore<TResult, TContext>(expressionNode, sandboxPolicy);
             }
             catch (Exception e) when (InternalCompilerErrorException.ShouldAbsorb(e))
             {
@@ -202,7 +202,7 @@ namespace SpringExpressions.Expressions
         }
 
         private static Func<TContext, IDictionary<string, object>, TResult> CompileGetterCore<TResult, TContext>(
-            BaseNode expressionNode)
+            BaseNode expressionNode, [NotNull] SandboxPolicy sandboxPolicy)
         {
             var ctxParam = LExpression.Parameter(typeof(TContext), "context");
             var variablesParam = LExpression.Parameter(typeof(IDictionary<string, object>), "variables");
@@ -221,7 +221,8 @@ namespace SpringExpressions.Expressions
             // untyped EvaluationContext.RootContext; the only thing it did need was the variables
             // dictionary, which is now the second parameter. Nothing per-evaluation is cached on the
             // expression instance, which is what makes a compiled expression safe to share.
-            var compilationContext = new CompilationContext(getRootContextExpression, variablesParam);
+            var compilationContext =
+                new CompilationContext(getRootContextExpression, variablesParam, sandboxPolicy);
 
             var exp = GetExpressionTreeIfPossible(
                 expressionNode,
@@ -334,11 +335,11 @@ namespace SpringExpressions.Expressions
 
         /// <summary>Compiles a setter, or refuses - see <see cref="CompileGetter{TResult,TContext}"/>.</summary>
         public static Action<TContext, IDictionary<string, object>, TArgument> CompileSetter<TContext, TArgument>(
-            BaseNode expressionNode)
+            BaseNode expressionNode, [NotNull] SandboxPolicy sandboxPolicy)
         {
             try
             {
-                return CompileSetterCore<TContext, TArgument>(expressionNode);
+                return CompileSetterCore<TContext, TArgument>(expressionNode, sandboxPolicy);
             }
             catch (Exception e) when (InternalCompilerErrorException.ShouldAbsorb(e))
             {
@@ -347,7 +348,7 @@ namespace SpringExpressions.Expressions
         }
 
         private static Action<TContext, IDictionary<string, object>, TArgument> CompileSetterCore<TContext, TArgument>(
-            BaseNode expressionNode)
+            BaseNode expressionNode, [NotNull] SandboxPolicy sandboxPolicy)
         {
             var ctxParam = LExpression.Parameter(typeof(TContext), "context");
             var newValueParam = LExpression.Parameter(typeof(TArgument), "newValue");
@@ -363,7 +364,8 @@ namespace SpringExpressions.Expressions
 
             getRootContextExpression = ctxParam;
 
-            var compilationContext = new CompilationContext(getRootContextExpression, variablesParam);
+            var compilationContext =
+                new CompilationContext(getRootContextExpression, variablesParam, sandboxPolicy);
 
             var exp = GetExpressionTreeForSetterIfPossible(
                 expressionNode,
@@ -392,11 +394,11 @@ namespace SpringExpressions.Expressions
 
         /// <summary>Compiles a void expression, or refuses - see <see cref="CompileGetter{TResult,TContext}"/>.</summary>
         public static Action<TContext, IDictionary<string, object>> CompileExecuteWithVoidReturnType<TContext>(
-            BaseNode expressionNode)
+            BaseNode expressionNode, [NotNull] SandboxPolicy sandboxPolicy)
         {
             try
             {
-                return CompileExecuteWithVoidReturnTypeCore<TContext>(expressionNode);
+                return CompileExecuteWithVoidReturnTypeCore<TContext>(expressionNode, sandboxPolicy);
             }
             catch (Exception e) when (InternalCompilerErrorException.ShouldAbsorb(e))
             {
@@ -405,7 +407,7 @@ namespace SpringExpressions.Expressions
         }
 
         private static Action<TContext, IDictionary<string, object>> CompileExecuteWithVoidReturnTypeCore<TContext>(
-            BaseNode expressionNode)
+            BaseNode expressionNode, [NotNull] SandboxPolicy sandboxPolicy)
         {
             var ctxParam = LExpression.Parameter(typeof(TContext), "context");
             var variablesParam = LExpression.Parameter(typeof(IDictionary<string, object>), "variables");
@@ -419,7 +421,8 @@ namespace SpringExpressions.Expressions
 
             getRootContextExpression = ctxParam;
 
-            var compilationContext = new CompilationContext(getRootContextExpression, variablesParam);
+            var compilationContext =
+                new CompilationContext(getRootContextExpression, variablesParam, sandboxPolicy);
 
             var exp = GetExpressionTreeIfPossible(
                 expressionNode,

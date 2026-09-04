@@ -451,22 +451,10 @@ namespace SpringExpressions
             
         }
 
-        /// <summary>
-        /// Utility method that is needed by ObjectWrapper and AbstractAutowireCapableObjectFactory.
-        /// </summary>
-        /// <param name="context">Context to resolve property against.</param>
-        /// <param name="variables">Expression variables map.</param>
-        /// <returns>PropertyInfo for this node.</returns>
-        internal PropertyInfo GetPropertyInfo(object context, IDictionary<string, object> variables)
-        {
-            lock (this)
-            {
-                EvaluationContext evalContext = new EvaluationContext(context, variables);
-                InitializeIndexerProperty(context, evalContext);
-
-                return indexer.PropertyInfo;
-            }
-        }
+        // Deleted 2026-09-04: internal PropertyInfo GetPropertyInfo(object, IDictionary), "needed by
+        // ObjectWrapper and AbstractAutowireCapableObjectFactory" - classes this fork does not have.
+        // Its only caller was Expression.GetPropertyInfo, which had none of its own. See the note in
+        // Expression.cs.
 
         private object GetArrayValue(Array array, EvaluationContext evalContext)
         {

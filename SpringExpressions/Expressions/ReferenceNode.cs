@@ -48,7 +48,7 @@ namespace SpringContext.Support
 				string typeName = getFirstChild().getText();
 				string objectName = getFirstChild().getNextSibling().getText();
 
-				var type = TypeResolutionUtils.ResolveType(typeName);
+				var type = TypeResolutionUtils.ResolveTypeForExpression(typeName, compilationContext.SandboxPolicy);
 
 				return Expression.Convert(
 					Expression.Call(
@@ -57,7 +57,7 @@ namespace SpringContext.Support
 			else
 			{
 				string typeName = getFirstChild().getText();
-				var type = TypeResolutionUtils.ResolveType(typeName);
+				var type = TypeResolutionUtils.ResolveTypeForExpression(typeName, compilationContext.SandboxPolicy);
 
 				return Expression.Convert(
 					Expression.Call(
@@ -80,7 +80,7 @@ namespace SpringContext.Support
                 string typeName = getFirstChild().getText();
                 string objectName = getFirstChild().getNextSibling().getText();
 
-                var type = TypeResolutionUtils.ResolveType(typeName);
+                var type = TypeResolutionUtils.ResolveTypeForExpression(typeName, evalContext.SandboxPolicy);
 
                 return ReferenceObjectFactory.InvokeCreateObject(type, objectName);
 
@@ -88,7 +88,7 @@ namespace SpringContext.Support
             else
             {
                 string typeName = getFirstChild().getText();
-                var type = TypeResolutionUtils.ResolveType(typeName);
+                var type = TypeResolutionUtils.ResolveTypeForExpression(typeName, evalContext.SandboxPolicy);
 
                 return ReferenceObjectFactory.InvokeCreateObject(type, null);
             }

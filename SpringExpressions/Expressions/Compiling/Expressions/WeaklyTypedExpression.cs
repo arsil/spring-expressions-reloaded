@@ -2,6 +2,8 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 
+using JetBrains.Annotations;
+
 namespace SpringExpressions.Expressions.Compiling.Expressions
 {
     /// <summary>
@@ -34,10 +36,12 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         public WeaklyTypedExpression(
             BaseNode expressionNode,
             EvaluationMode mode,
-            Action<EvaluationDecision> onEvaluationDecided = null)
+            [NotNull] SandboxPolicy sandboxPolicy,
+            [CanBeNull] Action<EvaluationDecision> onEvaluationDecided = null)
         {
             _expressionNode = expressionNode;
             _mode = mode;
+            _sandboxPolicy = sandboxPolicy;
             _onEvaluationDecided = onEvaluationDecided;
         }
 
@@ -97,7 +101,7 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
             if (_settersByDeclaredTypes.TryGetValue(key, out var existing))
                 return (ISetterExpression<TContext, TValue>)existing;
 
-            var built = new SetterExpression<TContext, TValue>(_expressionNode, _mode);
+            var built = new SetterExpression<TContext, TValue>(_expressionNode, _mode, _sandboxPolicy);
 
             if (!_settersByDeclaredTypes.TryAdd(key, built))
                 return (ISetterExpression<TContext, TValue>)_settersByDeclaredTypes[key];
@@ -153,7 +157,7 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
             if (_gettersByDeclaredType.TryGetValue(contextType, out var existing))
                 return (IGetterExpression<TContext, object>)existing;
 
-            var built = new GetterExpression<TContext, object>(_expressionNode, _mode);
+            var built = new GetterExpression<TContext, object>(_expressionNode, _mode, _sandboxPolicy);
 
             if (!_gettersByDeclaredType.TryAdd(contextType, built))
                 return (IGetterExpression<TContext, object>)_gettersByDeclaredType[contextType];
@@ -216,6 +220,14 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         /// diagnostics appears on <see cref="IWeaklyTypedExpression"/>.
         /// </summary>
         private readonly Action<EvaluationDecision> _onEvaluationDecided;
+
+        /// <summary>
+        /// What this expression may reach - fixed at parse and shared by every evaluator this builds,
+        /// so one weakly typed expression is governed by one policy however many declared context
+        /// types it is used against.
+        /// </summary>
+        [NotNull]
+        private readonly SandboxPolicy _sandboxPolicy;
 
         private readonly ConcurrentDictionary<Type, object> _gettersByDeclaredType
             = new ConcurrentDictionary<Type, object>();

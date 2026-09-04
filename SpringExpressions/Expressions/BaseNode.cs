@@ -116,15 +116,33 @@ namespace SpringExpressions
             public IDictionary LocalVariables;
 
             /// <summary>
+            /// What this evaluation is allowed to reach.
+            /// </summary>
+            /// <remarks>
+            /// The interpreter's counterpart of <see cref="CompilationContext.SandboxPolicy"/>. It
+            /// travels here rather than being read from ambient state because the interpreter
+            /// memoises its resolved members per node, so a policy that varied per evaluation would
+            /// govern the first evaluation and silently not the rest - see
+            /// <c>_Docs/type-sandboxing.md</c> §4.3.
+            /// </remarks>
+            [NotNull]
+            public readonly SandboxPolicy SandboxPolicy;
+
+            /// <summary>
             /// Initializes a new EvaluationContext instance.
             /// </summary>
             /// <param name="rootContext">The root context for this evaluation</param>
             /// <param name="globalVariables">dictionary of global variables used during this evaluation</param>
-            public EvaluationContext(object rootContext, IDictionary<string, object> globalVariables)
+            /// <param name="sandboxPolicy">What this evaluation may reach.</param>
+            public EvaluationContext(
+                object rootContext,
+                IDictionary<string, object> globalVariables,
+                [NotNull] SandboxPolicy sandboxPolicy)
             {
                 this.RootContext = rootContext;
                 this.ThisContext = rootContext;
                 this.Variables = globalVariables;
+                this.SandboxPolicy = sandboxPolicy;
             }
 
 			// An EvaluationContext is never reused across evaluations: it is mutable, so sharing one
@@ -201,30 +219,13 @@ namespace SpringExpressions
             throw new NotSupportedException("Node " + this.GetType() + " does not support evaluation with arguments");
         }
 
-        /// <summary>
-        /// Sets node's value for the given context.
-        /// </summary>
-        /// <param name="context">Object to evaluate node against.</param>
-        /// <param name="newValue">New value for this node.</param>
-        internal void SetValue(object context, object newValue)
-        {
-            SetValue(context, null, newValue);
-        }
-
-        /// <summary>
-        /// Sets node's value for the given context.
-        /// </summary>
-        /// <param name="context">Object to evaluate node against.</param>
-        /// <param name="variables">Expression variables map.</param>
-        /// <param name="newValue">New value for this node.</param>
-        internal void SetValue(object context, IDictionary<string, object> variables, object newValue)
-        {
-            // No context type parameter: setting runs on the interpreter, which resolves members against the
-            // runtime type, so a declared type would buy nothing here. It becomes useful once the setter is
-            // compiled too.
-            EvaluationContext evalContext = new EvaluationContext(context, variables);
-            Set(context, evalContext, newValue);
-        }
+        // Deleted 2026-09-04: internal void SetValue(object, object) and
+        // internal void SetValue(object, IDictionary<string, object>, object), which built their own
+        // EvaluationContext and called Set. Neither had a caller: ExpressionEvaluator.SetValue and
+        // WeaklyTypedExpression both write through ISetterExpression, which owns the policy and the
+        // compiled form. Found while wiring the sandbox - they were the only writers left that had no
+        // policy to hand, and a node defaulting to the process-wide one is a hole rather than a
+        // convenience, so deleting beat defaulting.
 
         /// <summary>
         /// Sets node's value for the given context.

@@ -51,7 +51,8 @@ namespace SpringExpressions
                 {
                     try
                     {
-                        type = TypeResolutionUtils.ResolveType(getText());
+                        type = TypeResolutionUtils.ResolveTypeForExpression(
+                            getText(), compilationContext.SandboxPolicy);
                     }
                     catch (TypeLoadException)
                     {
@@ -81,7 +82,8 @@ namespace SpringExpressions
             {
                 lock(this)
                 {
-                    type = TypeResolutionUtils.ResolveType(getText());
+                    type = TypeResolutionUtils.ResolveTypeForExpression(
+                        getText(), evalContext.SandboxPolicy);
                 }
             }
 

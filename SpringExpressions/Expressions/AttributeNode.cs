@@ -20,6 +20,8 @@
 
 using System;
 
+using JetBrains.Annotations;
+
 using SpringCore.TypeResolution;
 using SpringUtil;
 
@@ -51,13 +53,19 @@ namespace SpringExpressions
         /// <exception cref="TypeLoadException">
         /// If type cannot be resolved.
         /// </exception>
-        protected override Type GetObjectType(string typeName)
+        /// <remarks>
+        /// The <c>"Attribute"</c> retry is a resolution path like any other and is gated identically -
+        /// ruled at stage 2 of <c>_Docs/type-sandboxing.md</c> §8.4, which listed this node's verdict as
+        /// something to decide before the type gate landed. Attribute types are a small surface, but an
+        /// ungated second attempt would be a way of naming a type the first attempt was refused.
+        /// </remarks>
+        protected override Type GetObjectType(string typeName, [NotNull] SandboxPolicy sandboxPolicy)
         {
             Type type;
 
             try
             {
-                type = base.GetObjectType(typeName);
+                type = base.GetObjectType(typeName, sandboxPolicy);
             }
             catch (TypeLoadException)
             {
@@ -65,7 +73,8 @@ namespace SpringExpressions
                 {
                     throw;
                 }
-                type = TypeResolutionUtils.ResolveType(typeName + "Attribute");
+                type = TypeResolutionUtils.ResolveTypeForExpression(
+                    typeName + "Attribute", sandboxPolicy);
             }
 
             return type;

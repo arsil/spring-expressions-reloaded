@@ -133,7 +133,7 @@ namespace SpringExpressions
 
                         // todo: error: serio? null context? this context?
                 var newCompilationContext = new CompilationContext(
-                    compilationContext.RootContextExpression, null);
+                    compilationContext.RootContextExpression, null, compilationContext.SandboxPolicy);
 
                 AST argsNode = this.getFirstChild();
                 //var argumentNames = new string[argsNode.getNumberOfChildren()];

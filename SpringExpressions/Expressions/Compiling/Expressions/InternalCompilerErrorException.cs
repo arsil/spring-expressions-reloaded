@@ -46,10 +46,21 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         /// Whether a failure met during compilation is one of ours to absorb.
         /// </summary>
         /// <remarks>
-        /// Two exclusions. A <see cref="CompileErrorException"/> is already the right answer and is
-        /// left alone - wrapping it would bury the node name a refusal carries. And a fatal exception
+        /// Three exclusions. A <see cref="CompileErrorException"/> is already the right answer and is
+        /// left alone - wrapping it would bury the node name a refusal carries. A fatal exception
         /// is rethrown: converting one would report "no compiled form for this shape" for a machine
         /// that is out of memory, which is worse than useless.
+        /// <p>
+        /// And a <see cref="SandboxViolationException"/> must escape untouched, which is the exclusion
+        /// most easily forgotten because it looks like every other emit-time failure. Absorbing it
+        /// would turn it into an <see cref="InternalCompilerErrorException"/> - a
+        /// <see cref="CompileErrorException"/> - so the weakly typed fallback would catch it and build
+        /// an interpreter instead, telling the caller nothing and blaming us for a defect while it did
+        /// so. The interpreter's own gate would deny again a moment later, but the caller would have
+        /// been told "the compiler is broken, please report it" rather than "you may not reach that
+        /// type". See <c>_Docs/type-sandboxing.md</c> §3.3: a denial is deliberately outside the
+        /// compile-failure convention, and this is where that has to be enforced.
+        /// </p>
         /// <p>
         /// Used from an exception filter rather than a catch body, so the stack is not unwound for the
         /// failures this returns false for.
@@ -59,6 +70,7 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         {
             return exception != null
                 && !(exception is CompileErrorException)
+                && !(exception is SandboxViolationException)
                 && !IsFatal(exception);
         }
 

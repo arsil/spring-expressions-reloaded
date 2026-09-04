@@ -9,11 +9,15 @@ namespace SpringExpressions
 {
     public class CompilationContext
     {
-        public CompilationContext(LExpression rootContextExpression, LExpression variablesExpression)
+        public CompilationContext(
+            LExpression rootContextExpression,
+            LExpression variablesExpression,
+            [NotNull] SandboxPolicy sandboxPolicy)
         {
             RootContextExpression = rootContextExpression;
             ThisExpression = rootContextExpression;
             VariablesExpression = variablesExpression;
+            SandboxPolicy = sandboxPolicy;
             _constructedCollections = new HashSet<LExpression>();
             _localStorage = new Dictionary<string, ParameterExpression>();
             _localStorageOrder = new List<ParameterExpression>();
@@ -22,7 +26,8 @@ namespace SpringExpressions
         public CompilationContext CreateWithNewThisContext(LExpression thisExpression)
         {
             return new CompilationContext(
-                RootContextExpression, thisExpression, VariablesExpression, _constructedCollections);
+                RootContextExpression, thisExpression, VariablesExpression, SandboxPolicy,
+                _constructedCollections);
         }
         // todo: error: context expression != RootExpression    !!!!  !!!!! !!!!
 
@@ -30,11 +35,13 @@ namespace SpringExpressions
             LExpression rootContextExpression,
             LExpression thisExpression,
             LExpression variablesExpression,
+            [NotNull] SandboxPolicy sandboxPolicy,
             HashSet<LExpression> constructedCollections)
         {
             RootContextExpression = rootContextExpression;
             ThisExpression = thisExpression;
             VariablesExpression = variablesExpression;
+            SandboxPolicy = sandboxPolicy;
 
             // Shared, not copied: a union inside a projection compiles against a derived context, and the
             // root that Compiler finally inspects is the one it registered into.
@@ -180,6 +187,21 @@ namespace SpringExpressions
         /// no <c>EvaluationContext</c> - that object exists for the interpreter, which mutates it.
         /// </summary>
         public LExpression VariablesExpression { get; private set; }
+
+        /// <summary>
+        /// What this compilation is allowed to reach. Fixed when the expression was created and
+        /// carried down here, never read from ambient state - see
+        /// <c>_Docs/type-sandboxing.md</c> §4.3 for why a scope cannot work: member binds happen once
+        /// while the tree is built, so a policy that varied per evaluation could only be honoured by
+        /// recompiling.
+        /// </summary>
+        /// <remarks>
+        /// Shared unchanged by <see cref="CreateWithNewThisContext"/>: a projection or selection body
+        /// is a separate compilation unit but the same expression, so it is governed by the same
+        /// policy.
+        /// </remarks>
+        [NotNull]
+        public SandboxPolicy SandboxPolicy { get; private set; }
 
         public Dictionary<string, ParameterExpression> _localVariables;
 

@@ -20,6 +20,11 @@
 
 using System;
 
+using JetBrains.Annotations;
+
+using SpringExpressions;
+using SpringUtil;
+
 
 namespace SpringCore.TypeResolution
 {
@@ -91,6 +96,58 @@ namespace SpringCore.TypeResolution
 
             return TypeRegistry.ResolveType(typeName)
                 ?? internalTypeResolver.Resolve(typeName);
+        }
+
+        /// <summary>
+        /// Resolves a type name written in an <i>expression</i>, subject to
+        /// <paramref name="sandboxPolicy"/>.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// <b>Every type name the expression language resolves comes through here, and nothing else
+        /// does.</b> <see cref="ResolveType(string)"/> stays ungated on purpose: the library's own
+        /// plumbing calls it - <c>TypeConverterRegistry</c>, <c>ResourceManagerConverter</c> and
+        /// <c>RuntimeTypeConverter</c> resolving converter types from configuration - and that runs at
+        /// configuration time on the engineer's behalf, so policing it with a policy meant for scripts
+        /// would break startup under the default. Two entry points, therefore, rather than one gate
+        /// inside the existing method. See <c>_Docs/type-sandboxing.md</c> §4.1.
+        /// </p>
+        /// <p>
+        /// <b>A <see cref="TypeRegistry"/> entry resolves unrestricted and is never asked about.</b>
+        /// The registry is already the engineer's own allow-list, which is what §3.1 rules: registered
+        /// names are the language's vocabulary, and a registration deliberately overrides. That is also
+        /// why the gate sits between the two halves of <see cref="ResolveType(string)"/> rather than
+        /// wrapping it.
+        /// </p>
+        /// <p>
+        /// The check runs on the resolved <see cref="Type"/> every call, so
+        /// <c>CachedTypeResolver</c>'s memoisation of name to type is harmless: a name resolved once
+        /// under a permissive policy is still judged under the strict one next time. Generic arguments
+        /// and array item types are <i>not</i> reached from here - <c>GenericTypeResolver</c> calls the
+        /// ungated <see cref="ResolveType(string)"/> for each of them - so the verdict itself
+        /// decomposes composite types. Measured; §4.1 assumed otherwise.
+        /// </p>
+        /// </remarks>
+        /// <exception cref="SandboxViolationException">
+        /// If the policy does not permit the resolved type, or any part of it.
+        /// </exception>
+        /// <exception cref="System.TypeLoadException">If the type cannot be resolved at all.</exception>
+        [NotNull]
+        public static Type ResolveTypeForExpression(
+            [NotNull] string typeName, [NotNull] SandboxPolicy sandboxPolicy)
+        {
+            AssertUtils.ArgumentNotNull(sandboxPolicy, "sandboxPolicy");
+
+            var registered = TypeRegistry.ResolveType(typeName);
+
+            if (registered != null)
+                return registered;
+
+            var resolved = internalTypeResolver.Resolve(typeName);
+
+            sandboxPolicy.DemandTypeIsPermitted(resolved);
+
+            return resolved;
         }
 
         #endregion

@@ -6,10 +6,12 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
     {
         protected BaseStronglyTypedExpression(
             [NotNull] BaseNode expressionNode,
-            EvaluationMode mode)
+            EvaluationMode mode,
+            [NotNull] SandboxPolicy sandboxPolicy)
         {
             _expressionNode = expressionNode;
             _mode = mode;
+            _sandboxPolicy = sandboxPolicy;
         }
 
         internal BaseNode ExpressionNode
@@ -36,6 +38,13 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         // ReSharper disable InconsistentNaming
         protected readonly BaseNode _expressionNode;
         protected readonly EvaluationMode _mode;
+
+        /// <summary>
+        /// What this expression may reach - fixed here at construction, never read from ambient state.
+        /// See <c>_Docs/type-sandboxing.md</c> §4.3.
+        /// </summary>
+        [NotNull]
+        protected readonly SandboxPolicy _sandboxPolicy;
         // ReSharper restore InconsistentNaming
     }
 }

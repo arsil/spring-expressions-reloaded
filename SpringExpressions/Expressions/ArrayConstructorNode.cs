@@ -57,7 +57,8 @@ namespace SpringExpressions
 				{
 					if (arrayType == null)
 					{
-						arrayType = TypeResolutionUtils.ResolveType(getText());
+						arrayType = TypeResolutionUtils.ResolveTypeForExpression(
+							getText(), compilationContext.SandboxPolicy);
 					}
 				}
 			}
@@ -162,7 +163,8 @@ namespace SpringExpressions
                 {
                     if (arrayType == null)
                     {
-                        arrayType = TypeResolutionUtils.ResolveType(getText());
+                        arrayType = TypeResolutionUtils.ResolveTypeForExpression(
+                            getText(), evalContext.SandboxPolicy);
                     }
                 }
             }

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 
+using JetBrains.Annotations;
+
 using static SpringExpressions.BaseNode;
 
 namespace SpringExpressions.Expressions.Compiling.Expressions
@@ -10,15 +12,17 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         /// <summary>Compilation happens here, once, or not at all - see BaseGetterExpression.</summary>
         protected BaseVoidExpression(
                 BaseNode expressionNode,
-                EvaluationMode mode)
-            : base(expressionNode, mode)
+                EvaluationMode mode,
+                [NotNull] SandboxPolicy sandboxPolicy)
+            : base(expressionNode, mode, sandboxPolicy)
         {
             if (mode == EvaluationMode.MustInterpret)
                 return;
 
             try
             {
-                _compiledExpression = Compiler.CompileExecuteWithVoidReturnType<TRoot>(_expressionNode);
+                _compiledExpression =
+                    Compiler.CompileExecuteWithVoidReturnType<TRoot>(_expressionNode, sandboxPolicy);
             }
             catch (CompileErrorException ex) when (mode == EvaluationMode.CompileOrInterpret)
             {
@@ -44,7 +48,7 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
             {
                 // A context of its own per evaluation - the interpreter mutates it.
                 _expressionNode.ExecuteVoidExpressionUsingInterpreter(
-                    context, new EvaluationContext(context, variables));
+                    context, new EvaluationContext(context, variables, _sandboxPolicy));
                 return;
             }
 
@@ -59,8 +63,9 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
 
     class VoidExpression<TRoot> : BaseVoidExpression<TRoot>, IVoidExpression<TRoot>
     {
-        public VoidExpression(BaseNode expressionNode, EvaluationMode mode)
-            : base(expressionNode, mode)
+        public VoidExpression(
+            BaseNode expressionNode, EvaluationMode mode, [NotNull] SandboxPolicy sandboxPolicy)
+            : base(expressionNode, mode, sandboxPolicy)
         { }
 
         public void Execute(TRoot context, IDictionary<string, object> variables = null)
@@ -69,8 +74,9 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
 
     class VoidExpression : BaseVoidExpression<object>, IVoidExpression
     {
-        public VoidExpression(BaseNode expressionNode, EvaluationMode mode)
-            : base(expressionNode, mode)
+        public VoidExpression(
+            BaseNode expressionNode, EvaluationMode mode, [NotNull] SandboxPolicy sandboxPolicy)
+            : base(expressionNode, mode, sandboxPolicy)
         { }
 
         public void Execute(IDictionary<string, object> variables = null)

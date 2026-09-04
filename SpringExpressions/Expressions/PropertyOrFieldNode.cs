@@ -31,6 +31,8 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.Remoting;
 
+using JetBrains.Annotations;
+
 using SpringCollections;
 using SpringCore;
 using SpringCore.TypeConversion;
@@ -69,7 +71,7 @@ namespace SpringExpressions
         /// Initializes the node.
         /// </summary>
         /// <param name="context">The parent.</param>
-        private void InitializeNode(object context)
+        private void InitializeNode(object context, [NotNull] SandboxPolicy sandboxPolicy)
         {
             Type contextType = (context == null || context is Type ? context as Type : context.GetType());
 
@@ -129,7 +131,8 @@ namespace SpringExpressions
                 {
                     try
                     {
-                        accessor = new TypeValueAccessor(TypeResolutionUtils.ResolveType(memberName));
+                        accessor = new TypeValueAccessor(
+                            TypeResolutionUtils.ResolveTypeForExpression(memberName, sandboxPolicy));
                     }
                     catch (TypeLoadException)
                     {
@@ -227,7 +230,7 @@ namespace SpringExpressions
         {
             lock (this)
             {
-                InitializeNode(context);
+                InitializeNode(context, evalContext.SandboxPolicy);
 
                 if (context == null && accessor.RequiresContext)
                 {
@@ -373,7 +376,8 @@ namespace SpringExpressions
                     Type type = null;
                     try
                     {
-                        type = TypeResolutionUtils.ResolveType(name);
+                        type = TypeResolutionUtils.ResolveTypeForExpression(
+                            name, compilationContext.SandboxPolicy);
                     }
                     catch (TypeLoadException)
                     {
@@ -519,7 +523,7 @@ namespace SpringExpressions
         {
             lock (this)
             {
-                InitializeNode(context);
+                InitializeNode(context, evalContext.SandboxPolicy);
 
                 if (context == null && accessor.RequiresContext)
                 {
@@ -737,30 +741,9 @@ namespace SpringExpressions
             return added;
         }
 
-        /// <summary>
-        /// Utility method that is needed by ObjectWrapper and AbstractAutowireCapableObjectFactory.
-        /// We try as hard as we can, but there are instances when we won't be able to obtain PropertyInfo...
-        /// </summary>
-        /// <param name="context">Context to resolve property against.</param>
-        /// <returns>PropertyInfo for this node.</returns>
-        internal MemberInfo GetMemberInfo(object context)
-        {
-            lock (this)
-            {
-                InitializeNode(context);
-            }
-            return accessor.MemberInfo;
-
-            //if (IsProperty)
-            //{
-            //    return (((PropertyValueAccessor) accessor).MemberInfo);
-            //}
-            //else
-            //{
-            //    throw new FatalObjectException(
-            //        "Cannot obtain PropertyInfo from an expression that does not resolve to a property.");
-            //}
-        }
+        // Deleted 2026-09-04: internal MemberInfo GetMemberInfo(object), "needed by ObjectWrapper and
+        // AbstractAutowireCapableObjectFactory" - classes this fork does not have. Its only caller was
+        // Expression.GetPropertyInfo, which had none of its own. See the note in Expression.cs.
 
         #region IValueAccessor interface
 

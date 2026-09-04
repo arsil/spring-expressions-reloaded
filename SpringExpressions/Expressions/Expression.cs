@@ -155,9 +155,10 @@ namespace SpringExpressions
         public static IWeaklyTypedExpression Parse(
             string expression,
             EvaluationMode mode = EvaluationMode.CompileOrInterpret,
-            [CanBeNull] Action<EvaluationDecision> onEvaluationDecided = null)
+            [CanBeNull] Action<EvaluationDecision> onEvaluationDecided = null,
+            [CanBeNull] SandboxPolicy sandbox = null)
         {
-            return Wrap(ParseAst(expression), mode, onEvaluationDecided);
+            return Wrap(ParseAst(expression), mode, onEvaluationDecided, sandbox);
         }
 
         /// <summary>
@@ -229,71 +230,85 @@ namespace SpringExpressions
         public static IWeaklyTypedExpression Wrap(
             [NotNull] BaseNode expressionNode,
             EvaluationMode mode = EvaluationMode.CompileOrInterpret,
-            Action<EvaluationDecision> onEvaluationDecided = null)
+            Action<EvaluationDecision> onEvaluationDecided = null,
+            [CanBeNull] SandboxPolicy sandbox = null)
         {
             AssertUtils.ArgumentNotNull(expressionNode, "expressionNode");
 
-            return new WeaklyTypedExpression(expressionNode, mode, onEvaluationDecided);
+            return new WeaklyTypedExpression(
+                expressionNode, mode, sandbox ?? SandboxPolicy.Default, onEvaluationDecided);
         }
 
         [NotNull]
         public static IGetterExpression<TRoot, TResult> ParseGetter<TRoot, TResult>(
             [NotNull] string expression,
-            EvaluationMode mode = EvaluationMode.CompileOrInterpret)
+            EvaluationMode mode = EvaluationMode.CompileOrInterpret,
+            [CanBeNull] SandboxPolicy sandbox = null)
         {
             AssertUtils.ArgumentHasText(expression, nameof(expression));
 
-            return new GetterExpression<TRoot, TResult>(ParseAst(expression), mode);
+            return new GetterExpression<TRoot, TResult>(
+                ParseAst(expression), mode, sandbox ?? SandboxPolicy.Default);
         }
 
         [NotNull]
         public static IGetterExpression<TResult> ParseGetter<TResult>(
             [NotNull] string expression,
-            EvaluationMode mode = EvaluationMode.CompileOrInterpret)
+            EvaluationMode mode = EvaluationMode.CompileOrInterpret,
+            [CanBeNull] SandboxPolicy sandbox = null)
         {
             AssertUtils.ArgumentHasText(expression, nameof(expression));
 
-            return new GetterExpression<TResult>(ParseAst(expression), mode);
+            return new GetterExpression<TResult>(
+                ParseAst(expression), mode, sandbox ?? SandboxPolicy.Default);
         }
 
         [NotNull]
         public static ISetterExpression<TRoot, TArgument> ParseSetter<TRoot, TArgument>(
             [NotNull] string expression,
-            EvaluationMode mode = EvaluationMode.CompileOrInterpret)
+            EvaluationMode mode = EvaluationMode.CompileOrInterpret,
+            [CanBeNull] SandboxPolicy sandbox = null)
         {
             AssertUtils.ArgumentHasText(expression, nameof(expression));
 
-            return new SetterExpression<TRoot, TArgument>(ParseAst(expression), mode);
+            return new SetterExpression<TRoot, TArgument>(
+                ParseAst(expression), mode, sandbox ?? SandboxPolicy.Default);
         }
 
         [NotNull]
         public static ISetterExpression<TArgument> ParseSetter<TArgument>(
             [NotNull] string expression,
-            EvaluationMode mode = EvaluationMode.CompileOrInterpret)
+            EvaluationMode mode = EvaluationMode.CompileOrInterpret,
+            [CanBeNull] SandboxPolicy sandbox = null)
         {
             AssertUtils.ArgumentHasText(expression, nameof(expression));
 
-            return new SetterExpression<TArgument>(ParseAst(expression), mode);
+            return new SetterExpression<TArgument>(
+                ParseAst(expression), mode, sandbox ?? SandboxPolicy.Default);
         }
 
         [NotNull]
         public static IVoidExpression<TRoot> ParseVoidExpression<TRoot>(
             [NotNull] string expression,
-            EvaluationMode mode = EvaluationMode.CompileOrInterpret)
+            EvaluationMode mode = EvaluationMode.CompileOrInterpret,
+            [CanBeNull] SandboxPolicy sandbox = null)
         {
             AssertUtils.ArgumentHasText(expression, nameof(expression));
 
-            return new VoidExpression<TRoot>(ParseAst(expression), mode);
+            return new VoidExpression<TRoot>(
+                ParseAst(expression), mode, sandbox ?? SandboxPolicy.Default);
         }
 
         [NotNull]
         public static IVoidExpression ParseVoidExpression(
             [NotNull] string expression,
-            EvaluationMode mode = EvaluationMode.CompileOrInterpret)
+            EvaluationMode mode = EvaluationMode.CompileOrInterpret,
+            [CanBeNull] SandboxPolicy sandbox = null)
         {
             AssertUtils.ArgumentHasText(expression, nameof(expression));
 
-            return new VoidExpression(ParseAst(expression), mode);
+            return new VoidExpression(
+                ParseAst(expression), mode, sandbox ?? SandboxPolicy.Default);
         }
 
         /// <summary>
@@ -665,42 +680,13 @@ namespace SpringExpressions
             }
         }
 
-        /// <summary>
-        /// Evaluates this expression for the specified root object and returns 
-        /// <see cref="PropertyInfo"/> of the last node, if possible.
-        /// </summary>
-        /// <param name="context">Context to evaluate expression against.</param>
-        /// <param name="variables">Expression variables map.</param>
-        /// <returns>Value of the last node.</returns>
-        internal PropertyInfo GetPropertyInfo( object context, IDictionary<string, object> variables )
-        {
-            if (this.getNumberOfChildren() > 0)
-            {
-                object target = context;
-                AST node = this.getFirstChild();
-
-                for (int i = 0; i < this.getNumberOfChildren() - 1; i++)
-                {
-                    target = Wrap((BaseNode)node).GetValue(target, variables);
-                    node = node.getNextSibling();
-                }
-
-                if (node is PropertyOrFieldNode)
-                {
-                    return (PropertyInfo)((PropertyOrFieldNode)node).GetMemberInfo( target );
-                }
-                else if (node is IndexerNode)
-                {
-                    return ((IndexerNode)node).GetPropertyInfo( target, variables );
-                }
-                else
-                {
-                    throw new FatalReflectionException( "Cannot obtain PropertyInfo from an expression that does not resolve to a property or an indexer." );
-                }
-            }
-
-            throw new FatalReflectionException( "Cannot obtain PropertyInfo for empty property name." );
-        }
+        // Deleted 2026-09-04: internal PropertyInfo GetPropertyInfo(object, IDictionary), inherited
+        // plumbing for Spring's ObjectWrapper and AbstractAutowireCapableObjectFactory - classes this
+        // fork does not have. It had no caller anywhere in the library or in either test suite, which
+        // also made PropertyOrFieldNode.GetMemberInfo and IndexerNode.GetPropertyInfo dead; both went
+        // with it. Found while wiring the sandbox: each of them needed a SandboxPolicy it had no way
+        // to obtain, and defaulting to the process-wide one inside a node is a hole rather than a
+        // convenience. Deleting beat defaulting.
     }
 }
 

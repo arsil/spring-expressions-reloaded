@@ -20,15 +20,17 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         /// this expression is interpreted - which is exactly what a status query will read.
         /// </remarks>
         protected BaseGetterExpression(
-            [NotNull] BaseNode expressionNode, EvaluationMode mode)
-            : base(expressionNode, mode)
+            [NotNull] BaseNode expressionNode,
+            EvaluationMode mode,
+            [NotNull] SandboxPolicy sandboxPolicy)
+            : base(expressionNode, mode, sandboxPolicy)
         {
             if (mode == EvaluationMode.MustInterpret)
                 return;
 
             try
             {
-                _compiledExpression = Compiler.CompileGetter<TResult, TRoot>(_expressionNode);
+                _compiledExpression = Compiler.CompileGetter<TResult, TRoot>(_expressionNode, sandboxPolicy);
             }
             catch (CompileErrorException ex) when (mode == EvaluationMode.CompileOrInterpret)
             {
@@ -59,7 +61,7 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
                 // selection nodes, SwitchLocalVariables in the lambda node - so it gets a fresh
                 // one per evaluation. This is the slow path anyway.
                 var value = _expressionNode.GetValueUsingInterpreter(
-                    context, new EvaluationContext(context, variables));
+                    context, new EvaluationContext(context, variables, _sandboxPolicy));
 
                 // A value that satisfies the request is cast, never copied - a read collection keeps
                 // its reference identity. Only the object-typed collections the interpreter itself
@@ -203,8 +205,11 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         : BaseGetterExpression<TRoot, TResult>
         , IGetterExpression<TRoot, TResult>
     {
-        public GetterExpression([NotNull] BaseNode expressionNode, EvaluationMode mode)
-            : base(expressionNode, mode)
+        public GetterExpression(
+            [NotNull] BaseNode expressionNode,
+            EvaluationMode mode,
+            [NotNull] SandboxPolicy sandboxPolicy)
+            : base(expressionNode, mode, sandboxPolicy)
         { }
 
         public TResult GetValue(TRoot context, IDictionary<string, object> variables = null)
@@ -215,8 +220,11 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
         : BaseGetterExpression<object, TResult>
         , IGetterExpression<TResult>
     {
-        public GetterExpression([NotNull] BaseNode expressionNode, EvaluationMode mode)
-            : base(expressionNode, mode)
+        public GetterExpression(
+            [NotNull] BaseNode expressionNode,
+            EvaluationMode mode,
+            [NotNull] SandboxPolicy sandboxPolicy)
+            : base(expressionNode, mode, sandboxPolicy)
         { }
 
         public TResult GetValue(IDictionary<string, object> variables = null)
