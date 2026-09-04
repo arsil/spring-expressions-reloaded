@@ -64,6 +64,7 @@ namespace SpringExpressions
                 throw CannotCompile("no compiled indexer for this container and index type");
             }
 
+
                // TODO: error: może pobranie arraya? tylko trzeba przetestować, czy nie stracimy typu!.. .bo jak przez object, to syf!
 	        if (contextExpression.Type.IsArray)
 	        {
@@ -404,6 +405,7 @@ namespace SpringExpressions
             {
                 throw new NullValueInNestedPathException("Cannot set the value of the indexer because the context for its resolution is null.");
             }
+
             
             try
             {
@@ -546,7 +548,9 @@ namespace SpringExpressions
         }
 
         [NotNull]
-        private static PropertyInfo GetIndexerPropertyInfo([NotNull] Type contextType, [NotNull, ItemCanBeNull] object[] indices)
+        private static PropertyInfo GetIndexerPropertyInfo(
+            [NotNull] Type contextType,
+            [NotNull, ItemCanBeNull] object[] indices)
         {
             var defaultMember = GetIndexerPropertyName(contextType);
 

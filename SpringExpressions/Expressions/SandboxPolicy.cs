@@ -165,9 +165,49 @@ namespace SpringExpressions
             return _verdicts.GetOrAdd(type, Compute);
         }
 
+        /// <summary>
+        /// Starts a builder from this policy's catalog. The result of <c>Build()</c> is a new policy;
+        /// nothing here is ever modified.
+        /// </summary>
+        /// <remarks>
+        /// A builder rather than a fluent <c>Allowing(...)</c> on the policy itself, for two reasons
+        /// that differ in kind: a method on the policy reads as mutation of the instance it is called
+        /// on and carries the discarded-result trap, and - the structural one - <c>Build()</c> is the
+        /// only place §5.3's closure rule can ever be checked, because with a fluent derive every
+        /// intermediate is already a complete policy. See <c>_Docs/type-sandboxing.md</c> §4.5.
+        /// <p>
+        /// Refused for <see cref="DangerouslyAllowEverything"/>, which has no catalog to build on: a
+        /// policy that permits everything cannot be narrowed by adding permissions, and silently
+        /// treating it as empty would turn "start from the sandbox being off" into "start from
+        /// everything denied".
+        /// </p>
+        /// </remarks>
+        [NotNull]
+        public static SandboxPolicyBuilder NewBasedOn([NotNull] SandboxPolicy policy)
+        {
+            AssertUtils.ArgumentNotNull(policy, "policy");
+
+            if (policy._catalog == null)
+            {
+                throw new ArgumentException(
+                    "Cannot build on SandboxPolicy.DangerouslyAllowEverything: it has no catalog, and "
+                    + "adding permissions to a policy that already permits everything is meaningless.",
+                    "policy");
+            }
+
+            return new SandboxPolicyBuilder(policy._catalog);
+        }
+
         private SandboxPolicy([CanBeNull] IDictionary<Type, HashSet<string>> catalog)
         {
             _catalog = catalog;
+        }
+
+        /// <summary>The policy a <see cref="SandboxPolicyBuilder"/> produces.</summary>
+        [NotNull]
+        internal static SandboxPolicy WithCatalog([NotNull] IDictionary<Type, HashSet<string>> catalog)
+        {
+            return new SandboxPolicy(catalog);
         }
 
         /// <summary>
@@ -182,51 +222,136 @@ namespace SpringExpressions
         {
             AssertUtils.ArgumentNotNull(type, "type");
 
-            if (VerdictFor(type).Verdict != SandboxVerdict.Denied)
+            if (IsNameable(type))
                 return;
 
             throw new SandboxViolationException(FirstDeniedPart(type));
         }
 
-        private TypeVerdict Compute([NotNull] Type type)
+        /// <summary>
+        /// Whether an expression may <i>name</i> this type: it and every part of it must be reachable.
+        /// </summary>
+        /// <remarks>
+        /// <b>The part-by-part check belongs here and not in the verdict</b>, and putting it in the
+        /// verdict was a mistake a failing test caught. Naming <c>List&lt;Process&gt;</c> must be
+        /// refused, because a name is how an expression reaches a type in the first place - and
+        /// <c>GenericTypeResolver</c> resolves each argument through the ungated entry point, so this
+        /// is the only place they can be judged. But <i>using a member</i> on a value whose type
+        /// happens to be generic is a different question: <c>Totals['net']</c> on a
+        /// <c>Dictionary&lt;string, int&gt;</c> would have required <c>string</c> and <c>int</c> to be
+        /// catalogued before the dictionary could be indexed at all, which is not what the catalog
+        /// means.
+        /// </remarks>
+        private bool IsNameable([NotNull] Type type)
         {
-            // A composite type is reachable only if every part of it is, and this is the only place
-            // the parts can be judged. Measured: GenericTypeResolver resolves the generic definition,
-            // each type argument and an array's item type through the *ungated*
-            // TypeResolutionUtils.ResolveType (GenericTypeResolver.cs:62, :69, :82), so a gated entry
-            // point does not reach them - T(List<Process>) would otherwise pass on List<>'s catalog
-            // entry alone. §4.1 assumed a gated call covered generic arguments; it does not, which is
-            // exactly what §9 asked to be pinned rather than taken on trust.
+            if (VerdictFor(type).Verdict == SandboxVerdict.Denied)
+                return false;
+
             if (type.IsArray || type.IsByRef || type.IsPointer)
-            {
-                // Reachability follows the element type. The member question - is Length allowed on
-                // int[]? - is stage 3's, and an empty list is the fail-closed answer until it rules.
-                return VerdictFor(type.GetElementType()).Verdict == SandboxVerdict.Denied
-                    ? TypeVerdict.Denied
-                    : TypeVerdict.Catalogued(new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-            }
+                return IsNameable(type.GetElementType());
 
             if (type.IsGenericType && !type.IsGenericTypeDefinition)
             {
                 foreach (var argument in type.GetGenericArguments())
                 {
-                    if (VerdictFor(argument).Verdict == SandboxVerdict.Denied)
-                        return TypeVerdict.Denied;
+                    if (!IsNameable(argument))
+                        return false;
                 }
-
-                // The catalog holds open definitions - List<>, Dictionary<,> - so List<int> is
-                // judged by List<>'s entry once its arguments have passed.
-                return VerdictFor(type.GetGenericTypeDefinition());
             }
 
+            return true;
+        }
+
+        /// <summary>
+        /// Throws if this policy does not permit <paramref name="memberName"/> on
+        /// <paramref name="receiverType"/>. The gate every member an expression reaches goes through.
+        /// </summary>
+        /// <remarks>
+        /// <b>The receiver's type decides, not the member's declaring type.</b> A member declared on a
+        /// base type is permitted when that base type is catalogued too - the verdict unions the
+        /// entries up the chain - so <c>GetType</c> is listed once, on <c>System.Object</c>, rather
+        /// than repeated on every entry. Reachability still comes from the type's <i>own</i> entry, so
+        /// cataloguing <c>System.Object</c> does not make every type reachable.
+        /// <p>
+        /// This is the half that closes <c>'abc'.GetType().Assembly</c>, which names no type at all
+        /// and so never meets the type gate: <c>System.Type</c> is catalogued with descriptive members
+        /// only, and <c>Assembly</c> is not among them.
+        /// </p>
+        /// </remarks>
+        internal void DemandMemberIsPermitted([NotNull] Type receiverType, [NotNull] string memberName)
+        {
+            AssertUtils.ArgumentNotNull(receiverType, "receiverType");
+
+            if (VerdictFor(receiverType).Allows(memberName))
+                return;
+
+            throw new SandboxViolationException(receiverType, memberName);
+        }
+
+        // Indexing has no gate of its own, and that took three attempts to get right - see
+        // _Docs/type-sandboxing.md §4.2. In short: an "Item" member rule is not implementable,
+        // because the two backends resolve nothing in common for xs[0]; and a "the container's type
+        // must be reachable" rule is not implementable either, because compiled sees the static type
+        // and the interpreter the runtime one, so a container declared IDictionary<,> or object was
+        // denied compiled and served interpreted. What governs an indexing operation is the member
+        // that produced the container.
+
+        private TypeVerdict Compute([NotNull] Type type)
+        {
             // Still owed here, and it belongs to the catalog stage rather than to this one: the
             // trusted-assembly test of §5.2, which is what makes the caller's own types unrestricted
             // without any configuration. Until it exists, only catalogued types are reachable.
-            HashSet<string> allowedMembers;
+            HashSet<string> ownEntry;
+            var hasOwnEntry = TryGetEntry(type, out ownEntry);
 
-            return _catalog.TryGetValue(type, out allowedMembers)
-                ? TypeVerdict.Catalogued(allowedMembers)
-                : TypeVerdict.Denied;
+            // An array is reachable when its element type is, so nobody has to catalogue int[],
+            // string[] and every other instantiation by hand. Its *members* still come from the
+            // union below, where System.Array's entry is the useful one: one Allow(typeof(Array),
+            // nameof(Array.Length)) covers every array rather than one entry per element type.
+            var reachableAsComposite =
+                (type.IsArray || type.IsByRef || type.IsPointer)
+                && VerdictFor(type.GetElementType()).Verdict != SandboxVerdict.Denied;
+
+            if (!hasOwnEntry && !reachableAsComposite)
+                return TypeVerdict.Denied;
+
+            if (!hasOwnEntry)
+                ownEntry = EmptyEntry;
+
+            // Reachability is the type's own entry; the member list is the union up the chain, so an
+            // inherited member is listed once where it is declared instead of on every entry that
+            // wants it. Computed here, so a member check stays one set lookup (§5).
+            var members = new HashSet<string>(ownEntry, StringComparer.OrdinalIgnoreCase);
+
+            for (var baseType = type.BaseType; baseType != null; baseType = baseType.BaseType)
+            {
+                HashSet<string> baseEntry;
+                if (TryGetEntry(baseType, out baseEntry))
+                    members.UnionWith(baseEntry);
+            }
+
+            foreach (var implemented in type.GetInterfaces())
+            {
+                HashSet<string> interfaceEntry;
+                if (TryGetEntry(implemented, out interfaceEntry))
+                    members.UnionWith(interfaceEntry);
+            }
+
+            return TypeVerdict.Catalogued(members);
+        }
+
+        /// <summary>
+        /// The catalog entry for one type. A constructed generic falls back to its open definition,
+        /// because that is the form the catalog holds - <c>List&lt;&gt;</c>, not <c>List&lt;int&gt;</c>.
+        /// </summary>
+        private bool TryGetEntry([NotNull] Type type, out HashSet<string> entry)
+        {
+            if (_catalog.TryGetValue(type, out entry))
+                return true;
+
+            return type.IsGenericType
+                   && !type.IsGenericTypeDefinition
+                   && _catalog.TryGetValue(type.GetGenericTypeDefinition(), out entry);
         }
 
         /// <summary>
@@ -243,13 +368,9 @@ namespace SpringExpressions
             {
                 foreach (var argument in type.GetGenericArguments())
                 {
-                    if (VerdictFor(argument).Verdict == SandboxVerdict.Denied)
+                    if (!IsNameable(argument))
                         return FirstDeniedPart(argument);
                 }
-
-                var definition = type.GetGenericTypeDefinition();
-
-                return VerdictFor(definition).Verdict == SandboxVerdict.Denied ? definition : type;
             }
 
             return type;
@@ -282,6 +403,10 @@ namespace SpringExpressions
         /// <summary>
         /// Keyed on <see cref="Type"/>, so the lookup is reference equality - the fastest key available.
         /// </summary>
+        [NotNull]
+        private static readonly HashSet<string> EmptyEntry
+            = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         [NotNull]
         private readonly ConcurrentDictionary<Type, TypeVerdict> _verdicts =
             new ConcurrentDictionary<Type, TypeVerdict>();

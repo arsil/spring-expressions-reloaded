@@ -116,12 +116,14 @@ namespace SpringExpressions
                     if (accessor == null)
                     {
                         // check the context type first
-                        accessor = GetPropertyOrFieldAccessor(contextType, memberName, BINDING_FLAGS);
+                        accessor = GetPropertyOrFieldAccessor(
+                            contextType, memberName, BINDING_FLAGS, sandboxPolicy);
 
                         // if not found, probe the Type type
                         if (accessor == null && context is Type)
                         {
-                            accessor = GetPropertyOrFieldAccessor(typeof(Type), memberName, BINDING_FLAGS);
+                            accessor = GetPropertyOrFieldAccessor(
+                                typeof(Type), memberName, BINDING_FLAGS, sandboxPolicy);
                         }
                     }
                 }
@@ -170,8 +172,19 @@ namespace SpringExpressions
         /// Resolved property or field accessor, or <c>null</c> 
         /// if specified <paramref name="memberName"/> cannot be resolved.
         /// </returns>
-        private static IValueAccessor GetPropertyOrFieldAccessor(Type contextType, string memberName, BindingFlags bindingFlags)
+        /// <param name="sandboxPolicy">
+        /// Checked before anything is resolved. Five call sites reach this - two interpreted, three
+        /// emitted - which is why the property and field half of the member gate is one line here
+        /// rather than one per backend.
+        /// </param>
+        private static IValueAccessor GetPropertyOrFieldAccessor(
+            Type contextType,
+            string memberName,
+            BindingFlags bindingFlags,
+            [NotNull] SandboxPolicy sandboxPolicy)
         {
+            sandboxPolicy.DemandMemberIsPermitted(contextType, memberName);
+
                   // todo: error; getProperty does not work for interfaces------------------------------------------------------------------------------------------
             try
             {
@@ -313,7 +326,8 @@ namespace SpringExpressions
                     }
 
                     // try inner type (e.g. Int32)
-                    acc = GetPropertyOrFieldAccessor(contextExpressionType, name, BINDING_FLAGS);
+                    acc = GetPropertyOrFieldAccessor(
+                        contextExpressionType, name, BINDING_FLAGS, compilationContext.SandboxPolicy);
 
                     if (acc == null)
                     {
@@ -324,7 +338,8 @@ namespace SpringExpressions
                 }
 
                 if (acc == null)
-                    acc = GetPropertyOrFieldAccessor(contextExpressionType, name, BINDING_FLAGS);
+                    acc = GetPropertyOrFieldAccessor(
+                        contextExpressionType, name, BINDING_FLAGS, compilationContext.SandboxPolicy);
 
                 if (acc is PropertyValueAccessor propertyAcc)
                 {
@@ -416,7 +431,8 @@ namespace SpringExpressions
                 var finalContextExpression = contextExpression;
                 var contextExpressionType = contextExpression.Type;
 
-                acc = GetPropertyOrFieldAccessor(contextExpressionType, name, BINDING_FLAGS);
+                acc = GetPropertyOrFieldAccessor(
+                    contextExpressionType, name, BINDING_FLAGS, compilationContext.SandboxPolicy);
 
                 if (acc is PropertyValueAccessor propertyAcc)
                 {

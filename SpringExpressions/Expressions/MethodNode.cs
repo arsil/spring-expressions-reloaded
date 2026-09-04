@@ -169,6 +169,13 @@ namespace SpringExpressions
 
 				if (innerResolved != null)
 				{
+					// Gated on the type the method was actually found on, and only once it is found.
+					// Gating each probe eagerly would turn "not on this type, try System.Type" into a
+					// denial, so T(int).GetMethods() would be refused for Int32 rather than judged
+					// against System.Type, where GetMethods is really declared.
+					compilationContext.SandboxPolicy.DemandMemberIsPermitted(
+						contextExpressionType, methodName);
+
 					methodInfo = innerResolved.Item1;
 					resolvedArguments = innerResolved.Item2;
 				}
@@ -188,6 +195,9 @@ namespace SpringExpressions
 
 			    if (resolved != null)
 			    {
+				    compilationContext.SandboxPolicy.DemandMemberIsPermitted(
+					    contextExpressionType, methodName);
+
 				    methodInfo = resolved.Item1;
 				    resolvedArguments = resolved.Item2;
 			    }
@@ -259,6 +269,11 @@ namespace SpringExpressions
             [NotNull, ItemNotNull] List<LExpression> arguments,
             [NotNull, ItemNotNull] Type[] argumentTypes)
         {
+            // No sandbox check here on purpose. This resolves accessors for IndexerNode as well as
+            // methods for MethodNode, and indexing is gated as a language operation rather than as a
+            // member (SandboxPolicy.DemandTypeIsReachable). The member gate belongs to the node that
+            // knows which question it is asking, and it runs on the type the method was actually
+            // found on rather than on the first type probed.
             var candidates = GetCompiledCandidateMethods(contextType, methodName, argumentTypes.Length);
 
             if (candidates.Count == 0)
@@ -831,7 +846,7 @@ namespace SpringExpressions
 
                     if (!initialized)
                     {
-                        Initialize(methodName, argValues, context);
+                        Initialize(methodName, argValues, context, evalContext.SandboxPolicy);
                         initialized = true;
                     }
                 }
@@ -882,17 +897,27 @@ namespace SpringExpressions
             return hash;
         }
 
-        private void Initialize(string methodName, object[] argValues, object context)
+        private void Initialize(
+            string methodName, object[] argValues, object context, [NotNull] SandboxPolicy sandboxPolicy)
         {
             Type contextType = (context is Type ? context as Type : context.GetType());
 
             // check the context type first
             MethodInfo mi = GetBestMethod(contextType, methodName, BINDING_FLAGS, argValues);
 
-            // if not found, probe the Type's type          
-            if (mi == null)
+            // The interpreter's half of the member gate, on the type the method was actually found
+            // on. Gating before the probe would turn "not here, try System.Type" into a denial.
+            if (mi != null)
             {
+                sandboxPolicy.DemandMemberIsPermitted(contextType, methodName);
+            }
+            else
+            {
+                // if not found, probe the Type's type
                 mi = GetBestMethod(typeof(Type), methodName, BINDING_FLAGS, argValues);
+
+                if (mi != null)
+                    sandboxPolicy.DemandMemberIsPermitted(typeof(Type), methodName);
             }
 
             if (mi == null)
