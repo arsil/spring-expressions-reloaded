@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Reflection;
 
 using JetBrains.Annotations;
 
@@ -83,9 +84,9 @@ namespace SpringExpressions
         // Declaration order matters: a static field initialiser runs in textual order, so the two
         // singletons must exist before _default can be pointed at one of them.
 
-        private static readonly SandboxPolicy AllowEverythingPolicy = new SandboxPolicy(null);
+        private static readonly SandboxPolicy AllowEverythingPolicy = new SandboxPolicy(null, null, null);
 
-        private static readonly SandboxPolicy RestrictedPolicy = new SandboxPolicy(BuildCatalog());
+        private static readonly SandboxPolicy RestrictedPolicy = new SandboxPolicy(BuildCatalog(), null, null);
 
         private static SandboxPolicy _default = AllowEverythingPolicy;
 
@@ -156,7 +157,7 @@ namespace SpringExpressions
             AssertUtils.ArgumentNotNull(type, "type");
 
             if (_catalog == null)
-                return TypeVerdict.Unrestricted;
+                return TypeVerdict.Unrestricted(null);
 
             // GetOrAdd may run its factory more than once under contention. That is fine here and only
             // here: Compute is a pure function of the type and the loser is a discarded struct. Where
@@ -195,19 +196,28 @@ namespace SpringExpressions
                     "policy");
             }
 
-            return new SandboxPolicyBuilder(policy._catalog);
+            return new SandboxPolicyBuilder(
+                policy._catalog, policy._allowedAssemblies, policy._forbiddenAssemblies);
         }
 
-        private SandboxPolicy([CanBeNull] IDictionary<Type, HashSet<string>> catalog)
+        private SandboxPolicy(
+            [CanBeNull] IDictionary<Type, SandboxCatalogEntry> catalog,
+            [CanBeNull] ISet<Assembly> allowedAssemblies,
+            [CanBeNull] ISet<Assembly> forbiddenAssemblies)
         {
             _catalog = catalog;
+            _allowedAssemblies = allowedAssemblies;
+            _forbiddenAssemblies = forbiddenAssemblies;
         }
 
         /// <summary>The policy a <see cref="SandboxPolicyBuilder"/> produces.</summary>
         [NotNull]
-        internal static SandboxPolicy WithCatalog([NotNull] IDictionary<Type, HashSet<string>> catalog)
+        internal static SandboxPolicy WithCatalog(
+            [NotNull] IDictionary<Type, SandboxCatalogEntry> catalog,
+            [CanBeNull] ISet<Assembly> allowedAssemblies,
+            [CanBeNull] ISet<Assembly> forbiddenAssemblies)
         {
-            return new SandboxPolicy(catalog);
+            return new SandboxPolicy(catalog, allowedAssemblies, forbiddenAssemblies);
         }
 
         /// <summary>
@@ -222,6 +232,8 @@ namespace SpringExpressions
         {
             AssertUtils.ArgumentNotNull(type, "type");
 
+            // Unknown is denied here and trusted by the member gate - §5.2. Naming is unbounded, so
+            // this half is an allow-list.
             if (IsNameable(type))
                 return;
 
@@ -244,7 +256,9 @@ namespace SpringExpressions
         /// </remarks>
         private bool IsNameable([NotNull] Type type)
         {
-            if (VerdictFor(type).Verdict == SandboxVerdict.Denied)
+            var verdict = VerdictFor(type).Verdict;
+
+            if (verdict == SandboxVerdict.Denied || verdict == SandboxVerdict.Unknown)
                 return false;
 
             if (type.IsArray || type.IsByRef || type.IsPointer)
@@ -282,7 +296,13 @@ namespace SpringExpressions
         {
             AssertUtils.ArgumentNotNull(receiverType, "receiverType");
 
-            if (VerdictFor(receiverType).Allows(memberName))
+            var verdict = VerdictFor(receiverType);
+
+            // Unknown means nobody ruled, and for a type the expression *arrived at* that is
+            // trust - §5.2. Reaching is already bounded by what the engineer exposed (§2), unlike
+            // naming. Forbid<T>() is what keeps a reachable type out, which is why Denied and
+            // Unknown are separate verdicts.
+            if (verdict.Verdict == SandboxVerdict.Unknown || verdict.Allows(memberName))
                 return;
 
             throw new SandboxViolationException(receiverType, memberName);
@@ -296,55 +316,167 @@ namespace SpringExpressions
         // denied compiled and served interpreted. What governs an indexing operation is the member
         // that produced the container.
 
+        /// <summary>
+        /// Whether this policy permits <paramref name="memberName"/> on <paramref name="type"/>,
+        /// answering without throwing. For <see cref="SandboxPolicyBuilder.DescribeImplicitTrust"/>,
+        /// which is a report rather than a gate.
+        /// </summary>
+        internal bool PermitsForReport([NotNull] Type type, [NotNull] string memberName)
+        {
+            var verdict = VerdictFor(type);
+
+            return verdict.Verdict == SandboxVerdict.Unknown || verdict.Allows(memberName);
+        }
+
+        /// <summary>
+        /// Whether the catalog has ruled on <paramref name="type"/> at all. False means an expression
+        /// that <i>reaches</i> one is trusted with it and nobody said so - which is what
+        /// <see cref="SandboxPolicyBuilder.DescribeImplicitTrust"/> exists to surface.
+        /// </summary>
+        internal bool KnowsForReport([NotNull] Type type)
+        {
+            return VerdictFor(type).Verdict != SandboxVerdict.Unknown;
+        }
+
+        /// <summary>
+        /// Throws when <paramref name="collectionType"/> holds items of a type the catalog explicitly
+        /// forbids. The gate a collection processor goes through.
+        /// </summary>
+        /// <remarks>
+        /// <b>Only an explicit <c>Forbid&lt;T&gt;()</c> stops a processor</b>, never merely an
+        /// uncatalogued item type - which §5.2 answers with trust, and which is the overwhelmingly
+        /// common case: an engineer's own model classes are uncatalogued and their collections must
+        /// keep sorting. So this asks about <see cref="SandboxVerdict.Denied"/> alone, where the
+        /// member gate also acts on <see cref="SandboxVerdict.Catalogued"/>.
+        /// <p>
+        /// It exists because a processor reaches members the expression never names - <c>CompareTo</c>
+        /// for <c>sort()</c>, <c>Equals</c> and <c>GetHashCode</c> for <c>distinct()</c>, an implicit
+        /// numeric conversion for <c>sum()</c> - so the member gate cannot see them. It applies to
+        /// every processor including <c>count()</c>, which touches nothing: "count() works but sort()
+        /// does not" is a distinction nobody can predict.
+        /// </p>
+        /// </remarks>
+        internal void RequireItemTypeIsNotForbidden([NotNull] Type collectionType)
+        {
+            AssertUtils.ArgumentNotNull(collectionType, "collectionType");
+
+            var itemType = CollectionOperandUtils.GetEnumerableItemType(collectionType);
+
+            if (itemType == null || VerdictFor(itemType).Verdict != SandboxVerdict.Denied)
+                return;
+
+            throw new SandboxViolationException(itemType);
+        }
+
         private TypeVerdict Compute([NotNull] Type type)
         {
-            // Still owed here, and it belongs to the catalog stage rather than to this one: the
-            // trusted-assembly test of §5.2, which is what makes the caller's own types unrestricted
-            // without any configuration. Until it exists, only catalogued types are reachable.
-            HashSet<string> ownEntry;
-            var hasOwnEntry = TryGetEntry(type, out ownEntry);
-
-            // An array is reachable when its element type is, so nobody has to catalogue int[],
-            // string[] and every other instantiation by hand. Its *members* still come from the
-            // union below, where System.Array's entry is the useful one: one Allow(typeof(Array),
-            // nameof(Array.Length)) covers every array rather than one entry per element type.
-            var reachableAsComposite =
-                (type.IsArray || type.IsByRef || type.IsPointer)
-                && VerdictFor(type.GetElementType()).Verdict != SandboxVerdict.Denied;
-
-            if (!hasOwnEntry && !reachableAsComposite)
+            // An assembly-level rule first, since it is the coarsest thing anyone can say. Forbidding
+            // wins: it is the verb §5.2 made useful, because "trusted unless ruled" means keeping a
+            // reachable package out has to be said explicitly.
+            if (_forbiddenAssemblies != null && _forbiddenAssemblies.Contains(type.Assembly))
                 return TypeVerdict.Denied;
 
+            SandboxCatalogEntry ownEntry;
+            var hasOwnEntry = TryGetEntry(type, out ownEntry);
+
+            if (hasOwnEntry && ownEntry.Forbidden)
+                return TypeVerdict.Denied;
+
+            if (_allowedAssemblies != null && _allowedAssemblies.Contains(type.Assembly))
+                return TypeVerdict.Unrestricted(hasOwnEntry ? ownEntry.RejectedMembers : null);
+
             if (!hasOwnEntry)
-                ownEntry = EmptyEntry;
+            {
+                // Nobody ruled. The gates answer that differently - denied when the expression named
+                // the type, trusted when it arrived at one (§5.2).
+                //
+                // There used to be an array special case here, giving an uncatalogued array a
+                // Catalogued-with-no-members verdict on the grounds that its reachability follows its
+                // element type. That predates §5.2 and the positive corpus caught it: `Tags.Length`
+                // on a string[] was denied, because "catalogued with no members" denies everything
+                // while "nobody ruled" trusts what was reached. Arrays need nothing special now -
+                // IsNameable still decomposes them for the *naming* question, which is the only place
+                // an element type has to be judged.
+                return TypeVerdict.Unknown;
+            }
+
+            var rejected = CollectRejected(type, ownEntry);
+
+            // Whole-type allowance short-circuits the member union: there is nothing to collect when
+            // every name is permitted anyway.
+            if (hasOwnEntry && ownEntry.AllMembers)
+                return TypeVerdict.Unrestricted(rejected);
 
             // Reachability is the type's own entry; the member list is the union up the chain, so an
             // inherited member is listed once where it is declared instead of on every entry that
             // wants it. Computed here, so a member check stays one set lookup (§5).
-            var members = new HashSet<string>(ownEntry, StringComparer.OrdinalIgnoreCase);
+            var members = SandboxCatalogEntry.NewSet();
 
-            for (var baseType = type.BaseType; baseType != null; baseType = baseType.BaseType)
+            if (hasOwnEntry && ownEntry.AllowedMembers != null)
+                members.UnionWith(ownEntry.AllowedMembers);
+
+            foreach (var ancestor in Ancestors(type))
             {
-                HashSet<string> baseEntry;
-                if (TryGetEntry(baseType, out baseEntry))
-                    members.UnionWith(baseEntry);
+                SandboxCatalogEntry entry;
+                if (!TryGetEntry(ancestor, out entry))
+                    continue;
+
+                // A base type allowed whole lends every one of its members, which is how one
+                // AllowAllMembersOf<object>() would hand ToString and Equals to everything below it.
+                if (entry.AllMembers)
+                    return TypeVerdict.Unrestricted(rejected);
+
+                if (entry.AllowedMembers != null)
+                    members.UnionWith(entry.AllowedMembers);
             }
+
+            return TypeVerdict.Catalogued(members, rejected);
+        }
+
+        /// <summary>
+        /// Every rejection that applies to <paramref name="type"/> - its own and its ancestors' - so
+        /// that <c>.Except(...)</c> on a base type is not silently undone by a derived entry.
+        /// </summary>
+        [CanBeNull]
+        private HashSet<string> CollectRejected(
+            [NotNull] Type type, [CanBeNull] SandboxCatalogEntry ownEntry)
+        {
+            HashSet<string> rejected = null;
+
+            if (ownEntry != null && ownEntry.RejectedMembers != null)
+                rejected = new HashSet<string>(ownEntry.RejectedMembers, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var ancestor in Ancestors(type))
+            {
+                SandboxCatalogEntry entry;
+                if (!TryGetEntry(ancestor, out entry) || entry.RejectedMembers == null)
+                    continue;
+
+                if (rejected == null)
+                    rejected = SandboxCatalogEntry.NewSet();
+
+                rejected.UnionWith(entry.RejectedMembers);
+            }
+
+            return rejected;
+        }
+
+        /// <summary>Base types then interfaces, which is the order a reader expects to see them in.</summary>
+        [NotNull]
+        private static IEnumerable<Type> Ancestors([NotNull] Type type)
+        {
+            for (var baseType = type.BaseType; baseType != null; baseType = baseType.BaseType)
+                yield return baseType;
 
             foreach (var implemented in type.GetInterfaces())
-            {
-                HashSet<string> interfaceEntry;
-                if (TryGetEntry(implemented, out interfaceEntry))
-                    members.UnionWith(interfaceEntry);
-            }
-
-            return TypeVerdict.Catalogued(members);
+                yield return implemented;
         }
 
         /// <summary>
         /// The catalog entry for one type. A constructed generic falls back to its open definition,
         /// because that is the form the catalog holds - <c>List&lt;&gt;</c>, not <c>List&lt;int&gt;</c>.
         /// </summary>
-        private bool TryGetEntry([NotNull] Type type, out HashSet<string> entry)
+        private bool TryGetEntry([NotNull] Type type, out SandboxCatalogEntry entry)
         {
             if (_catalog.TryGetValue(type, out entry))
                 return true;
@@ -391,22 +523,134 @@ namespace SpringExpressions
         /// </p>
         /// </remarks>
         [NotNull]
-        private static IDictionary<Type, HashSet<string>> BuildCatalog()
+        private static IDictionary<Type, SandboxCatalogEntry> BuildCatalog()
         {
-            return new Dictionary<Type, HashSet<string>>();
+            var catalog = new Dictionary<Type, SandboxCatalogEntry>();
+
+            // §5.2 made this mandatory rather than merely advisable, and the negative corpus found
+            // out: a type nobody has ruled on is *trusted* when an expression arrives at one, and
+            // every object alive can produce a System.Type through GetType(). Without this entry
+            // 'abc'.GetType().Assembly walks straight through - the escape the whole design exists to
+            // close, reopened by the fallback that makes the rest of it usable.
+            //
+            // Descriptive members only, per §3: what the type is called, not what can be done with
+            // it. No Assembly, no Module, no GetMethod*/GetProperty*/GetConstructor*/InvokeMember.
+            var typeEntry = new SandboxCatalogEntry();
+            foreach (var descriptive in new[]
+                     {
+                         "Name", "FullName", "Namespace", "AssemblyQualifiedName",
+                         "IsEnum", "IsArray", "IsValueType", "IsClass", "IsInterface",
+                         "IsAbstract", "IsSealed", "IsPrimitive", "IsGenericType",
+                         "BaseType", "IsSubclassOf", "IsInstanceOfType", "IsAssignableFrom",
+                         "ToString", "Equals", "GetHashCode"
+                     })
+            {
+                typeEntry.Allow(descriptive);
+            }
+
+            catalog.Add(typeof(Type), typeEntry);
+
+            // Defence in depth: these are reachable only through members System.Type no longer
+            // permits, so nothing should get to them - but a forbidden type costs one dictionary
+            // entry and removes any dependence on that reasoning staying true.
+            foreach (var forbidden in new[]
+                     {
+                         typeof(System.Reflection.Assembly),
+                         typeof(System.Reflection.Module),
+                         typeof(System.Reflection.MemberInfo),
+                         typeof(System.Reflection.MethodBase),
+                         typeof(System.Reflection.ConstructorInfo),
+                         typeof(System.Reflection.MethodInfo),
+                         typeof(System.Reflection.PropertyInfo),
+                         typeof(System.Reflection.FieldInfo),
+                         typeof(AppDomain),
+                         typeof(Activator),
+                         typeof(GC),
+                         typeof(Delegate),
+                         typeof(Environment)
+                     })
+            {
+                catalog.Add(forbidden, new SandboxCatalogEntry { Forbidden = true });
+            }
+
+            // The nameable half, driven row by row by the positive corpus (§6.3, §8.1 stage 4).
+            //
+            // Two things to know before adding to it. Nothing may be *named* unless it is catalogued,
+            // which is why an entry is needed at all for `new DateTime(…)` or `T(Math)`. And
+            // cataloguing a type to make it nameable also switches its *members* from trusted to
+            // governed - `string` had to be catalogued for `new System.String[] {…}`, and that alone
+            // put `Customer.Name.Length` under the catalog's rule. So a type catalogued for naming
+            // almost always wants AllMembers unless there is a reason to curate it.
+            //
+            // AllMembers is a bet, and §6.2 states it: the type gains whatever a future framework
+            // version adds. Taken here for the pure ones - values, maths, text - and refused for
+            // CultureInfo, which has a settable static that changes the whole process (§5.3).
+            foreach (var whole in new[]
+                     {
+                         typeof(bool), typeof(char), typeof(string),
+                         typeof(sbyte), typeof(byte), typeof(short), typeof(ushort),
+                         typeof(int), typeof(uint), typeof(long), typeof(ulong),
+                         typeof(float), typeof(double), typeof(decimal),
+                         typeof(DateTime), typeof(TimeSpan), typeof(DateTimeOffset), typeof(Guid),
+                         typeof(Math), typeof(Convert), typeof(Version), typeof(Array),
+                         typeof(System.Text.StringBuilder),
+                         typeof(System.Globalization.Calendar),
+                         typeof(System.Globalization.GregorianCalendar),
+                         typeof(System.Globalization.NumberFormatInfo),
+                         typeof(System.Globalization.DateTimeFormatInfo),
+                         typeof(IFormatProvider),
+                         typeof(List<>), typeof(Dictionary<,>), typeof(HashSet<>),
+                         typeof(System.Collections.ArrayList), typeof(System.Collections.Hashtable)
+                     })
+            {
+                catalog.Add(whole, new SandboxCatalogEntry { AllMembers = true });
+            }
+
+            // CultureInfo is the one formatting type that cannot be allowed whole, and §5.3 has the
+            // measurement: setting CurrentCulture through an expression changed every subsequent
+            // ToString('C') in the process. Reading it is fine and genuinely wanted; writing it is an
+            // effect on unrelated code. CreateSpecificCulture is refused with it, because the culture
+            // it hands back is writable - the two are only dangerous together.
+            var culture = new SandboxCatalogEntry { AllMembers = true };
+            foreach (var effect in new[]
+                     {
+                         "CurrentCulture", "CurrentUICulture", "DefaultThreadCurrentCulture",
+                         "DefaultThreadCurrentUICulture", "CreateSpecificCulture", "ClearCachedData",
+
+                         // Found by DescribeImplicitTrust rather than by review, and it is an
+                         // inconsistency rather than a hole: GetCultures hands back *writable*
+                         // CultureInfo instances, exactly as CreateSpecificCulture does, and that is
+                         // why the latter was rejected. Neither can actually do harm while the
+                         // CurrentCulture setter is refused - there is nowhere to install a mutated
+                         // culture - so this is defence in depth on both, or on neither. Rejecting
+                         // the pair costs one rarely-wanted member and removes the need to keep
+                         // that reasoning true.
+                         "GetCultures"
+                     })
+            {
+                culture.Reject(effect);
+            }
+
+            catalog.Add(typeof(System.Globalization.CultureInfo), culture);
+
+            return catalog;
         }
 
         /// <summary>Null means "allow everything"; a table means "only what is in it".</summary>
         [CanBeNull]
-        private readonly IDictionary<Type, HashSet<string>> _catalog;
+        private readonly IDictionary<Type, SandboxCatalogEntry> _catalog;
+
+        /// <summary>Assemblies every type of which is unrestricted, or null.</summary>
+        [CanBeNull]
+        private readonly ISet<Assembly> _allowedAssemblies;
+
+        /// <summary>Assemblies no type of which may be named or reached, or null.</summary>
+        [CanBeNull]
+        private readonly ISet<Assembly> _forbiddenAssemblies;
 
         /// <summary>
         /// Keyed on <see cref="Type"/>, so the lookup is reference equality - the fastest key available.
         /// </summary>
-        [NotNull]
-        private static readonly HashSet<string> EmptyEntry
-            = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
         [NotNull]
         private readonly ConcurrentDictionary<Type, TypeVerdict> _verdicts =
             new ConcurrentDictionary<Type, TypeVerdict>();

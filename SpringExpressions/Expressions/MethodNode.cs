@@ -681,6 +681,19 @@ namespace SpringExpressions
             List<LExpression> arguments,
             CompilationContext compilationContext)
         {
+            // A collection processor reaches the item type's own members without the expression ever
+            // naming one - sort() calls CompareTo, distinct() calls Equals and GetHashCode, sum()
+            // an implicit numeric conversion - so neither gate would otherwise see it. Ruled: a
+            // forbidden item type refuses every processor, count() and reverse() included.
+            //
+            // Forbid<T>() is not "nobody mentioned this type", which §5.2 answers with trust; it is
+            // the engineer going out of their way to say no. Where they have also exposed a
+            // List<T> of it they have contradicted themselves, and the explicit refusal wins over
+            // the implicit exposure. All ten rather than the seven that actually touch a member,
+            // because "count() works but sort() does not" is a distinction nobody can predict
+            // without reading this file.
+            compilationContext.SandboxPolicy.RequireItemTypeIsNotForbidden(instance.Type);
+
             if (instance is ConstantExpression constExpression
                 && constExpression.Value == null
                 && argumentsTypes.Count == 0
@@ -810,6 +823,12 @@ namespace SpringExpressions
                 // here while the compiled path - whose first tier asks IsGenericEnumerable - answered.
                 if ((context == null || context is IEnumerable))
                 {
+                    // The interpreter's half of the item-type rule - see TryCollectionProcessors.
+                    // The runtime type is what is available here, where the compiled path had the
+                    // static one; a forbidden type is forbidden either way, so the two agree.
+                    if (context != null)
+                        evalContext.SandboxPolicy.RequireItemTypeIsNotForbidden(context.GetType());
+
                     // predefined collection processor?
                     localCollectionProcessor = (ICollectionProcessor)collectionProcessorMap[methodName];
 

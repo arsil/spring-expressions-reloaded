@@ -7,6 +7,11 @@ using SpringExpressions;
 
 namespace SpringExpressionsTests.Expressions
 {
+    /// <summary>Top-level, because the grammar cannot spell a nested type's name.</summary>
+    public class SandboxNameableProbe
+    {
+    }
+
     /// <summary>
     /// Stage 3 of the sandbox: the member gate. This is the half that closes
     /// <c>'abc'.GetType().Assembly</c>, which names no type at all and so never meets the type gate.
@@ -23,6 +28,7 @@ namespace SpringExpressionsTests.Expressions
     {
         public class Order
         {
+            public DateTime ShippedOn { get; set; } = new DateTime(2020, 1, 2);
             public string Customer { get; set; } = "Ana";
             public int Quantity { get; set; } = 3;
             public Dictionary<string, int> Totals { get; set; } = new Dictionary<string, int> { { "net", 42 } };
@@ -147,40 +153,148 @@ namespace SpringExpressionsTests.Expressions
         [Test]
         public void AnInheritedMemberIsPermittedByTheTypeThatDeclaresIt()
         {
-            // Reachability comes from the type's own entry; the member list is the union up the
-            // chain. So GetType is written once, on System.Object, rather than on every entry that
-            // wants it - and cataloguing System.Object does not by itself make String reachable.
+            // A member list is the union up the chain, so an inherited member is listed once where it
+            // is declared rather than on every entry that wants it. Order is catalogued here with an
+            // allow-list, which makes its members governed - and ToString is not one of its own.
             var withObject = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
-                .Allow<string>(nameof(string.Length))
-                .Allow<object>(nameof(object.GetType))
+                .Allow<Order>(nameof(Order.Customer))
+                .Allow<object>(nameof(object.ToString))
                 .Build();
 
-            Assert.AreEqual(
-                typeof(string),
-                Expression.ParseGetter<object, object>(
-                    "'abc'.GetType()", EvaluationMode.MustCompile, withObject).GetValue(null));
+            Assert.IsNotNull(
+                Expression.ParseGetter<Order, object>(
+                    "ToString()", EvaluationMode.MustCompile, withObject).GetValue(new Order()));
 
             var withoutObject = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
-                .Allow<string>(nameof(string.Length))
+                .Allow<Order>(nameof(Order.Customer))
                 .Build();
 
             Assert.Throws<SandboxViolationException>(
-                () => Expression.ParseGetter<object, object>(
-                    "'abc'.GetType()", EvaluationMode.MustCompile, withoutObject));
+                () => Expression.ParseGetter<Order, object>(
+                    "ToString()", EvaluationMode.MustCompile, withoutObject));
         }
 
         [Test]
-        public void CataloguingABaseTypeDoesNotMakeEveryTypeReachable()
+        public void AnUncataloguedTypeIsTrustedWhenReachedAndDeniedWhenNamed()
         {
+            // §5.2's ruling, and this test used to assert the opposite - that cataloguing object did
+            // not make String reachable, because an uncatalogued type was denied everywhere. The
+            // catalog is asked first either way; what changed is the answer when it has no entry at
+            // all, and that now depends on how the expression got to the type.
             var onlyObject = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
                 .Allow<object>(nameof(object.GetType))
                 .Build();
 
+            // Reached - the receiver of a member access - so trusted, though nothing catalogues String.
+            Assert.AreEqual(
+                3,
+                Expression.ParseGetter<object, object>(
+                    "'abc'.Length", EvaluationMode.MustCompile, onlyObject).GetValue(null));
+
+            // Named - and naming is unbounded, so an allow-list governs it.
             var denied = Assert.Throws<SandboxViolationException>(
                 () => Expression.ParseGetter<object, object>(
-                    "'abc'.Length", EvaluationMode.MustCompile, onlyObject));
+                    "T(SpringExpressionsTests.Expressions.SandboxNameableProbe)",
+                    EvaluationMode.MustCompile, onlyObject));
+
+            Assert.AreEqual(typeof(SandboxNameableProbe), denied.DeniedType);
+            Assert.IsNull(denied.DeniedMember, "denied as a name, not as a member");
+        }
+
+        [Test]
+        public void ForbidKeepsAReachableTypeOut()
+        {
+            // Forbid<T>() is load-bearing since §5.2 and was decorative before it: under a pure
+            // allow-list, not catalogued already meant denied, so forbidding said nothing. Now it is
+            // the only way to keep a type out that an expression can reach.
+            var forbidden = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
+                .Forbid<string>()
+                .Build();
+
+            var denied = Assert.Throws<SandboxViolationException>(
+                () => Expression.ParseGetter<object, object>(
+                    "'abc'.Length", EvaluationMode.MustCompile, forbidden));
 
             Assert.AreEqual(typeof(string), denied.DeniedType);
+            Assert.AreEqual("Length", denied.DeniedMember);
+        }
+
+        [Test]
+        public void AllowAllMembersOfCoversMembersNobodyListed()
+        {
+            var whole = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
+                .AllowAllMembersOf<DateTime>()
+                .Build();
+
+            // Ticks is the case that motivated the verb: obviously safe, and absent from every
+            // hand-written list because no test happened to use it.
+            Assert.AreEqual(
+                new DateTime(2020, 1, 2).Ticks,
+                Expression.ParseGetter<Order, object>(
+                    "ShippedOn.Ticks", EvaluationMode.MustCompile, whole)
+                    .GetValue(new Order { ShippedOn = new DateTime(2020, 1, 2) }));
+        }
+
+        [Test]
+        public void ExceptBeatsAWholeTypeAllowance()
+        {
+            // The reject-list direction. For a type where most of the surface is fine, listing the
+            // few members that are not is shorter than listing the forty that are.
+            var policy = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
+                .AllowAllMembersOf<DateTime>()
+                .Except<DateTime>(nameof(DateTime.Ticks))
+                .Build();
+
+            var order = new Order { ShippedOn = new DateTime(2020, 1, 2) };
+
+            Assert.AreEqual(
+                2020,
+                Expression.ParseGetter<Order, object>(
+                    "ShippedOn.Year", EvaluationMode.MustCompile, policy).GetValue(order));
+
+            var denied = Assert.Throws<SandboxViolationException>(
+                () => Expression.ParseGetter<Order, object>(
+                    "ShippedOn.Ticks", EvaluationMode.MustCompile, policy));
+
+            Assert.AreEqual("Ticks", denied.DeniedMember);
+        }
+
+        [Test]
+        public void ForbiddingAnAssemblyBeatsEveryAllowanceInIt()
+        {
+            // "Nothing from this package, however I reach it" - the direction §5.2 made useful, since
+            // reaching is trusted by default. A coarse refusal a fine permission could undo would be
+            // no refusal at all, so the assembly rule wins over the type entry.
+            var policy = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
+                .AllowAllMembersOf<DateTime>()
+                .ForbidAssemblyOf<DateTime>()
+                .Build();
+
+            Assert.Throws<SandboxViolationException>(
+                () => Expression.ParseGetter<Order, object>(
+                    "ShippedOn.Year", EvaluationMode.MustCompile, policy));
+        }
+
+        [Test]
+        public void AllowingAnAssemblyMakesItsTypesNameable()
+        {
+            // What the assembly-allow verb adds over §5.2's default: reaching is already trusted, but
+            // naming never is.
+            const string expression = "new SpringExpressionsTests.Expressions.SandboxNameableProbe()";
+
+            var withoutIt = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted).Build();
+
+            Assert.Throws<SandboxViolationException>(
+                () => Expression.ParseGetter<object, object>(
+                    expression, EvaluationMode.MustCompile, withoutIt));
+
+            var withIt = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
+                .AllowAssemblyOf<SandboxNameableProbe>()
+                .Build();
+
+            Assert.IsInstanceOf<SandboxNameableProbe>(
+                Expression.ParseGetter<object, object>(
+                    expression, EvaluationMode.MustCompile, withIt).GetValue(null));
         }
 
         public class Containers
