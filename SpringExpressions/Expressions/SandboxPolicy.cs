@@ -88,7 +88,12 @@ namespace SpringExpressions
 
         private static readonly SandboxPolicy RestrictedPolicy = new SandboxPolicy(BuildCatalog(), null, null);
 
-        private static SandboxPolicy _default = AllowEverythingPolicy;
+        // Stage 5, 2026-09-06: the sandbox is on by default. Measured before it was taken - flip,
+        // run both suites, revert - and what that dry run found is _Docs/type-sandboxing.md §8.9.
+        // A consumer whom this breaks writes one line at startup: either
+        // SandboxPolicy.Default = SandboxPolicy.DangerouslyAllowEverything to opt out entirely, or a
+        // policy of their own naming the types their expressions construct and reach statically.
+        private static SandboxPolicy _default = RestrictedPolicy;
 
         /// <summary>
         /// The policy an expression gets when the call that created it did not name one.
@@ -206,6 +211,9 @@ namespace SpringExpressions
             [CanBeNull] ISet<Assembly> forbiddenAssemblies)
         {
             _catalog = catalog;
+            _catalogByFullName = catalog == null
+                ? EmptyNameIndex
+                : IndexByFullName(catalog);
             _allowedAssemblies = allowedAssemblies;
             _forbiddenAssemblies = forbiddenAssemblies;
         }
@@ -253,16 +261,32 @@ namespace SpringExpressions
         /// <c>Dictionary&lt;string, int&gt;</c> would have required <c>string</c> and <c>int</c> to be
         /// catalogued before the dictionary could be indexed at all, which is not what the catalog
         /// means.
+        /// <p>
+        /// <b>An array is not a thing the catalog rules on - it is a construction over an element
+        /// type</b>, so it is asked about its element and never about itself. That ordering is
+        /// load-bearing and it was wrong until 2026-09-06: the verdict test came first, an array type
+        /// is never in the catalog, and <see cref="SandboxVerdict.Unknown"/> returned false one line
+        /// before the decomposition could run. So <c>string[]</c> was refused while <c>string</c> was
+        /// allowed whole, and the message blamed <c>string</c> - a type the policy permits. The same
+        /// unreachable-branch mistake hid behind the array special case <c>Compute</c> used to carry,
+        /// whose removal note claims this method "already decomposes them"; it did not get the chance.
+        /// By-ref and pointer types read the same way.
+        /// </p>
+        /// <p>
+        /// A constructed generic is the other half and is <i>not</i> the same case: there the
+        /// definition itself is a catalog row - <c>List&lt;&gt;</c> is listed, <c>Nullable&lt;&gt;</c>
+        /// had to be added - so its own verdict is asked first and the arguments after.
+        /// </p>
         /// </remarks>
         private bool IsNameable([NotNull] Type type)
         {
+            if (type.IsArray || type.IsByRef || type.IsPointer)
+                return IsNameable(type.GetElementType());
+
             var verdict = VerdictFor(type).Verdict;
 
             if (verdict == SandboxVerdict.Denied || verdict == SandboxVerdict.Unknown)
                 return false;
-
-            if (type.IsArray || type.IsByRef || type.IsPointer)
-                return IsNameable(type.GetElementType());
 
             if (type.IsGenericType && !type.IsGenericTypeDefinition)
             {
@@ -387,6 +411,20 @@ namespace SpringExpressions
 
             if (!hasOwnEntry)
             {
+                // An enum is data: its members are its own named constants plus what System.Enum
+                // gives every one of them - ToString, CompareTo, HasFlag, GetTypeCode - and none of
+                // that reaches anything. So every enum is nameable, whoever declared it, rather than
+                // being catalogued one at a time; T(RegexOptions).IgnoreCase was the single largest
+                // cause of red when the default was first flipped, and DayOfWeek as a cast target sat
+                // beside it. Cataloguing framework enums by hand would have missed the consumer's own
+                // in exactly the same way.
+                //
+                // Placed *after* the two forbidding checks on purpose, so Forbid<SomeEnum>() and a
+                // forbidden assembly still win - an explicit refusal beats a blanket rule, which is
+                // the same ordering §8.8 ruled for collection processors.
+                if (type.IsEnum)
+                    return TypeVerdict.Unrestricted(null);
+
                 // Nobody ruled. The gates answer that differently - denied when the expression named
                 // the type, trusted when it arrived at one (§5.2).
                 //
@@ -478,18 +516,99 @@ namespace SpringExpressions
         /// </summary>
         private bool TryGetEntry([NotNull] Type type, out SandboxCatalogEntry entry)
         {
-            if (_catalog.TryGetValue(type, out entry))
+            if (_catalog.TryGetValue(type, out entry) || TryGetEntryByName(type, out entry))
                 return true;
 
-            return type.IsGenericType
-                   && !type.IsGenericTypeDefinition
-                   && _catalog.TryGetValue(type.GetGenericTypeDefinition(), out entry);
+            if (!type.IsGenericType || type.IsGenericTypeDefinition)
+                return false;
+
+            var definition = type.GetGenericTypeDefinition();
+
+            return _catalog.TryGetValue(definition, out entry)
+                   || TryGetEntryByName(definition, out entry);
+        }
+
+        /// <summary>
+        /// The same entry, found by full type name, for the case where the runtime holds <b>two</b>
+        /// <see cref="Type"/> objects for one type and reference identity therefore misses.
+        /// </summary>
+        /// <remarks>
+        /// <b>Measured, and it is not hypothetical.</b> On netcoreapp2.1,
+        /// <c>typeof(System.Collections.Hashtable)</c> is
+        /// <c>…, System.Runtime.Extensions, Version=4.2.1.0</c> while the name
+        /// <c>"System.Collections.Hashtable"</c> resolves to <c>…, System.Private.CoreLib,
+        /// Version=4.0.0.0</c> - and <c>Equals</c> between the two is <b>false</b>. So the catalog
+        /// entry, added with <c>typeof</c>, was invisible to the type the expression actually named,
+        /// and <c>T(System.Collections.Hashtable)</c> was denied on that framework alone while working
+        /// on the other four. Exactly one catalogued type is affected there and none anywhere else
+        /// (measured over all 29 entries × netcoreapp2.1, net10.0, net472), but a boundary that
+        /// depends on which framework is running is the class of bug this fork exists to remove.
+        /// <p>
+        /// <b>A name collision drops the name rather than guessing.</b> Two types with the same
+        /// <see cref="Type.FullName"/> in different assemblies are indistinguishable here, so the
+        /// index refuses to hold either - falling back to <see cref="SandboxVerdict.Unknown"/>, which
+        /// denies a name and trusts a reachable value, instead of lending one type another's entry.
+        /// </p>
+        /// <p>
+        /// This runs once per type per policy, behind the verdict cache (§5.1), so the steady-state
+        /// cost is unchanged: reference identity is still the first and usually only lookup.
+        /// </p>
+        /// </remarks>
+        private bool TryGetEntryByName([NotNull] Type type, out SandboxCatalogEntry entry)
+        {
+            entry = null;
+
+            var fullName = type.FullName;
+
+            return fullName != null && _catalogByFullName.TryGetValue(fullName, out entry);
+        }
+
+        /// <summary>
+        /// <see cref="_catalog"/> indexed by <see cref="Type.FullName"/>, with every colliding name
+        /// left out. See <see cref="TryGetEntryByName"/> for why it exists.
+        /// </summary>
+        [NotNull]
+        private static IDictionary<string, SandboxCatalogEntry> IndexByFullName(
+            [NotNull] IDictionary<Type, SandboxCatalogEntry> catalog)
+        {
+            var index = new Dictionary<string, SandboxCatalogEntry>(StringComparer.Ordinal);
+            var colliding = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var pair in catalog)
+            {
+                var fullName = pair.Key.FullName;
+
+                if (fullName == null)
+                    continue;
+
+                if (index.ContainsKey(fullName))
+                {
+                    colliding.Add(fullName);
+                    continue;
+                }
+
+                index.Add(fullName, pair.Value);
+            }
+
+            foreach (var name in colliding)
+                index.Remove(name);
+
+            return index;
         }
 
         /// <summary>
         /// The innermost part of <paramref name="type"/> that this policy denies, for the message.
         /// Only ever walked on the failure path.
         /// </summary>
+        /// <remarks>
+        /// The array branch is unconditional and is right that way <i>because</i>
+        /// <see cref="IsNameable"/> asks an array only about its element: an array can now be denied
+        /// for one reason only, so recursing into the element always names the real culprit. While
+        /// that was not true the message accused permitted types - <c>T(System.DateTime[], mscorlib)</c>
+        /// reported that <c>System.DateTime</c> was not permitted, which the same policy allows whole.
+        /// The generic branch has always been conditional and stays so, since there the definition
+        /// itself can be the denied part.
+        /// </remarks>
         [NotNull]
         private Type FirstDeniedPart([NotNull] Type type)
         {
@@ -550,6 +669,22 @@ namespace SpringExpressions
 
             catalog.Add(typeof(Type), typeEntry);
 
+            // System.Object must be catalogued - `T(System.Object)` and `x is T(object)` are ordinary
+            // expressions - and it is the one type that must NOT be allowed whole, however harmless
+            // its four members look. Compute unions the entries up the ancestor chain and returns
+            // Unrestricted the moment an ancestor allows everything, so an AllMembers entry here would
+            // hand every *catalogued* type an unrestricted verdict - System.Type included, and with it
+            // Assembly and Assembly.Load. One line would have undone the whole design.
+            //
+            // Listing the four by name costs nothing, because they are what every type inherits and a
+            // type allowed whole already has them. GetType belongs here rather than being repeated on
+            // every entry, which is what the receiver-unions-its-ancestors rule is for.
+            var objectEntry = new SandboxCatalogEntry();
+            foreach (var universal in new[] { "ToString", "Equals", "GetHashCode", "GetType" })
+                objectEntry.Allow(universal);
+
+            catalog.Add(typeof(object), objectEntry);
+
             // Defence in depth: these are reachable only through members System.Type no longer
             // permits, so nothing should get to them - but a forbidden type costs one dictionary
             // entry and removes any dependence on that reasoning staying true.
@@ -600,7 +735,35 @@ namespace SpringExpressions
                          typeof(System.Globalization.DateTimeFormatInfo),
                          typeof(IFormatProvider),
                          typeof(List<>), typeof(Dictionary<,>), typeof(HashSet<>),
-                         typeof(System.Collections.ArrayList), typeof(System.Collections.Hashtable)
+                         typeof(System.Collections.ArrayList), typeof(System.Collections.Hashtable),
+
+                         // The interfaces the language itself hands out, and the wrapper it hands out
+                         // as often. `Ints is T(IList<int>)` and `T(int?)` are ordinary expressions,
+                         // and both were refused: only the concrete classes had been catalogued, so a
+                         // collection named by its interface was denied while the same collection
+                         // named by its class was allowed. Generic and non-generic spellings are
+                         // listed as pairs deliberately - catalogueing one of a pair is the
+                         // GetCultures/CreateSpecificCulture inconsistency §8.8 already recorded once.
+                         typeof(Nullable<>),
+                         typeof(System.Collections.IEnumerable),
+                         typeof(System.Collections.ICollection),
+                         typeof(System.Collections.IList),
+                         typeof(System.Collections.IDictionary),
+                         typeof(IEnumerable<>), typeof(ICollection<>), typeof(IList<>),
+                         typeof(IDictionary<,>), typeof(ISet<>), typeof(KeyValuePair<,>),
+
+                         // A parser with no effects, and §4.5's own worked example of a curated entry
+                         // - which is why it reads oddly as a whole one. Every member of Uri is
+                         // descriptive: it takes a string apart and hands back strings, ints and its
+                         // own enums. Nothing on it opens, connects or loads.
+                         typeof(Uri),
+
+                         // @[Serializable]. An attribute type is reached by name like any other, so it
+                         // needs a row; this is the only framework attribute either suite names.
+                         // Whether attribute types should be nameable *as a class* - the way enums now
+                         // are - is deliberately left to the naming ruling, since an attribute is an
+                         // arbitrary type where an enum is data.
+                         typeof(SerializableAttribute)
                      })
             {
                 catalog.Add(whole, new SandboxCatalogEntry { AllMembers = true });
@@ -639,6 +802,17 @@ namespace SpringExpressions
         /// <summary>Null means "allow everything"; a table means "only what is in it".</summary>
         [CanBeNull]
         private readonly IDictionary<Type, SandboxCatalogEntry> _catalog;
+
+        /// <summary>
+        /// <see cref="_catalog"/> keyed by <see cref="Type.FullName"/>, consulted only when reference
+        /// identity misses. See <see cref="TryGetEntryByName"/>.
+        /// </summary>
+        [NotNull]
+        private readonly IDictionary<string, SandboxCatalogEntry> _catalogByFullName;
+
+        [NotNull]
+        private static readonly IDictionary<string, SandboxCatalogEntry> EmptyNameIndex =
+            new Dictionary<string, SandboxCatalogEntry>(StringComparer.Ordinal);
 
         /// <summary>Assemblies every type of which is unrestricted, or null.</summary>
         [CanBeNull]

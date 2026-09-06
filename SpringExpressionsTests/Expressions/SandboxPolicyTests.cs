@@ -8,28 +8,39 @@ using SpringExpressions.Expressions.Compiling.Expressions;
 namespace SpringExpressionsTests.Expressions
 {
     /// <summary>
-    /// Stage 1 of the sandbox: the policy object, the process default, and the denial exception. None
-    /// of it is wired to anything yet - there is no type gate and no member gate - so the only thing
-    /// these can assert is the shape of the vocabulary and that the default has not been switched on.
-    /// The behavioural pins arrive with the gates; see <c>_Docs/type-sandboxing.md</c> §8.1.
+    /// The sandbox's vocabulary: the policy object, the process default, and the denial exception.
+    /// The behavioural pins live in <c>SandboxTypeGateTests</c>, <c>SandboxMemberGateTests</c> and
+    /// <c>SandboxCorpusTests</c>.
     /// </summary>
+    /// <remarks>
+    /// <b>The default is on since stage 5</b> (2026-09-06), and this suite runs under a policy of its
+    /// own - see <c>SandboxDefaultForTheSuite</c> at the root of the project - so the tests below
+    /// assert against <i>whatever that policy is</i> rather than naming a built-in singleton. Three of
+    /// them used to assert the default was <c>DangerouslyAllowEverything</c>, which is what the flip
+    /// changed.
+    /// </remarks>
     [TestFixture]
     public class SandboxPolicyTests
     {
         [Test]
-        public void TheProcessDefaultIsPermissiveUntilTheSandboxIsSwitchedOn()
+        public void TheProcessDefaultIsRestrictiveNow()
         {
-            // Stage 5 flips this. Until then nothing about the library's behaviour has changed, which
-            // is what lets stages 2-4 be built without either test suite going red for the wrong
-            // reason.
-            Assert.AreSame(SandboxPolicy.DangerouslyAllowEverything, SandboxPolicy.Default);
+            // Stage 5. The suite's own SetUpFixture then narrows it further to a policy naming the
+            // fixture types its expressions construct, which is what a consumer writes - so the
+            // assertion is "not the off switch" rather than a named singleton.
+            Assert.AreNotSame(SandboxPolicy.DangerouslyAllowEverything, SandboxPolicy.Default);
+
+            Assert.Throws<SandboxViolationException>(
+                () => Expression.ParseGetter<object, object>("new System.Diagnostics.Process()"));
         }
 
         [Test]
         public void TheProcessDefaultRejectsNull()
         {
+            var original = SandboxPolicy.Default;
+
             Assert.Throws<ArgumentNullException>(() => SandboxPolicy.Default = null);
-            Assert.AreSame(SandboxPolicy.DangerouslyAllowEverything, SandboxPolicy.Default);
+            Assert.AreSame(original, SandboxPolicy.Default);
         }
 
         [Test]
@@ -38,15 +49,15 @@ namespace SpringExpressionsTests.Expressions
             var original = SandboxPolicy.Default;
             try
             {
-                SandboxPolicy.Default = SandboxPolicy.Restricted;
-                Assert.AreSame(SandboxPolicy.Restricted, SandboxPolicy.Default);
+                SandboxPolicy.Default = SandboxPolicy.DangerouslyAllowEverything;
+                Assert.AreSame(SandboxPolicy.DangerouslyAllowEverything, SandboxPolicy.Default);
             }
             finally
             {
                 SandboxPolicy.Default = original;
             }
 
-            Assert.AreSame(SandboxPolicy.DangerouslyAllowEverything, SandboxPolicy.Default);
+            Assert.AreSame(original, SandboxPolicy.Default);
         }
 
         [Test]

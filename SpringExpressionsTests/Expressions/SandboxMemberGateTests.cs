@@ -13,6 +13,30 @@ namespace SpringExpressionsTests.Expressions
     }
 
     /// <summary>
+    /// A till drawer and a receipt, for the point-of-sale question that produced the three
+    /// <c>AllowAssemblyOf</c> tests: <i>"an idiot could create a new Receipt"</i>. The answer is that
+    /// the constructor is the least of it - the statics are what one assembly allowance really hands
+    /// over, and they need no instance to reach.
+    /// </summary>
+    /// <remarks>
+    /// Top-level for the same reason <see cref="SandboxNameableProbe"/> is, and it took a failing test
+    /// to remember: <c>T(...)</c> slurps its argument so a nested name with a <c>+</c> parses there,
+    /// while <c>new Outer+Inner()</c> is a syntax error - the grammar reads the <c>+</c> as addition.
+    /// </remarks>
+    public class SandboxTillDrawer
+    {
+        public static string Open() { return "drawer opened"; }
+    }
+
+    /// <summary>See <see cref="SandboxTillDrawer"/>.</summary>
+    public class SandboxReceipt
+    {
+        public static string Reprint() { return "reprinted"; }
+
+        public decimal Total { get { return 12.5m; } }
+    }
+
+    /// <summary>
     /// Stage 3 of the sandbox: the member gate. This is the half that closes
     /// <c>'abc'.GetType().Assembly</c>, which names no type at all and so never meets the type gate.
     /// </summary>
@@ -154,24 +178,68 @@ namespace SpringExpressionsTests.Expressions
         public void AnInheritedMemberIsPermittedByTheTypeThatDeclaresIt()
         {
             // A member list is the union up the chain, so an inherited member is listed once where it
-            // is declared rather than on every entry that wants it. Order is catalogued here with an
-            // allow-list, which makes its members governed - and ToString is not one of its own.
-            var withObject = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
+            // is declared rather than on every entry that wants it.
+            //
+            // This used to make the point with ToString and an .Allow<object>(...) of its own, and it
+            // cannot any more: System.Object is in the built-in catalog now - T(System.Object) is an
+            // ordinary expression and had to be nameable - so ToString, Equals, GetHashCode and
+            // GetType are permitted on every catalogued type by inheritance, which is precisely the
+            // rule this test is about and is what §4.2 always described. A base type the fixture owns
+            // makes the same statement without depending on what the built-in catalog happens to hold.
+            var withBase = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
+                .Allow<GateDerived>(nameof(GateDerived.OwnValue))
+                .Allow<GateBase>(nameof(GateBase.BaseValue))
+                .Build();
+
+            Assert.AreEqual(
+                1,
+                Expression.ParseGetter<GateDerived, object>(
+                    "BaseValue", EvaluationMode.MustCompile, withBase).GetValue(new GateDerived()));
+
+            var withoutBase = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
+                .Allow<GateDerived>(nameof(GateDerived.OwnValue))
+                .Build();
+
+            Assert.AreEqual(
+                2,
+                Expression.ParseGetter<GateDerived, object>(
+                    "OwnValue", EvaluationMode.MustCompile, withoutBase).GetValue(new GateDerived()));
+
+            Assert.Throws<SandboxViolationException>(
+                () => Expression.ParseGetter<GateDerived, object>(
+                    "BaseValue", EvaluationMode.MustCompile, withoutBase));
+        }
+
+        public class GateBase
+        {
+            public int BaseValue { get { return 1; } }
+        }
+
+        public class GateDerived : GateBase
+        {
+            public int OwnValue { get { return 2; } }
+        }
+
+        [Test]
+        public void TheUniversalMembersComeFromSystemObjectsOwnEntry()
+        {
+            // The consequence of cataloguing System.Object, stated on its own so it is a decision and
+            // not a side effect noticed later. A catalogued type's allow-list need not repeat the four
+            // members every type inherits - and a curated type does not lose its curation for it,
+            // because System.Object is catalogued with a member list rather than allowed whole. An
+            // AllMembers entry there would have handed every catalogued type an unrestricted verdict,
+            // System.Type included.
+            var policy = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
                 .Allow<Order>(nameof(Order.Customer))
-                .Allow<object>(nameof(object.ToString))
                 .Build();
 
             Assert.IsNotNull(
                 Expression.ParseGetter<Order, object>(
-                    "ToString()", EvaluationMode.MustCompile, withObject).GetValue(new Order()));
-
-            var withoutObject = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
-                .Allow<Order>(nameof(Order.Customer))
-                .Build();
+                    "ToString()", EvaluationMode.MustCompile, policy).GetValue(new Order()));
 
             Assert.Throws<SandboxViolationException>(
                 () => Expression.ParseGetter<Order, object>(
-                    "ToString()", EvaluationMode.MustCompile, withoutObject));
+                    "Secret()", EvaluationMode.MustCompile, policy));
         }
 
         [Test]
@@ -295,6 +363,87 @@ namespace SpringExpressionsTests.Expressions
             Assert.IsInstanceOf<SandboxNameableProbe>(
                 Expression.ParseGetter<object, object>(
                     expression, EvaluationMode.MustCompile, withIt).GetValue(null));
+        }
+
+        [Test]
+        public void AllowingAnAssemblyAlsoHandsOverEveryStaticInIt()
+        {
+            // The coarseness of the assembly verb, made visible rather than left to be reasoned out.
+            // AllowingAnAssemblyMakesItsTypesNameable above only constructs an empty probe class, so
+            // it shows naming without showing reach - and reach is the part that matters, because a
+            // static needs no instance. Nothing in the expression below was ever handed to it: the
+            // policy names SandboxReceipt and the expression calls a different class entirely.
+            var policy = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
+                .AllowAssemblyOf<SandboxReceipt>()
+                .Build();
+
+            Assert.AreEqual(
+                "reprinted",
+                Expression.ParseGetter<object, object>(
+                    "T(SpringExpressionsTests.Expressions.SandboxReceipt).Reprint()",
+                    EvaluationMode.MustCompile, policy).GetValue(null));
+
+            Assert.AreEqual(
+                "drawer opened",
+                Expression.ParseGetter<object, object>(
+                    "T(SpringExpressionsTests.Expressions.SandboxTillDrawer).Open()",
+                    EvaluationMode.MustCompile, policy).GetValue(null));
+        }
+
+        [Test]
+        public void ForbidCarvesATypeBackOutOfAnAllowedAssembly()
+        {
+            // The mitigation, and the only one available at assembly granularity: the coarse allowance
+            // stands and the fine refusal cuts one type out of it. Compute checks a type's own
+            // Forbidden entry *before* the allowed-assembly branch, which is what makes this work.
+            //
+            // Note which direction this is. ForbiddingAnAssemblyBeatsEveryAllowanceInIt pins
+            // assembly-forbid over type-allow; this is type-forbid over assembly-allow. Both refusals
+            // win over the allowance beside them, at whichever level they were written.
+            var policy = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
+                .AllowAssemblyOf<SandboxReceipt>()
+                .Forbid<SandboxTillDrawer>()
+                .Build();
+
+            Assert.AreEqual(
+                12.5m,
+                Expression.ParseGetter<object, object>(
+                    "new SpringExpressionsTests.Expressions.SandboxReceipt().Total",
+                    EvaluationMode.MustCompile, policy).GetValue(null));
+
+            var denied = Assert.Throws<SandboxViolationException>(
+                () => Expression.ParseGetter<object, object>(
+                    "T(SpringExpressionsTests.Expressions.SandboxTillDrawer).Open()",
+                    EvaluationMode.MustCompile, policy));
+
+            Assert.AreEqual(typeof(SandboxTillDrawer), denied.DeniedType);
+            Assert.IsNull(denied.DeniedMember, "denied as a name, not as a member");
+        }
+
+        [Test]
+        public void WithoutTheAssemblyAllowanceNeitherStaticIsReachable()
+        {
+            // The control the two tests above need, and the measurement that says what the allowance
+            // is actually worth: with no policy at all, walking to an object of these types works
+            // (§5.2 trusts what is reached) while naming either of them does not. So what
+            // AllowAssemblyOf buys is the static and the constructor, not the instance members - those
+            // were never gated.
+            var bare = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted).Build();
+
+            Assert.Throws<SandboxViolationException>(
+                () => Expression.ParseGetter<object, object>(
+                    "T(SpringExpressionsTests.Expressions.SandboxTillDrawer).Open()",
+                    EvaluationMode.MustCompile, bare));
+
+            Assert.Throws<SandboxViolationException>(
+                () => Expression.ParseGetter<object, object>(
+                    "T(SpringExpressionsTests.Expressions.SandboxReceipt).Reprint()",
+                    EvaluationMode.MustCompile, bare));
+
+            Assert.AreEqual(
+                12.5m,
+                Expression.ParseGetter<SandboxReceipt, object>(
+                    "Total", EvaluationMode.MustCompile, bare).GetValue(new SandboxReceipt()));
         }
 
         public class Containers

@@ -733,40 +733,74 @@ namespace SpringExpressions
         /// <summary>
         /// Tests type node
         /// </summary>
+        /// <summary>
+        /// One of the sandbox's two acceptance tests, and the pair does not assert the same thing -
+        /// reading them together is how that gets missed.
+        /// </summary>
+        /// <remarks>
+        /// This one is <b>not</b> a denial. It registers <c>System.Environment</c> to
+        /// <see cref="int"/> on the line above, and <c>_Docs/type-sandboxing.md</c> §3.1 rules that a
+        /// <see cref="TypeRegistry"/> entry resolves unrestricted and is never asked about: the
+        /// registry is already the engineer's own allow-list, and registration is a deliberate act of
+        /// the application's own code. So the right answer is <c>typeof(int)</c>, and this became a
+        /// pin of <b>registry shadowing being the mechanism</b> rather than the accident it was when
+        /// the author wrote it - the closest thing either suite has to a test of §3.1.
+        /// <p>
+        /// The author's assertion was <c>typeof(int?[,])</c>, a sentinel no expression could return,
+        /// left deliberately failing beside a <c>todo</c> asking how to secure type resolution. §8.6.
+        /// </p>
+        /// </remarks>
         [Test]
         public void TestTypeNodeIllegalType()
         {
-               // todo: error: patrz niżej! jak to zabezpieczyć!
-               // TypeRegisetry.GetSecurityController().SetStrinctTypeREsolution()
-
             TypeRegistry.RegisterType("System.Environment", typeof(int));
 
-            Assert.AreEqual(typeof(int?[,]), 
+            Assert.AreEqual(typeof(int),
                 ExpressionEvaluator.GetValue(null, "T(System.Environment)"));
+
+            // And without the registration the catalog decides: System.Environment is forbidden
+            // outright, so no spelling of its real name reaches it.
+            Assert.Throws<SandboxViolationException>(
+                () => ExpressionEvaluator.GetValue(null, "T(" + typeof(Environment).AssemblyQualifiedName + ")"));
         }
 
 
         /// <summary>
         /// Tests type node
         /// </summary>
+        /// <summary>
+        /// The sandbox's other acceptance test, and the one that <i>is</i> a denial.
+        /// </summary>
+        /// <remarks>
+        /// The author left this failing on purpose with a sentinel assertion and three <c>todo</c>s in
+        /// Polish saying roughly <i>"this should not succeed - a hole in System.Diagnostics - secure
+        /// it! TypeResolutionUtils is used, so you can shove an illegal type in here and that's
+        /// that"</i>, plus a sketch of a <c>using (new OnlyBasicTypesSpringSecurityGuard())</c> scope
+        /// and the observation that <c>new</c> resolves its type the same way. All of it was right.
+        /// The scope shape was not taken - §4.3 measures why an ambient policy cannot work here - but
+        /// the hole is closed, on both backends and through <see cref="ExpressionEvaluator"/>, which
+        /// parses internally and can only be governed by the process default.
+        /// </remarks>
         [Test]
         public void TestDangerousInvocation()
         {
-            // todo: error: to się nie powinno udać - dziura w System.Diagnostics... należy do wszystgko
-            // todo: error: zabezpieczyć!!! tej! używany jest TypeResolutionUtils... więc tutaj można
-            // todo: error: jebnąć niedozwolony typ i tyle!!!
+            var denied = Assert.Throws<SandboxViolationException>(
+                () => ExpressionEvaluator.GetValue(null, "new System.Diagnostics.Process()"));
 
-                // todo: error: można nawet zrobić jakiś using! albo włączyć na stałe!
-                /*
-                 * using (new OnlyBasicTypesSpringSecurityGuard())
-                 * {
-                 *       ewaluacja  -- tylko to chyba by wymagało zajebistej obsługi per wątek i globalnej też (w jakiś opcjach!)
-                 * }
-                 */
+            Assert.AreEqual(typeof(System.Diagnostics.Process), denied.DeniedType);
+            Assert.IsNull(denied.DeniedMember, "denied as a name, not as a member");
 
-                // achtung TypeResolutionUtils też jest używany prze New do pobrania typu! bua ha ha!
-            Assert.AreEqual(typeof(int?[,]),
-                ExpressionEvaluator.GetValue(null, "new System.Diagnostics.Process()"));
+            // The type gate is what refuses this, so every spelling of the name refuses alike.
+            Assert.Throws<SandboxViolationException>(
+                () => ExpressionEvaluator.GetValue(null, "T(System.Diagnostics.Process)"));
+
+            // And the opt-out still returns exactly the old behaviour, which is the property that
+            // makes the sandbox a boundary rather than a rewrite: same objects, same types.
+            Assert.IsInstanceOf<System.Diagnostics.Process>(
+                Expression.ParseGetter<object, object>(
+                    "new System.Diagnostics.Process()",
+                    EvaluationMode.CompileOrInterpret,
+                    SandboxPolicy.DangerouslyAllowEverything).GetValue(null));
         }
 
 
