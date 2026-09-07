@@ -52,6 +52,18 @@ namespace SpringExpressions
             if (userDefined != null)
                 return userDefined;
 
+            // A custom real-valued type converts through its own implicit operator before the
+            // promotion rules see it - the same normalization the binary operators and the comparison
+            // helper already perform, and *after* the operator lookup above so that a type declaring
+            // both keeps its own answer (item 12's ordering).
+            //
+            // The unary nodes were simply missed when the custom-real ruling landed: the interpreter's
+            // NumberUtils.Negate normalizes and the emit path did not, so '-Money' refused compiled
+            // while 'Money + 1' compiled - an asymmetry rather than a rule. Both backends already
+            // answered the same value through the fallback, so nothing here changes an answer; it
+            // gives the shape a compiled form.
+            operandExpression = BinaryNumericOperatorHelper.ConvertCustomReal(operandExpression);
+
             if (UnaryNumericOperatorHelper.TryCreate(operandExpression,
                 UnaryNumericOperatorHelper.UnaryOperator.UnaryMinus, out var result))
             {

@@ -844,14 +844,29 @@ namespace SpringReflection.Dynamic
                 return value;
             }
 
-            // A custom real-valued type - struct or class - converts through its own implicit
-            // operator first: Convert.ChangeType below only knows IConvertible, and the
-            // reference-type guard would reject a class-typed custom real outright. This is the
-            // same normalization the interpreter's arithmetic, comparison and aggregators already
-            // perform; without it a MoneyLike argument against a decimal parameter invokes fine
-            // compiled (the emitter runs op_Implicit) but died here interpreted.
-            value = NumberUtils.ToBuiltInRealIfPossible(value);
-            valueType = value.GetType();
+            // A type converts through its own implicit operator first: Convert.ChangeType below only
+            // knows IConvertible, and the reference-type guard would reject a class-typed one
+            // outright. This is the same normalization the interpreter's arithmetic, comparison and
+            // aggregators perform; without it a MoneyLike argument against a decimal parameter
+            // invokes fine compiled (the emitter runs op_Implicit) and died here interpreted.
+            //
+            // It used to read ToBuiltInRealIfPossible, which covers decimal, double and float alone,
+            // and that narrowness was itself a divergence rather than a limit: a type with
+            // `implicit operator int` reached TakesInt(counter) as `int:7` compiled and
+            // InvalidCastException here, because the emitter resolves any operator LINQ can see. The
+            // general lookup closes it, and the real-valued case is now one instance of it rather
+            // than a special case.
+            if (SpringUtil.TypeCheckingUtils.TryGetImplicitConversion(valueType, targetType, out var conversion))
+            {
+                value = conversion.Invoke(null, new[] { value });
+                valueType = value.GetType();
+            }
+            else
+            {
+                value = NumberUtils.ToBuiltInRealIfPossible(value);
+                valueType = value.GetType();
+            }
+
             if (valueType == targetType)
             {
                 return value;

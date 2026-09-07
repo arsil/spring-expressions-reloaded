@@ -60,6 +60,37 @@ namespace SpringCore.TypeConversion
                     return newValue;
                 }
 
+                // A type's own implicit conversion operator comes before any conversion this class
+                // performs - the ordering _Docs/open-issues.md item 12 ruled for operators, applied to
+                // conversion. Without it a caller's type with `implicit operator decimal` could not be
+                // assigned to a decimal member at all: this converter knows IConvertible and
+                // TypeConverter, and has never heard of an operator.
+                //
+                // Measured across four custom types and fifteen targets, exactly two targets already
+                // had an answer here: `object`, which the assignability test above has already taken,
+                // and `string`, which every type reaches through ToString(). Everything else threw, so
+                // consulting the operator first is *additive* everywhere except string - error space
+                // becoming answers, with no existing answer to change.
+                //
+                // string is therefore excluded, deliberately. Honouring `implicit operator string`
+                // would turn ToString()'s answer into the operator's, which is what C# does and is
+                // very likely the better answer - but it is a change to inherited behaviour rather
+                // than a new capability, and it wants deciding on its own rather than arriving as a
+                // side effect of this one.
+                if (requiredType != typeof(string)
+                    && SpringUtil.TypeCheckingUtils.TryGetImplicitConversion(
+                        newValue.GetType(), requiredType, out var implicitConversion))
+                {
+                    var converted = implicitConversion.Invoke(null, new[] { newValue });
+
+                    // The operator may land short of the target - Money -> decimal for a double
+                    // parameter - and C# allows that second, built-in step. Recursing rather than
+                    // widening here keeps one rule for it.
+                    return implicitConversion.ReturnType == requiredType
+                        ? converted
+                        : ConvertValueIfNecessary(requiredType, converted, propertyName);
+                }
+
                 // if required type is an array, convert all the elements
                 if (requiredType != null && requiredType.IsArray)
                 {

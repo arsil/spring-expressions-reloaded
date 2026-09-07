@@ -474,7 +474,7 @@ namespace SpringExpressions
 
                     return BuildAssign(
                         LExpression.Property(finalContextExpression, memberInfo),
-                        newValueExpression);
+                        ConvertNewValueOrRefuse(newValueExpression, memberInfo.PropertyType, name));
                 }
 
                 if (acc is FieldValueAccessor fieldAcc)
@@ -504,7 +504,7 @@ namespace SpringExpressions
 
                     return BuildAssign(
                         LExpression.Field(finalContextExpression, memberInfo),
-                        newValueExpression);
+                        ConvertNewValueOrRefuse(newValueExpression, memberInfo.FieldType, name));
                 }
 
                 throw CannotCompile("no property or field of this name on the context type");
@@ -529,6 +529,76 @@ namespace SpringExpressions
         /// weakly typed path falls back and the interpreter converts, exactly as before.
         /// </p>
         /// </remarks>
+        /// <summary>
+        /// The value converted to the member's type, or a refusal. The compiled setter emits a
+        /// conversion only where the interpreter's own assignment would reach the same value.
+        /// </summary>
+        /// <remarks>
+        /// <b>The rule is borrowed, not invented</b> - it is
+        /// <see cref="ArrayElementConversions.TryConvertExpression"/>, written for
+        /// <c>new T[] {…}</c> and reused for <c>params</c>: identity, a retyped null literal,
+        /// reference or boxing assignability, and the implicit numeric widenings of
+        /// <c>TypeCheckingUtils.IsCSharpImplicitNumericConversion</c>. Assignment gains no rule of its
+        /// own, which is what keeps this small and what stops the three sites drifting apart.
+        /// <p>
+        /// Before this the setter demanded an <b>exact</b> type match, so ordinary widening writes -
+        /// an <c>int</c> into a <c>long</c>, <c>double</c> or <c>decimal</c> member - refused and were
+        /// interpreted. Nothing was wrong with the answers; they simply never compiled.
+        /// </p>
+        /// <p>
+        /// <b>What stays refused, and why each one is a measurement rather than caution.</b> The
+        /// interpreter converts through <c>TypeConversionUtils.ConvertValueIfNecessary</c>, which does
+        /// things a LINQ conversion cannot match:
+        /// </p>
+        /// <list type="bullet">
+        /// <item><b>A real into an integral member rounds</b> - measured, <c>45.6</c> into an
+        /// <c>int</c> lands <c>46</c> - where an emitted conversion truncates to <c>45</c>. This is
+        /// the same disagreement <c>MethodNode.ConvertParameters</c> already refuses for method
+        /// arguments.</item>
+        /// <item><b>A string is parsed</b> - <c>"45"</c> into an <c>int</c>, <c>"2020-01-01"</c> into a
+        /// <c>DateTime</c>. C# has no such conversion and neither does the cast operator here.</item>
+        /// <item><b>Integral narrowing is left out deliberately.</b> The values agree and both sides
+        /// throw on overflow, but with different exception types - <c>TypeMismatchException</c>
+        /// interpreted against <c>OverflowException</c> emitted - so a caller catching the inherited
+        /// one would stop seeing it whenever the shape happened to compile.</item>
+        /// <item><b>A collection into an array</b> needs the interpreter's own coercion, and whether
+        /// to emit a <c>ToArray</c> is an open decision rather than an oversight.</item>
+        /// </list>
+        /// </remarks>
+        [NotNull]
+        private LExpression ConvertNewValueOrRefuse(
+            [NotNull] LExpression newValueExpression, [NotNull] Type memberType, [NotNull] string name)
+        {
+            LExpression converted;
+
+            if (SpringExpressions.Util.ArrayElementConversions.TryConvertExpression(
+                    newValueExpression, memberType, out converted))
+                return converted;
+
+            // A type's own implicit conversion operator, which the interpreter's converter now runs
+            // too (TypeConversionUtils.ConvertValueIfNecessary) - so the two agree by construction.
+            // The operator may land short of the target, as C# allows, and the built-in widening
+            // after it is the array-initialiser rule again rather than a second one.
+            MethodInfo conversion;
+            if (memberType != typeof(string)
+                && TypeCheckingUtils.TryGetImplicitConversion(
+                    newValueExpression.Type, memberType, out conversion))
+            {
+                var applied = LExpression.Convert(newValueExpression, conversion.ReturnType, conversion);
+
+                if (conversion.ReturnType == memberType)
+                    return applied;
+
+                if (SpringExpressions.Util.ArrayElementConversions.TryConvertExpression(
+                        applied, memberType, out converted))
+                    return converted;
+            }
+
+            throw CannotCompile(
+                $"no compiled assignment of a '{newValueExpression.Type}' to '{name}', which is of type "
+                + $"'{memberType}'; the interpreter converts values the emitted assignment cannot");
+        }
+
         private void RefuseObjectValueAgainstTypedMember(
             LExpression newValueExpression, Type memberType)
         {

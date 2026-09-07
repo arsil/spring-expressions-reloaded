@@ -128,6 +128,80 @@ namespace SpringUtil
             return conversion != null;
         }
 
+        /// <summary>
+        /// The user-defined implicit conversion operator taking <paramref name="from"/> to
+        /// <paramref name="to"/>, declared on either type, or false.
+        /// </summary>
+        /// <remarks>
+        /// <b>The general form of <see cref="TryGetImplicitRealConversion"/>, which is real-only.</b>
+        /// That narrowness was a measured defect rather than a choice: a type with
+        /// <c>implicit operator decimal</c> bound to a <c>decimal</c> parameter and joined in
+        /// arithmetic, while one with <c>implicit operator int</c> did neither - and worse,
+        /// <c>TakesInt(counter)</c> answered <c>7</c> compiled and threw <c>InvalidCastException</c>
+        /// interpreted, because the emitter resolves an operator LINQ can see and the interpreter's
+        /// converter only knew about reals.
+        /// <p>
+        /// <b>C# looks on both types</b>, so this does too: the source declares
+        /// <c>op_Implicit(Money) -&gt; decimal</c>, while a target might declare
+        /// <c>op_Implicit(int) -&gt; BigInteger</c>. An operator on the source must convert
+        /// <i>from</i> it - conversion operators live on a type in both directions, and <c>decimal</c>
+        /// itself declares <c>op_Implicit(int)</c>.
+        /// </p>
+        /// <p>
+        /// <b>Two steps are allowed, as in C#:</b> an operator landing on a type that then widens
+        /// implicitly to the target counts, so a <c>Money</c> reaches a <c>double</c> parameter via
+        /// <c>decimal</c>. The operator is returned; the caller emits or invokes the widening itself.
+        /// </p>
+        /// <p>
+        /// <b>Deliberately not implemented:</b> C#'s full user-defined conversion resolution - the
+        /// candidate set from both types, the most-encompassing source and target types, lifted forms
+        /// over nullables. Exact operand types only, which is the same limit
+        /// <c>UserDefinedOperatorUtils</c> takes for operators and for the same reason.
+        /// </p>
+        /// </remarks>
+        public static bool TryGetImplicitConversion(
+            [CanBeNull] Type from, [CanBeNull] Type to, out MethodInfo conversion)
+        {
+            conversion = null;
+
+            if (from == null || to == null || from == to)
+                return false;
+
+            return TryFindImplicitConversion(from, from, to, out conversion)
+                   || TryFindImplicitConversion(to, from, to, out conversion);
+        }
+
+        private static bool TryFindImplicitConversion(
+            [NotNull] Type declaringType, [NotNull] Type from, [NotNull] Type to,
+            out MethodInfo conversion)
+        {
+            conversion = null;
+
+            foreach (var method in declaringType.GetMethods(BindingFlags.Public | BindingFlags.Static))
+            {
+                if (method.Name != "op_Implicit")
+                    continue;
+
+                var parameters = method.GetParameters();
+                if (parameters.Length != 1 || parameters[0].ParameterType != from)
+                    continue;
+
+                if (method.ReturnType == to)
+                {
+                    conversion = method;
+                    return true;
+                }
+
+                // The two-step case: the operator lands somewhere that widens to the target on its
+                // own. Keep looking for an exact match rather than returning at once - an exact
+                // operator is always the better answer.
+                if (conversion == null && IsCSharpImplicitNumericConversion(method.ReturnType, to))
+                    conversion = method;
+            }
+
+            return conversion != null;
+        }
+
         private static bool IsBuiltInRealType(Type type)
         {
             return type == typeof(float) || type == typeof(double) || type == typeof(decimal);

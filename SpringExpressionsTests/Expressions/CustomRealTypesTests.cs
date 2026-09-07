@@ -203,13 +203,32 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// Unary minus normalizes on the interpreter; the compiled path has no form for it yet and the
-        /// weakly typed path falls back, so the weak result is pinned here.
+        /// Unary minus and unary plus normalize on both backends now.
         /// </summary>
+        /// <remarks>
+        /// This test used to pin the weak result alone, because the compiled path had no form for the
+        /// shape: <c>NumberUtils.Negate</c> normalized and the emit path did not, so <c>-Amount</c>
+        /// refused compiled while <c>Amount + 1</c> compiled. Both backends already answered the same
+        /// value through the fallback, so what changed is the asymmetry, not an answer - the unary
+        /// nodes were simply missed when the custom-real ruling wired the binary ones and the
+        /// comparison helper. They call the same <c>ConvertCustomReal</c>, after their operator lookup
+        /// so a type declaring its own unary <c>-</c> still wins (item 12's ordering).
+        /// <p>
+        /// Found by probing the whole custom-type surface for divergences rather than by a failing
+        /// test: no corpus holds a type like this, so no sweep could see it.
+        /// </p>
+        /// </remarks>
         [Test]
-        public void CustomDecimalNegatesOnTheWeakPath()
+        public void CustomDecimalNegatesOnBothBackends()
         {
-            Assert.AreEqual(-45.5m, ExpressionEvaluator.GetValue(new CustomRealHolder(), "-Amount"));
+            var holder = new CustomRealHolder();
+
+            TestCompiledVsInterpreted<CustomRealHolder, decimal>("-Amount", holder)
+                .ResultEqualsTo(-45.5m);
+            TestCompiledVsInterpreted<CustomRealHolder, decimal>("+Amount", holder)
+                .ResultEqualsTo(45.5m);
+
+            Assert.AreEqual(-45.5m, ExpressionEvaluator.GetValue(holder, "-Amount"));
         }
 
         /// <summary>
