@@ -174,7 +174,7 @@ namespace SpringExpressions
 					// denial, so T(int).GetMethods() would be refused for Int32 rather than judged
 					// against System.Type, where GetMethods is really declared.
 					compilationContext.SandboxPolicy.RequirePermittedMember(
-						contextExpressionType, methodName);
+						contextExpressionType, methodName, MemberKind.Method, MemberAccess.Both);
 
 					methodInfo = innerResolved.Item1;
 					resolvedArguments = innerResolved.Item2;
@@ -196,7 +196,7 @@ namespace SpringExpressions
 			    if (resolved != null)
 			    {
 				    compilationContext.SandboxPolicy.RequirePermittedMember(
-					    contextExpressionType, methodName);
+					    contextExpressionType, methodName, MemberKind.Method, MemberAccess.Both);
 
 				    methodInfo = resolved.Item1;
 				    resolvedArguments = resolved.Item2;
@@ -928,7 +928,7 @@ namespace SpringExpressions
             // on. Gating before the probe would turn "not here, try System.Type" into a denial.
             if (mi != null)
             {
-                sandboxPolicy.RequirePermittedMember(contextType, methodName);
+                sandboxPolicy.RequirePermittedMember(contextType, methodName, MemberKind.Method, MemberAccess.Both);
             }
             else
             {
@@ -936,7 +936,7 @@ namespace SpringExpressions
                 mi = GetBestMethod(typeof(Type), methodName, BINDING_FLAGS, argValues);
 
                 if (mi != null)
-                    sandboxPolicy.RequirePermittedMember(typeof(Type), methodName);
+                    sandboxPolicy.RequirePermittedMember(typeof(Type), methodName, MemberKind.Method, MemberAccess.Both);
             }
 
             if (mi == null)

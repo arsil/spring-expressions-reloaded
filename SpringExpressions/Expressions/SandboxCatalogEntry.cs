@@ -34,31 +34,87 @@ namespace SpringExpressions
         /// <summary><c>AllowAllMembersOf&lt;T&gt;()</c> - every member, less any rejected.</summary>
         internal bool AllMembers { get; set; }
 
-        internal void Allow([NotNull] string memberName)
+        /// <summary>
+        /// Permits <paramref name="memberName"/> of one kind for <paramref name="access"/>, adding to
+        /// whatever this entry already permits for it.
+        /// </summary>
+        /// <remarks>
+        /// Flags are OR-ed rather than replaced, so
+        /// <c>AllowPropertyOrFieldRead(n)</c> followed by <c>AllowPropertyOrFieldWrite(n)</c> is the
+        /// same as <c>AllowPropertyOrField(n)</c> - two builder calls describing one member must not
+        /// have an order-dependent result.
+        /// <p>
+        /// A method entry is recorded with <see cref="MemberAccess.Both"/> whatever is passed:
+        /// invoking is invoking, and a direction on a method is what <see cref="MemberKind"/> exists
+        /// to make unsayable. The verbs cannot pass anything else, so this is belt and braces.
+        /// </p>
+        /// <p>
+        /// <b>Neither parameter has a default, deliberately.</b> A caller who forgot the kind would
+        /// silently get a property entry, and one who forgot the access would get
+        /// <see cref="MemberAccess.Both"/> - the <i>widest</i> permission, chosen by omission. That is
+        /// the same shape as a node reaching for <c>SandboxPolicy.Default</c> instead of the policy it
+        /// was handed: a hole waiting for somebody to wire it up. Every call site states both.
+        /// </p>
+        /// </remarks>
+        internal void Allow(
+            [NotNull] string memberName,
+            MemberKind kind,
+            MemberAccess access)
         {
             if (_allowed == null)
-                _allowed = NewSet();
+                _allowed = NewMap();
 
-            _allowed.Add(memberName);
+            Add(_allowed, memberName, kind, access);
         }
 
-        internal void Reject([NotNull] string memberName)
+        /// <summary>Permits the name for <b>both</b> kinds - what <c>Allow</c>/<c>Except</c> mean.</summary>
+        internal void AllowEitherKind([NotNull] string memberName)
+        {
+            Allow(memberName, MemberKind.PropertyOrField, MemberAccess.Both);
+            Allow(memberName, MemberKind.Method, MemberAccess.Both);
+        }
+
+        internal void Reject(
+            [NotNull] string memberName,
+            MemberKind kind,
+            MemberAccess access)
         {
             if (_rejected == null)
-                _rejected = NewSet();
+                _rejected = NewMap();
 
-            _rejected.Add(memberName);
+            Add(_rejected, memberName, kind, access);
         }
 
-        /// <summary>The allowed names, or null when this entry allows every member.</summary>
+        internal void RejectEitherKind([NotNull] string memberName)
+        {
+            Reject(memberName, MemberKind.PropertyOrField, MemberAccess.Both);
+            Reject(memberName, MemberKind.Method, MemberAccess.Both);
+        }
+
+        private static void Add(
+            [NotNull] Dictionary<MemberKey, MemberAccess> map,
+            [NotNull] string memberName,
+            MemberKind kind,
+            MemberAccess access)
+        {
+            if (kind == MemberKind.Method)
+                access = MemberAccess.Both;
+
+            var key = new MemberKey(kind, memberName);
+
+            MemberAccess existing;
+            map[key] = map.TryGetValue(key, out existing) ? existing | access : access;
+        }
+
+        /// <summary>The allowed names and their directions, or null when this entry allows every member.</summary>
         [CanBeNull]
-        internal HashSet<string> AllowedMembers
+        internal Dictionary<MemberKey, MemberAccess> AllowedMembers
         {
             get { return _allowed; }
         }
 
         [CanBeNull]
-        internal HashSet<string> RejectedMembers
+        internal Dictionary<MemberKey, MemberAccess> RejectedMembers
         {
             get { return _rejected; }
         }
@@ -78,21 +134,31 @@ namespace SpringExpressions
         /// <see cref="TypeVerdict.Allows"/>.
         /// </summary>
         [NotNull]
-        internal static HashSet<string> NewSet()
+        internal static Dictionary<MemberKey, MemberAccess> NewMap()
         {
-            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // MemberKey compares its name with OrdinalIgnoreCase itself, so the dictionary needs no
+            // comparer of its own.
+            return new Dictionary<MemberKey, MemberAccess>();
         }
 
         [CanBeNull]
-        private static HashSet<string> Copy([CanBeNull] HashSet<string> source)
+        private static Dictionary<MemberKey, MemberAccess> Copy(
+            [CanBeNull] Dictionary<MemberKey, MemberAccess> source)
         {
-            return source == null ? null : new HashSet<string>(source, StringComparer.OrdinalIgnoreCase);
+            if (source == null)
+                return null;
+
+            var copy = NewMap();
+            foreach (var pair in source)
+                copy.Add(pair.Key, pair.Value);
+
+            return copy;
         }
 
         [CanBeNull]
-        private HashSet<string> _allowed;
+        private Dictionary<MemberKey, MemberAccess> _allowed;
 
         [CanBeNull]
-        private HashSet<string> _rejected;
+        private Dictionary<MemberKey, MemberAccess> _rejected;
     }
 }

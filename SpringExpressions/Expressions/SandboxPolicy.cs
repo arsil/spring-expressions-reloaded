@@ -86,7 +86,7 @@ namespace SpringExpressions
 
         private static readonly SandboxPolicy AllowEverythingPolicy = new SandboxPolicy(null, null, null);
 
-        private static readonly SandboxPolicy RestrictedPolicy = new SandboxPolicy(BuildCatalog(), null, null);
+        private static readonly SandboxPolicy RestrictedPolicy = BuildRestrictedPolicy();
 
         // Stage 5, 2026-09-06: the sandbox is on by default. Measured before it was taken - flip,
         // run both suites, revert - and what that dry run found is _Docs/type-sandboxing.md §8.9.
@@ -316,7 +316,30 @@ namespace SpringExpressions
         /// only, and <c>Assembly</c> is not among them.
         /// </p>
         /// </remarks>
-        internal void RequirePermittedMember([NotNull] Type receiverType, [NotNull] string memberName)
+        internal void RequirePermittedMember(
+            [NotNull] Type receiverType,
+            [NotNull] string memberName,
+            MemberKind kind,
+            MemberAccess access)
+        {
+            if (PermitsMember(receiverType, memberName, kind, access))
+                return;
+
+            throw new SandboxViolationException(receiverType, memberName);
+        }
+
+        /// <summary>
+        /// Whether <paramref name="memberName"/> may be used on <paramref name="receiverType"/> for
+        /// <paramref name="access"/>, answering rather than throwing.
+        /// </summary>
+        /// <remarks>
+        /// The interpreted property and field path asks this <b>once per node</b>, for both directions,
+        /// and keeps the two answers as booleans - <c>Get</c> and <c>Set</c> then test a field rather
+        /// than repeating the lookup. That is what keeps §5's promise while letting the two directions
+        /// differ: the decision moves to the point of use, the lookup does not.
+        /// </remarks>
+        internal bool PermitsMember(
+            [NotNull] Type receiverType, [NotNull] string memberName, MemberKind kind, MemberAccess access)
         {
             AssertUtils.ArgumentNotNull(receiverType, "receiverType");
 
@@ -326,10 +349,7 @@ namespace SpringExpressions
             // trust - §5.2. Reaching is already bounded by what the engineer exposed (§2), unlike
             // naming. Forbid<T>() is what keeps a reachable type out, which is why Denied and
             // Unknown are separate verdicts.
-            if (verdict.Verdict == SandboxVerdict.Unknown || verdict.Allows(memberName))
-                return;
-
-            throw new SandboxViolationException(receiverType, memberName);
+            return verdict.Verdict == SandboxVerdict.Unknown || verdict.Allows(memberName, kind, access);
         }
 
         // Indexing has no gate of its own, and that took three attempts to get right - see
@@ -347,9 +367,8 @@ namespace SpringExpressions
         /// </summary>
         internal bool PermitsForReport([NotNull] Type type, [NotNull] string memberName)
         {
-            var verdict = VerdictFor(type);
-
-            return verdict.Verdict == SandboxVerdict.Unknown || verdict.Allows(memberName);
+            return PermitsMember(type, memberName, MemberKind.PropertyOrField, MemberAccess.Read)
+                   || PermitsMember(type, memberName, MemberKind.Method, MemberAccess.Read);
         }
 
         /// <summary>
@@ -448,10 +467,10 @@ namespace SpringExpressions
             // Reachability is the type's own entry; the member list is the union up the chain, so an
             // inherited member is listed once where it is declared instead of on every entry that
             // wants it. Computed here, so a member check stays one set lookup (§5).
-            var members = SandboxCatalogEntry.NewSet();
+            var members = SandboxCatalogEntry.NewMap();
 
-            if (hasOwnEntry && ownEntry.AllowedMembers != null)
-                members.UnionWith(ownEntry.AllowedMembers);
+            if (hasOwnEntry)
+                Union(members, ownEntry.AllowedMembers);
 
             foreach (var ancestor in Ancestors(type))
             {
@@ -464,8 +483,7 @@ namespace SpringExpressions
                 if (entry.AllMembers)
                     return TypeVerdict.Unrestricted(rejected);
 
-                if (entry.AllowedMembers != null)
-                    members.UnionWith(entry.AllowedMembers);
+                Union(members, entry.AllowedMembers);
             }
 
             return TypeVerdict.Catalogued(members, rejected);
@@ -476,13 +494,16 @@ namespace SpringExpressions
         /// that <c>.Except(...)</c> on a base type is not silently undone by a derived entry.
         /// </summary>
         [CanBeNull]
-        private HashSet<string> CollectRejected(
+        private Dictionary<MemberKey, MemberAccess> CollectRejected(
             [NotNull] Type type, [CanBeNull] SandboxCatalogEntry ownEntry)
         {
-            HashSet<string> rejected = null;
+            Dictionary<MemberKey, MemberAccess> rejected = null;
 
             if (ownEntry != null && ownEntry.RejectedMembers != null)
-                rejected = new HashSet<string>(ownEntry.RejectedMembers, StringComparer.OrdinalIgnoreCase);
+            {
+                rejected = SandboxCatalogEntry.NewMap();
+                Union(rejected, ownEntry.RejectedMembers);
+            }
 
             foreach (var ancestor in Ancestors(type))
             {
@@ -491,12 +512,39 @@ namespace SpringExpressions
                     continue;
 
                 if (rejected == null)
-                    rejected = SandboxCatalogEntry.NewSet();
+                    rejected = SandboxCatalogEntry.NewMap();
 
-                rejected.UnionWith(entry.RejectedMembers);
+                Union(rejected, entry.RejectedMembers);
             }
 
             return rejected;
+        }
+
+        /// <summary>
+        /// Adds <paramref name="source"/> into <paramref name="target"/>, OR-ing the directions where
+        /// both mention a name.
+        /// </summary>
+        /// <remarks>
+        /// OR rather than replace, in both the allowed and the rejected union: a base type permitting
+        /// a member for reading and a derived one permitting the same name for writing add up to both,
+        /// which is what a reader of two catalog entries expects. The same applies to rejections, and
+        /// there it is load-bearing - a base type's <c>ExceptWrite</c> must not be undone by a derived
+        /// entry that only mentions reading.
+        /// </remarks>
+        private static void Union(
+            [NotNull] Dictionary<MemberKey, MemberAccess> target,
+            [CanBeNull] Dictionary<MemberKey, MemberAccess> source)
+        {
+            if (source == null)
+                return;
+
+            foreach (var pair in source)
+            {
+                MemberAccess existing;
+                target[pair.Key] = target.TryGetValue(pair.Key, out existing)
+                    ? existing | pair.Value
+                    : pair.Value;
+            }
         }
 
         /// <summary>Base types then interfaces, which is the order a reader expects to see them in.</summary>
@@ -642,9 +690,9 @@ namespace SpringExpressions
         /// </p>
         /// </remarks>
         [NotNull]
-        private static IDictionary<Type, SandboxCatalogEntry> BuildCatalog()
+        private static SandboxPolicy BuildRestrictedPolicy()
         {
-            var catalog = new Dictionary<Type, SandboxCatalogEntry>();
+            var builder = SandboxPolicyBuilder.StartingFromNothing();
 
             // §5.2 made this mandatory rather than merely advisable, and the negative corpus found
             // out: a type nobody has ruled on is *trusted* when an expression arrives at one, and
@@ -654,36 +702,34 @@ namespace SpringExpressions
             //
             // Descriptive members only, per §3: what the type is called, not what can be done with
             // it. No Assembly, no Module, no GetMethod*/GetProperty*/GetConstructor*/InvokeMember.
-            var typeEntry = new SandboxCatalogEntry();
-            foreach (var descriptive in new[]
-                     {
-                         "Name", "FullName", "Namespace", "AssemblyQualifiedName",
-                         "IsEnum", "IsArray", "IsValueType", "IsClass", "IsInterface",
-                         "IsAbstract", "IsSealed", "IsPrimitive", "IsGenericType",
-                         "BaseType", "IsSubclassOf", "IsInstanceOfType", "IsAssignableFrom",
-                         "ToString", "Equals", "GetHashCode"
-                     })
-            {
-                typeEntry.Allow(descriptive);
-            }
+            // Classified by reflection rather than by eye - 14 read-only properties and 6 methods,
+            // measured. Saying which is which costs nothing and makes the entry state its intent: not
+            // one of these properties is settable, and nothing here may be written even if a future
+            // framework adds a setter to one of them.
+            builder.AllowPropertyOrFieldRead(
+                typeof(Type),
+                "Name", "FullName", "Namespace", "AssemblyQualifiedName",
+                "IsEnum", "IsArray", "IsValueType", "IsClass", "IsInterface",
+                "IsAbstract", "IsSealed", "IsPrimitive", "IsGenericType",
+                "BaseType");
 
-            catalog.Add(typeof(Type), typeEntry);
+            builder.AllowMethod(
+                typeof(Type),
+                "IsSubclassOf", "IsInstanceOfType", "IsAssignableFrom",
+                "ToString", "Equals", "GetHashCode");
 
             // System.Object must be catalogued - `T(System.Object)` and `x is T(object)` are ordinary
             // expressions - and it is the one type that must NOT be allowed whole, however harmless
             // its four members look. Compute unions the entries up the ancestor chain and returns
-            // Unrestricted the moment an ancestor allows everything, so an AllMembers entry here would
+            // Unrestricted the moment an ancestor allows everything, so AllowAllMembersOf here would
             // hand every *catalogued* type an unrestricted verdict - System.Type included, and with it
             // Assembly and Assembly.Load. One line would have undone the whole design.
             //
             // Listing the four by name costs nothing, because they are what every type inherits and a
             // type allowed whole already has them. GetType belongs here rather than being repeated on
             // every entry, which is what the receiver-unions-its-ancestors rule is for.
-            var objectEntry = new SandboxCatalogEntry();
-            foreach (var universal in new[] { "ToString", "Equals", "GetHashCode", "GetType" })
-                objectEntry.Allow(universal);
-
-            catalog.Add(typeof(object), objectEntry);
+            // All four are methods - object declares no properties at all.
+            builder.AllowMethod(typeof(object), "ToString", "Equals", "GetHashCode", "GetType");
 
             // Defence in depth: these are reachable only through members System.Type no longer
             // permits, so nothing should get to them - but a forbidden type costs one dictionary
@@ -701,12 +747,40 @@ namespace SpringExpressions
                          typeof(AppDomain),
                          typeof(Activator),
                          typeof(GC),
-                         typeof(Delegate),
-                         typeof(Environment)
+                         typeof(Delegate)
                      })
             {
-                catalog.Add(forbidden, new SandboxCatalogEntry { Forbidden = true });
+                builder.Forbid(forbidden);
             }
+
+            // System.Environment, curated rather than forbidden - which is what §5.3 uses it as the
+            // worked example of, and §6.3 always specified. It shipped forbidden outright, so
+            // T(System.Environment).NewLine was denied along with everything else; neither suite
+            // noticed, because nothing uses it and the one test that names the type registers it to
+            // typeof(int) first.
+            //
+            // Audited rather than guessed: 25 public static properties and 9 method names on net10.0.
+            // The allow-list below is 11 entries where a reject-list would be 23 - which corrects
+            // §6.1's guess that this type wanted the reject direction - and the allow direction is the
+            // safer one here for a second reason: the framework keeps *adding* to Environment
+            // (CpuUsage, ProcessPath, IsPrivilegedProcess, TickCount64 are all recent), and a
+            // reject-list would silently admit whatever the next version brings.
+            //
+            // Names absent on older frameworks cost nothing: the gate is keyed by name, so a member
+            // that does not exist is never asked about, and one list serves all five targets.
+            //
+            // Every one of them is a readable property, so the verb says so: nothing here may be
+            // written and nothing here may be called.
+            builder.AllowPropertyOrFieldRead(
+                typeof(Environment),
+                "NewLine", "ProcessorCount", "Is64BitProcess", "Is64BitOperatingSystem",
+                "OSVersion", "Version", "TickCount", "TickCount64", "SystemPageSize",
+                "HasShutdownStarted", "IsPrivilegedProcess");
+
+            // Required by §5.3's closure rule: Environment.OSVersion returns one of these, and a
+            // permitted member whose return type is uncatalogued hands the caller an inert object.
+            // The "am I on Linux or Windows?" case.
+            builder.AllowAllMembersOf(typeof(OperatingSystem));
 
             // The nameable half, driven row by row by the positive corpus (§6.3, §8.1 stage 4).
             //
@@ -766,7 +840,7 @@ namespace SpringExpressions
                          typeof(SerializableAttribute)
                      })
             {
-                catalog.Add(whole, new SandboxCatalogEntry { AllMembers = true });
+                builder.AllowAllMembersOf(whole);
             }
 
             // CultureInfo is the one formatting type that cannot be allowed whole, and §5.3 has the
@@ -774,29 +848,37 @@ namespace SpringExpressions
             // ToString('C') in the process. Reading it is fine and genuinely wanted; writing it is an
             // effect on unrelated code. CreateSpecificCulture is refused with it, because the culture
             // it hands back is writable - the two are only dangerous together.
-            var culture = new SandboxCatalogEntry { AllMembers = true };
-            foreach (var effect in new[]
-                     {
-                         "CurrentCulture", "CurrentUICulture", "DefaultThreadCurrentCulture",
-                         "DefaultThreadCurrentUICulture", "CreateSpecificCulture", "ClearCachedData",
+            var culture = typeof(System.Globalization.CultureInfo);
 
-                         // Found by DescribeImplicitTrust rather than by review, and it is an
-                         // inconsistency rather than a hole: GetCultures hands back *writable*
-                         // CultureInfo instances, exactly as CreateSpecificCulture does, and that is
-                         // why the latter was rejected. Neither can actually do harm while the
-                         // CurrentCulture setter is refused - there is nowhere to install a mutated
-                         // culture - so this is defence in depth on both, or on neither. Rejecting
-                         // the pair costs one rarely-wanted member and removes the need to keep
-                         // that reasoning true.
-                         "GetCultures"
-                     })
-            {
-                culture.Reject(effect);
-            }
+            builder.AllowAllMembersOf(culture);
 
-            catalog.Add(typeof(System.Globalization.CultureInfo), culture);
+            // CurrentCulture and CurrentUICulture are readable and not settable, which is what §6.3
+            // asked for and what refusing them outright could not express until the access axis
+            // existed. Reading the culture is the ordinary thing an expression wants; installing one
+            // changes every subsequent format in the process (§5.3's measurement).
+            builder.ExceptPropertyOrFieldWrite(
+                culture, "CurrentCulture", "CurrentUICulture");
 
-            return catalog;
+            // The thread defaults are settable statics with the same effect one scope out, and are
+            // refused in both directions rather than made read-only: nobody reads them to render a
+            // report, so there is no reader to preserve.
+            builder.ExceptPropertyOrField(
+                culture, "DefaultThreadCurrentCulture", "DefaultThreadCurrentUICulture");
+
+            // These three are methods, and saying so is the point of the verb - the version of this
+            // list that predated MemberKind refused them "in both directions", which for a method
+            // means nothing in particular.
+            //
+            // GetCultures was found by DescribeImplicitTrust rather than by review, and it is an
+            // inconsistency rather than a hole: it hands back *writable* CultureInfo instances,
+            // exactly as CreateSpecificCulture does, and that is why the latter was rejected. Neither
+            // can do harm while the CurrentCulture setter is refused - there is nowhere to install a
+            // mutated culture - so this is defence in depth on both, or on neither. Rejecting the pair
+            // costs one rarely-wanted member and removes the need to keep that reasoning true.
+            builder.ExceptMethod(
+                culture, "CreateSpecificCulture", "ClearCachedData", "GetCultures");
+
+            return builder.Build();
         }
 
         /// <summary>Null means "allow everything"; a table means "only what is in it".</summary>

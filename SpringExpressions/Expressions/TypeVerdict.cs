@@ -52,6 +52,94 @@ namespace SpringExpressions
     }
 
     /// <summary>
+    /// The kind of member an entry is about, because only one of the two kinds has directions.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two kinds, not three: a property and a field are one thing here</b> - state you read and
+    /// write - while a method is behaviour you invoke. Splitting property from field would put back
+    /// the exact trap this enum exists to remove, one level down: a <c>AllowProperty</c> applied to a
+    /// field would be a silent no-op.
+    /// <p>
+    /// <b>Why the kind is carried at all.</b> The first cut of the read/write axis keyed entries on
+    /// the name alone and mapped "invoke" onto <c>Read</c>, on the reasoning that a method has one
+    /// mode of use. Measured, that made two of the four directional verbs meaningless on methods, in
+    /// opposite and equally misleading directions: <c>AllowRead&lt;T&gt;("Exit")</c> permitted calling
+    /// <c>Exit</c>, and - the dangerous one -
+    /// <c>AllowAllMembersOf&lt;T&gt;().ExceptWrite("Danger")</c> refused nothing at all while reading
+    /// as a refusal. Both gates already know the kind, so keying on it costs nothing and the verbs can
+    /// only say true things.
+    /// </p>
+    /// </remarks>
+    internal enum MemberKind
+    {
+        PropertyOrField = 0,
+        Method = 1
+    }
+
+    /// <summary>
+    /// What may be done with one property or field: read it, write it, or both. A method has no
+    /// direction - see <see cref="MemberKind"/>.
+    /// </summary>
+    /// <remarks>
+    /// The axis exists because refusing a member outright to stop its setter is collateral damage.
+    /// In the built-in catalog it buys <c>CultureInfo.CurrentCulture</c> and <c>CurrentUICulture</c>
+    /// being readable while installing one stays refused - which is a small yield, and worth knowing
+    /// honestly: <c>Environment.CurrentDirectory</c> and <c>ExitCode</c> have the same shape but need
+    /// no axis, because that type is an allow-list and omitting them suffices. Where it earns its
+    /// place is a consumer's own model, on a whole-allowed type.
+    /// </remarks>
+    [Flags]
+    internal enum MemberAccess
+    {
+        None = 0,
+        Read = 1,
+        Write = 2,
+        Both = Read | Write
+    }
+
+    /// <summary>
+    /// One catalog key: what kind of member, and its name. Names compare case-insensitively, because
+    /// this engine's member binding does.
+    /// </summary>
+    internal readonly struct MemberKey : IEquatable<MemberKey>
+    {
+        public MemberKey(MemberKind kind, [NotNull] string name)
+        {
+            Kind = kind;
+            Name = name;
+        }
+
+        public readonly MemberKind Kind;
+
+        [NotNull]
+        public readonly string Name;
+
+        public bool Equals(MemberKey other)
+        {
+            return Kind == other.Kind
+                   && StringComparer.OrdinalIgnoreCase.Equals(Name, other.Name);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is MemberKey && Equals((MemberKey)obj);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return ((int)Kind * 397) ^ StringComparer.OrdinalIgnoreCase.GetHashCode(Name);
+            }
+        }
+
+        public override string ToString()
+        {
+            return Kind + " " + Name;
+        }
+    }
+
+    /// <summary>
     /// A <see cref="SandboxVerdict"/> together with the member lists it needs, computed once per type
     /// per policy and cached - see <c>_Docs/type-sandboxing.md</c> §5.1.
     /// </summary>
@@ -70,7 +158,8 @@ namespace SpringExpressions
         /// reject-list direction, for a type where listing what is unsafe is shorter than listing what
         /// is not.
         /// </summary>
-        public static TypeVerdict Unrestricted([CanBeNull] HashSet<string> rejectedMembers)
+        public static TypeVerdict Unrestricted(
+            [CanBeNull] Dictionary<MemberKey, MemberAccess> rejectedMembers)
         {
             return new TypeVerdict(SandboxVerdict.Unrestricted, null, rejectedMembers);
         }
@@ -80,7 +169,8 @@ namespace SpringExpressions
         /// direction, for a type where most of the surface is the thing being defended against.
         /// </summary>
         public static TypeVerdict Catalogued(
-            [NotNull] HashSet<string> allowedMembers, [CanBeNull] HashSet<string> rejectedMembers)
+            [NotNull] Dictionary<MemberKey, MemberAccess> allowedMembers,
+            [CanBeNull] Dictionary<MemberKey, MemberAccess> rejectedMembers)
         {
             if (allowedMembers == null)
                 throw new ArgumentNullException(nameof(allowedMembers));
@@ -103,16 +193,25 @@ namespace SpringExpressions
         /// the language should be case-insensitive at all is <c>_Docs/open-issues.md</c> item 11.
         /// <p>
         /// A rejection wins over an allowance, so <c>.Except(...)</c> means what it says whether the
-        /// name arrived from this type's own entry or from a base type's.
+        /// name arrived from this type's own entry or from a base type's - <b>and it wins per
+        /// direction</b>, which is what lets a whole-allowed type keep a readable member whose setter
+        /// is refused.
         /// </p>
         /// </remarks>
-        public bool Allows([CanBeNull] string memberName)
+        public bool Allows([CanBeNull] string memberName, MemberKind kind, MemberAccess access)
         {
             if (memberName == null)
                 return false;
 
-            if (_rejected != null && _rejected.Contains(memberName))
+            var key = new MemberKey(kind, memberName);
+
+            MemberAccess rejected;
+            if (_rejected != null
+                && _rejected.TryGetValue(key, out rejected)
+                && (rejected & access) != 0)
+            {
                 return false;
+            }
 
             switch (Verdict)
             {
@@ -120,7 +219,9 @@ namespace SpringExpressions
                     return true;
 
                 case SandboxVerdict.Catalogued:
-                    return _allowed.Contains(memberName);
+                    MemberAccess allowed;
+                    return _allowed.TryGetValue(key, out allowed)
+                           && (allowed & access) == access;
 
                 default:
                     return false;
@@ -129,8 +230,8 @@ namespace SpringExpressions
 
         private TypeVerdict(
             SandboxVerdict verdict,
-            [CanBeNull] HashSet<string> allowed,
-            [CanBeNull] HashSet<string> rejected)
+            [CanBeNull] Dictionary<MemberKey, MemberAccess> allowed,
+            [CanBeNull] Dictionary<MemberKey, MemberAccess> rejected)
         {
             Verdict = verdict;
             _allowed = allowed;
@@ -139,10 +240,10 @@ namespace SpringExpressions
 
         /// <summary>Null for every verdict but <see cref="SandboxVerdict.Catalogued"/>.</summary>
         [CanBeNull]
-        private readonly HashSet<string> _allowed;
+        private readonly Dictionary<MemberKey, MemberAccess> _allowed;
 
         /// <summary>Null unless the entry rejected something.</summary>
         [CanBeNull]
-        private readonly HashSet<string> _rejected;
+        private readonly Dictionary<MemberKey, MemberAccess> _rejected;
     }
 }

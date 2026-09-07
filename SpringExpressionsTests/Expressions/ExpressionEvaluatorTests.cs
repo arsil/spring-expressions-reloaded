@@ -758,10 +758,16 @@ namespace SpringExpressions
             Assert.AreEqual(typeof(int),
                 ExpressionEvaluator.GetValue(null, "T(System.Environment)"));
 
-            // And without the registration the catalog decides: System.Environment is forbidden
-            // outright, so no spelling of its real name reaches it.
+            // And without the registration the catalog decides. System.Environment is *curated* now
+            // rather than forbidden - §6.3 always specified that, and it shipped forbidden - so the
+            // type is nameable and its readers work while its effects do not.
+            var qualified = "T(" + typeof(Environment).AssemblyQualifiedName + ")";
+
+            Assert.AreEqual(
+                Environment.NewLine, ExpressionEvaluator.GetValue(null, qualified + ".NewLine"));
+
             Assert.Throws<SandboxViolationException>(
-                () => ExpressionEvaluator.GetValue(null, "T(" + typeof(Environment).AssemblyQualifiedName + ")"));
+                () => ExpressionEvaluator.GetValue(null, qualified + ".GetEnvironmentVariable('PATH')"));
         }
 
 

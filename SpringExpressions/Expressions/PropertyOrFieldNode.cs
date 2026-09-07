@@ -61,13 +61,32 @@ namespace SpringExpressions
         private IValueAccessor accessor;
 
         /// <summary>
+        /// What the sandbox said about this member, answered when <see cref="accessor"/> was built and
+        /// invalidated with it. Two booleans rather than two lookups per evaluation - see the two-out
+        /// overload of <c>GetPropertyOrFieldAccessor</c>.
+        /// </summary>
+        private bool _mayRead = true;
+
+        private bool _mayWrite = true;
+
+        /// <summary>
         /// Create a new instance
         /// </summary>
         public PropertyOrFieldNode()
         {
         }
 
-                /// <summary>
+                /// <summary>The type the member gate was asked about, for a denial's message.</summary>
+        [NotNull]
+        private static Type ContextTypeOf([CanBeNull] object context)
+        {
+            if (context == null)
+                return typeof(object);
+
+            return context as Type ?? context.GetType();
+        }
+
+        /// <summary>
         /// Initializes the node.
         /// </summary>
         /// <param name="context">The parent.</param>
@@ -77,6 +96,14 @@ namespace SpringExpressions
 
             if (accessor == null || accessor.RequiresRefresh(contextType))
             {
+                // Both directions are answered whenever the accessor is built, and cached beside it,
+                // so Get and Set test a field rather than repeating the lookup - see the two-out
+                // overload of GetPropertyOrFieldAccessor. They start permissive because most of the
+                // paths below reach an accessor the member gate has nothing to say about: an enum
+                // value, a type name, a variable.
+                _mayRead = true;
+                _mayWrite = true;
+
                 memberName = this.getText();
 
                 // clear cached member info if context type has changed (for example, when ASP.NET page is recompiled)
@@ -117,13 +144,15 @@ namespace SpringExpressions
                     {
                         // check the context type first
                         accessor = GetPropertyOrFieldAccessor(
-                            contextType, memberName, BINDING_FLAGS, sandboxPolicy);
+                            contextType, memberName, BINDING_FLAGS, sandboxPolicy,
+                            out _mayRead, out _mayWrite);
 
                         // if not found, probe the Type type
                         if (accessor == null && context is Type)
                         {
                             accessor = GetPropertyOrFieldAccessor(
-                                typeof(Type), memberName, BINDING_FLAGS, sandboxPolicy);
+                                typeof(Type), memberName, BINDING_FLAGS, sandboxPolicy,
+                                out _mayRead, out _mayWrite);
                         }
                     }
                 }
@@ -189,12 +218,69 @@ namespace SpringExpressions
             Type contextType,
             string memberName,
             BindingFlags bindingFlags,
-            [NotNull] SandboxPolicy sandboxPolicy)
+            [NotNull] SandboxPolicy sandboxPolicy,
+            MemberAccess access)
         {
             var accessor = FindPropertyOrFieldAccessor(contextType, memberName, bindingFlags);
 
             if (accessor != null)
-                sandboxPolicy.RequirePermittedMember(contextType, memberName);
+                sandboxPolicy.RequirePermittedMember(
+                    contextType, memberName, MemberKind.PropertyOrField, access);
+
+            return accessor;
+        }
+
+        /// <summary>
+        /// The same lookup, answering both directions at once and throwing for neither. What the
+        /// interpreted path uses.
+        /// </summary>
+        /// <remarks>
+        /// <b>The lookup stays where it was; only the decision moves.</b> The compiled path has a
+        /// separate method per direction, so it can simply ask for the one it is - but the interpreter
+        /// builds <i>one</i> memoised accessor in <c>InitializeNode</c> and serves both <c>Get</c> and
+        /// <c>Set</c> from it, so at build time it does not yet know which way the caller will go.
+        /// <p>
+        /// Asking per evaluation would answer that and cost §5's promise - the gate is once per node
+        /// today, and a dictionary hit plus a case-insensitive set hit per member access is not
+        /// nothing on a hot loop. So both answers are computed here, once, and kept as two booleans
+        /// that <c>Get</c> and <c>Set</c> test. It also removes a hazard the per-direction alternative
+        /// had: an expression read first and written later cannot end up with only its read checked.
+        /// </p>
+        /// <p>
+        /// A member permitted in <b>neither</b> direction is a denial now, raised here, because that
+        /// is the case the old single-direction check covered.
+        /// </p>
+        /// </remarks>
+        [CanBeNull]
+        private static IValueAccessor GetPropertyOrFieldAccessor(
+            Type contextType,
+            string memberName,
+            BindingFlags bindingFlags,
+            [NotNull] SandboxPolicy sandboxPolicy,
+            out bool mayRead,
+            out bool mayWrite)
+        {
+            var accessor = FindPropertyOrFieldAccessor(contextType, memberName, bindingFlags);
+
+            if (accessor == null)
+            {
+                // Nothing found, so nothing to gate - and the flags must stay permissive rather than
+                // recording a refusal, because the caller carries on: it probes System.Type next and
+                // then falls through to a *type name* accessor. Returning false here denied
+                // 'Ints.convert(decimal)', 'Foo.FooType' and 'Society.Society' - names that are types,
+                // not members - which is how this was found: seventeen tests across both suites,
+                // every one of them a type name reached through this node.
+                mayRead = mayWrite = true;
+                return null;
+            }
+
+            mayRead = sandboxPolicy.PermitsMember(
+                contextType, memberName, MemberKind.PropertyOrField, MemberAccess.Read);
+            mayWrite = sandboxPolicy.PermitsMember(
+                contextType, memberName, MemberKind.PropertyOrField, MemberAccess.Write);
+
+            if (!mayRead && !mayWrite)
+                throw new SandboxViolationException(contextType, memberName);
 
             return accessor;
         }
@@ -262,6 +348,9 @@ namespace SpringExpressions
             lock (this)
             {
                 InitializeNode(context, evalContext.SandboxPolicy);
+
+                if (!_mayRead)
+                    throw new SandboxViolationException(ContextTypeOf(context), memberName);
 
                 if (context == null && accessor.RequiresContext)
                 {
@@ -345,7 +434,7 @@ namespace SpringExpressions
 
                     // try inner type (e.g. Int32)
                     acc = GetPropertyOrFieldAccessor(
-                        contextExpressionType, name, BINDING_FLAGS, compilationContext.SandboxPolicy);
+                        contextExpressionType, name, BINDING_FLAGS, compilationContext.SandboxPolicy, MemberAccess.Read);
 
                     if (acc == null)
                     {
@@ -357,7 +446,7 @@ namespace SpringExpressions
 
                 if (acc == null)
                     acc = GetPropertyOrFieldAccessor(
-                        contextExpressionType, name, BINDING_FLAGS, compilationContext.SandboxPolicy);
+                        contextExpressionType, name, BINDING_FLAGS, compilationContext.SandboxPolicy, MemberAccess.Read);
 
                 if (acc is PropertyValueAccessor propertyAcc)
                 {
@@ -450,7 +539,7 @@ namespace SpringExpressions
                 var contextExpressionType = contextExpression.Type;
 
                 acc = GetPropertyOrFieldAccessor(
-                    contextExpressionType, name, BINDING_FLAGS, compilationContext.SandboxPolicy);
+                    contextExpressionType, name, BINDING_FLAGS, compilationContext.SandboxPolicy, MemberAccess.Write);
 
                 if (acc is PropertyValueAccessor propertyAcc)
                 {
@@ -628,6 +717,11 @@ namespace SpringExpressions
             lock (this)
             {
                 InitializeNode(context, evalContext.SandboxPolicy);
+
+                // A policy refusal, not the language's "this property has no setter" - which is a
+                // NotWritablePropertyException raised further down and must stay distinguishable.
+                if (!_mayWrite)
+                    throw new SandboxViolationException(ContextTypeOf(context), memberName);
 
                 if (context == null && accessor.RequiresContext)
                 {

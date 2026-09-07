@@ -44,6 +44,36 @@ namespace SpringExpressionsTests.Expressions
             public string Name { get; set; } = "inner";
         }
 
+        /// <summary>
+        /// A caller's own type with an implicit conversion to an <b>integral</b> type - the operand kind
+        /// no corpus held, and the gap that hid a divergence from all four sweeps at once.
+        /// </summary>
+        /// <remarks>
+        /// The engine had only ever learned about conversions to a <i>real</i> type (decimal, double,
+        /// float), so <c>TakesInt(tally)</c> answered <c>int:7</c> compiled and threw
+        /// <c>InvalidCastException</c> interpreted - one backend answering while the other threw, which
+        /// is the exact invariant <c>EvaluationNeverDivergesTests</c> exists to guard. It could not:
+        /// every custom type either sweep generated converted to a real one, so the whole
+        /// integral-conversion half of the surface was unsampled and both of that item's defects were
+        /// found by probing it by hand.
+        /// <p>
+        /// Deliberately <b>not</b> real-valued, and deliberately without operators of its own -
+        /// <c>CustomRealTypesTests</c> and <c>UserDefinedOperatorTests</c> already carry those, and a
+        /// type with an operator would be answered by the operator lookup before any conversion is
+        /// consulted, which is a different path from the one this row is here to sample.
+        /// </p>
+        /// </remarks>
+        public struct Tally
+        {
+            public Tally(int count) { Count = count; }
+
+            public readonly int Count;
+
+            public static implicit operator int(Tally t) { return t.Count; }
+
+            public override string ToString() { return "Tally(" + Count + ")"; }
+        }
+
         public class Root
         {
             public string Name { get; set; } = "Ana";
@@ -90,6 +120,15 @@ namespace SpringExpressionsTests.Expressions
             //          'Floats.average()' answering Single compiled and Double interpreted was found
             //          by hand rather than by this sweep.
             public List<float> Reals { get; set; } = new List<float> { 3f, 1f, 2f };
+
+            // Counted / Counts: a custom type converting to an integral type, and a collection of one.
+            // See the Tally remarks - this is the operand kind whose absence hid a divergence from all
+            // four sweeps, and the seventh corpus gap to be found by hand rather than by a test.
+            public Tally Counted { get; set; } = new Tally(7);
+            public List<Tally> Counts { get; set; } = new List<Tally>
+            {
+                new Tally(3), new Tally(1), new Tally(2)
+            };
 
             public string Text(string s) { return s; }
             public int Count(IEnumerable e) { return 1; }
@@ -331,7 +370,10 @@ namespace SpringExpressionsTests.Expressions
             {
                 "Name", "Number", "Big", "Real", "Amount", "Flag", "Letter", "Colour",
                 "NullableNumber", "NoNumber", "When", "Span", "Anything", "Inner", "Ints", "Array",
-                "Old", "OldMap", "Map", "null", "'lit'", "45", "45.5", "true"
+                "Old", "OldMap", "Map", "null", "'lit'", "45", "45.5", "true",
+
+                // A custom type converting to an integral type - the operand kind that was missing.
+                "Counted"
             };
 
             var operators = new[]
@@ -376,7 +418,12 @@ namespace SpringExpressionsTests.Expressions
             var sources = new[]
             {
                 "Ints", "Names", "Array", "Old", "OldMap", "Map", "{1,2}", "Name",
-                "Set", "Sequence", "Huge", "Amounts", "Reals"
+                "Set", "Sequence", "Huge", "Amounts", "Reals",
+
+                // A collection whose item type converts to an integral type: sort() reaches CompareTo,
+                // distinct() reaches Equals and sum() a numeric conversion, none of them named by the
+                // expression, and none of them previously sampled for such an item type.
+                "Counts"
             };
             var processors = new[]
             {

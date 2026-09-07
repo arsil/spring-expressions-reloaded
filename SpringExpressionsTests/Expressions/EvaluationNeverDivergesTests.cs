@@ -291,7 +291,8 @@ namespace SpringExpressionsTests.Expressions
                     Sequence = new int[0].Select(x => x),
                     Huge = new List<int>(),
                     Amounts = new List<decimal>(),
-                    Reals = new List<float>()
+                    Reals = new List<float>(),
+                    Counts = new List<CompilationNeverLeaksTests.Tally>()
                 }),
 
                 new NamedRoot("zeros and NaN", new CompilationNeverLeaksTests.Root
@@ -305,7 +306,9 @@ namespace SpringExpressionsTests.Expressions
                     Names = new List<string> { null },
                     Array = new[] { 0 },
                     Old = new ArrayList { null },
-                    Anything = "text"
+                    Anything = "text",
+                    Counted = new CompilationNeverLeaksTests.Tally(0),
+                    Counts = new List<CompilationNeverLeaksTests.Tally> { new CompilationNeverLeaksTests.Tally(0) }
                 })
             };
         }

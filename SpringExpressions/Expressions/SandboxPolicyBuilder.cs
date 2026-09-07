@@ -36,6 +36,28 @@ namespace SpringExpressions
     /// </remarks>
     public sealed class SandboxPolicyBuilder
     {
+        /// <summary>
+        /// A builder over an empty catalog - nothing permitted, nothing forbidden.
+        /// </summary>
+        /// <remarks>
+        /// What <see cref="SandboxPolicy.Restricted"/>'s own catalog is authored with, so the shipped
+        /// catalog goes through the same verbs a consumer uses. It cannot use
+        /// <see cref="SandboxPolicy.NewBasedOn"/> for the obvious reason: it <i>is</i> the policy that
+        /// call would start from.
+        /// <p>
+        /// This is the "start from nothing" base §4.5 predicted would be needed once
+        /// <c>Restricted</c> stopped meaning "deny everything". It is internal for now - a consumer
+        /// wanting to build from scratch rather than from <c>Restricted</c> has no public way to, and
+        /// that gap is recorded rather than filled, because nobody has asked for it.
+        /// </p>
+        /// </remarks>
+        [NotNull]
+        internal static SandboxPolicyBuilder StartingFromNothing()
+        {
+            return new SandboxPolicyBuilder(
+                new Dictionary<Type, SandboxCatalogEntry>(), null, null);
+        }
+
         internal SandboxPolicyBuilder(
             [NotNull] IDictionary<Type, SandboxCatalogEntry> catalog,
             [CanBeNull] ISet<Assembly> allowedAssemblies,
@@ -77,14 +99,124 @@ namespace SpringExpressions
         /// </summary>
         /// <param name="type">The type to catalogue. An open generic definition for a generic type.</param>
         /// <param name="memberNames">
-        /// Properties, fields and methods alike - the gate is keyed by name and cannot tell them
-        /// apart, so there is deliberately no <c>AllowProperty</c>/<c>AllowMethod</c> split. Write
+        /// Properties, fields and methods alike - whichever kind bears the name is permitted. Write
         /// them with <c>nameof</c>: a rename or a typo then breaks the build, which a bare string
         /// cannot do. Passing none catalogues the type with no members of its own, which makes it
         /// nameable and its inherited entries usable.
+        /// <p>
+        /// Where a name must be permitted for one kind only, or in one direction only, the six verbs
+        /// below say so - and say it in their names, which is the point of them.
+        /// </p>
         /// </param>
         [NotNull]
         public SandboxPolicyBuilder Allow([NotNull] Type type, [NotNull] params string[] memberNames)
+        {
+            return AllowFor(type, null, MemberAccess.Both, memberNames);
+        }
+
+        /// <summary>
+        /// Permits <b>calling</b> these methods of <paramref name="type"/>, and says nothing about a
+        /// property or field of the same name.
+        /// </summary>
+        /// <remarks>
+        /// A method has one mode of use, so there is no <c>AllowMethodRead</c> and no
+        /// <c>AllowMethodWrite</c> - which is the whole reason the catalog keys on the member's kind.
+        /// The first cut of the access axis keyed on the name alone and mapped invoking onto
+        /// <i>reading</i>, which made <c>AllowRead&lt;T&gt;("Exit")</c> permit calling <c>Exit</c> and
+        /// - worse - made <c>ExceptWrite("Danger")</c> refuse nothing while reading as a refusal. Both
+        /// measured. With the kind in the key those sentences cannot be written.
+        /// </remarks>
+        [NotNull]
+        public SandboxPolicyBuilder AllowMethod([NotNull] Type type, [NotNull] params string[] memberNames)
+        {
+            return AllowFor(type, MemberKind.Method, MemberAccess.Both, memberNames);
+        }
+
+        /// <summary>The generic form of <see cref="AllowMethod(Type, string[])"/>.</summary>
+        [NotNull]
+        public SandboxPolicyBuilder AllowMethod<T>([NotNull] params string[] memberNames)
+        {
+            return AllowMethod(typeof(T), memberNames);
+        }
+
+        /// <summary>
+        /// Permits reading <b>and</b> writing these properties or fields, and says nothing about a
+        /// method of the same name.
+        /// </summary>
+        /// <remarks>
+        /// Named <c>PropertyOrField</c> rather than <c>Property</c> because it means both, and
+        /// splitting them would put back the trap this vocabulary exists to remove one level down: an
+        /// <c>AllowProperty</c> applied to a field would be a silent no-op. It is also the name this
+        /// codebase already uses for the concept - <c>PropertyOrFieldNode</c> is the node that gates it.
+        /// </remarks>
+        [NotNull]
+        public SandboxPolicyBuilder AllowPropertyOrField(
+            [NotNull] Type type, [NotNull] params string[] memberNames)
+        {
+            return AllowFor(type, MemberKind.PropertyOrField, MemberAccess.Both, memberNames);
+        }
+
+        /// <summary>The generic form of <see cref="AllowPropertyOrField(Type, string[])"/>.</summary>
+        [NotNull]
+        public SandboxPolicyBuilder AllowPropertyOrField<T>([NotNull] params string[] memberNames)
+        {
+            return AllowPropertyOrField(typeof(T), memberNames);
+        }
+
+        /// <summary>
+        /// These properties or fields may be <b>read</b> and not written.
+        /// </summary>
+        /// <remarks>
+        /// The reason the access axis exists: refusing a member outright to stop its setter is
+        /// collateral damage. <c>CultureInfo.CurrentCulture</c> is the worked example - reading the
+        /// culture is what a report wants, installing one changes every subsequent format in the
+        /// process.
+        /// </remarks>
+        [NotNull]
+        public SandboxPolicyBuilder AllowPropertyOrFieldRead(
+            [NotNull] Type type, [NotNull] params string[] memberNames)
+        {
+            return AllowFor(type, MemberKind.PropertyOrField, MemberAccess.Read, memberNames);
+        }
+
+        /// <summary>The generic form of <see cref="AllowPropertyOrFieldRead(Type, string[])"/>.</summary>
+        [NotNull]
+        public SandboxPolicyBuilder AllowPropertyOrFieldRead<T>([NotNull] params string[] memberNames)
+        {
+            return AllowPropertyOrFieldRead(typeof(T), memberNames);
+        }
+
+        /// <summary>
+        /// These properties or fields may be <b>written</b> and not read.
+        /// </summary>
+        /// <remarks>
+        /// The symmetric half, and the rarer want - a field a script may set but not inspect. Coherent
+        /// rather than decorative: <c>Secret = 'x'</c> is permitted while <c>Secret</c> is denied, and
+        /// <c>Secret = Secret + 'x'</c> is correctly denied on its read half.
+        /// </remarks>
+        [NotNull]
+        public SandboxPolicyBuilder AllowPropertyOrFieldWrite(
+            [NotNull] Type type, [NotNull] params string[] memberNames)
+        {
+            return AllowFor(type, MemberKind.PropertyOrField, MemberAccess.Write, memberNames);
+        }
+
+        /// <summary>The generic form of <see cref="AllowPropertyOrFieldWrite(Type, string[])"/>.</summary>
+        [NotNull]
+        public SandboxPolicyBuilder AllowPropertyOrFieldWrite<T>([NotNull] params string[] memberNames)
+        {
+            return AllowPropertyOrFieldWrite(typeof(T), memberNames);
+        }
+
+        /// <summary>
+        /// <paramref name="kind"/> null means both kinds - what the undirected <c>Allow</c> means.
+        /// </summary>
+        [NotNull]
+        private SandboxPolicyBuilder AllowFor(
+            [NotNull] Type type,
+            MemberKind? kind,
+            MemberAccess access,
+            [NotNull] params string[] memberNames)
         {
             AssertUtils.ArgumentNotNull(memberNames, "memberNames");
 
@@ -93,7 +225,11 @@ namespace SpringExpressions
             foreach (var memberName in memberNames)
             {
                 AssertUtils.ArgumentNotNull(memberName, "memberNames");
-                entry.Allow(memberName);
+
+                if (kind == null)
+                    entry.AllowEitherKind(memberName);
+                else
+                    entry.Allow(memberName, kind.Value, access);
             }
 
             return this;
@@ -140,17 +276,7 @@ namespace SpringExpressions
         [NotNull]
         public SandboxPolicyBuilder Except([NotNull] Type type, [NotNull] params string[] memberNames)
         {
-            AssertUtils.ArgumentNotNull(memberNames, "memberNames");
-
-            var entry = EntryFor(type);
-
-            foreach (var memberName in memberNames)
-            {
-                AssertUtils.ArgumentNotNull(memberName, "memberNames");
-                entry.Reject(memberName);
-            }
-
-            return this;
+            return ExceptFor(type, null, MemberAccess.Both, memberNames);
         }
 
         /// <summary>The generic form of <see cref="Except(Type, string[])"/>.</summary>
@@ -158,6 +284,119 @@ namespace SpringExpressions
         public SandboxPolicyBuilder Except<T>([NotNull] params string[] memberNames)
         {
             return Except(typeof(T), memberNames);
+        }
+
+        /// <summary>
+        /// Refuses <b>calling</b> these methods, leaving a property or field of the same name alone.
+        /// </summary>
+        /// <remarks>
+        /// This is the verb the first cut of the access axis was missing, and its absence was the
+        /// sharpest edge in it: someone writing
+        /// <c>AllowAllMembersOf&lt;Environment&gt;().ExceptWrite(nameof(Environment.Exit))</c> got a
+        /// line that read as a refusal and refused nothing, because a method has no write to refuse.
+        /// <c>ExceptMethod</c> is what that sentence wanted, and the directional verbs now say
+        /// <c>PropertyOrField</c> in their names so the mistake reads wrong where it is typed.
+        /// </remarks>
+        [NotNull]
+        public SandboxPolicyBuilder ExceptMethod(
+            [NotNull] Type type, [NotNull] params string[] memberNames)
+        {
+            return ExceptFor(type, MemberKind.Method, MemberAccess.Both, memberNames);
+        }
+
+        /// <summary>The generic form of <see cref="ExceptMethod(Type, string[])"/>.</summary>
+        [NotNull]
+        public SandboxPolicyBuilder ExceptMethod<T>([NotNull] params string[] memberNames)
+        {
+            return ExceptMethod(typeof(T), memberNames);
+        }
+
+        /// <summary>
+        /// Refuses reading <b>and</b> writing these properties or fields, leaving a method of the same
+        /// name alone.
+        /// </summary>
+        [NotNull]
+        public SandboxPolicyBuilder ExceptPropertyOrField(
+            [NotNull] Type type, [NotNull] params string[] memberNames)
+        {
+            return ExceptFor(type, MemberKind.PropertyOrField, MemberAccess.Both, memberNames);
+        }
+
+        /// <summary>The generic form of <see cref="ExceptPropertyOrField(Type, string[])"/>.</summary>
+        [NotNull]
+        public SandboxPolicyBuilder ExceptPropertyOrField<T>([NotNull] params string[] memberNames)
+        {
+            return ExceptPropertyOrField(typeof(T), memberNames);
+        }
+
+        /// <summary>
+        /// Refuses <b>writing</b> these properties or fields while leaving them readable.
+        /// </summary>
+        /// <remarks>
+        /// The most useful of the directional verbs, because it is what a whole-allowed type needs, and
+        /// the shape the built-in <c>CultureInfo</c> entry uses:
+        /// <c>AllowAllMembersOf&lt;CultureInfo&gt;().ExceptPropertyOrFieldWrite&lt;CultureInfo&gt;(nameof(CultureInfo.CurrentCulture))</c>
+        /// reads the culture and refuses installing one, where the catalog previously had to refuse the
+        /// member outright and lose the reader with it.
+        /// </remarks>
+        [NotNull]
+        public SandboxPolicyBuilder ExceptPropertyOrFieldWrite(
+            [NotNull] Type type, [NotNull] params string[] memberNames)
+        {
+            return ExceptFor(type, MemberKind.PropertyOrField, MemberAccess.Write, memberNames);
+        }
+
+        /// <summary>The generic form of <see cref="ExceptPropertyOrFieldWrite(Type, string[])"/>.</summary>
+        [NotNull]
+        public SandboxPolicyBuilder ExceptPropertyOrFieldWrite<T>(
+            [NotNull] params string[] memberNames)
+        {
+            return ExceptPropertyOrFieldWrite(typeof(T), memberNames);
+        }
+
+        /// <summary>
+        /// Refuses <b>reading</b> these properties or fields while leaving them writable.
+        /// </summary>
+        [NotNull]
+        public SandboxPolicyBuilder ExceptPropertyOrFieldRead(
+            [NotNull] Type type, [NotNull] params string[] memberNames)
+        {
+            return ExceptFor(type, MemberKind.PropertyOrField, MemberAccess.Read, memberNames);
+        }
+
+        /// <summary>The generic form of <see cref="ExceptPropertyOrFieldRead(Type, string[])"/>.</summary>
+        [NotNull]
+        public SandboxPolicyBuilder ExceptPropertyOrFieldRead<T>(
+            [NotNull] params string[] memberNames)
+        {
+            return ExceptPropertyOrFieldRead(typeof(T), memberNames);
+        }
+
+        /// <summary>
+        /// <paramref name="kind"/> null means both kinds - what the undirected <c>Except</c> means.
+        /// </summary>
+        [NotNull]
+        private SandboxPolicyBuilder ExceptFor(
+            [NotNull] Type type,
+            MemberKind? kind,
+            MemberAccess access,
+            [NotNull] params string[] memberNames)
+        {
+            AssertUtils.ArgumentNotNull(memberNames, "memberNames");
+
+            var entry = EntryFor(type);
+
+            foreach (var memberName in memberNames)
+            {
+                AssertUtils.ArgumentNotNull(memberName, "memberNames");
+
+                if (kind == null)
+                    entry.RejectEitherKind(memberName);
+                else
+                    entry.Reject(memberName, kind.Value, access);
+            }
+
+            return this;
         }
 
         /// <summary>
