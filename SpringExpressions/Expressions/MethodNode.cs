@@ -198,6 +198,16 @@ namespace SpringExpressions
 				    compilationContext.SandboxPolicy.RequirePermittedMember(
 					    contextExpressionType, methodName, MemberKind.Method, MemberAccess.Both);
 
+				    // The receiver here is a runtime value, so its declared type may be hiding a
+				    // forbidden one. Not a denial - the interpreter looks at the value and decides.
+				    // The branch above, where the receiver is a constant Type, needs no such check:
+				    // the type is named, not inferred, so there is nothing to be uncertain about.
+				    var ambiguous = compilationContext.SandboxPolicy
+					    .ReasonTheDeclaredTypeIsAmbiguous(contextExpressionType);
+
+				    if (ambiguous != null)
+					    throw CannotCompile(ambiguous);
+
 				    methodInfo = resolved.Item1;
 				    resolvedArguments = resolved.Item2;
 			    }

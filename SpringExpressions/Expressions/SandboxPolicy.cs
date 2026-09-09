@@ -18,8 +18,10 @@ namespace SpringExpressions
     /// <b>A type-name allow-list is not a sandbox</b>, which is the finding the whole design rests on:
     /// from <c>int</c> you reach <c>Assembly</c>, and <c>'abc'.GetType().Assembly</c> reaches it without
     /// naming a type at all. So the boundary is <i>which members are reachable</i>, with type names as
-    /// one input to it - and a policy is consulted at two gates, one for type names and one for members.
-    /// Neither gate exists yet; see <c>_Docs/type-sandboxing.md</c> §8 for the order of work.
+    /// one input to it - and a policy is consulted at two gates, one for type names
+    /// (<c>TypeResolutionUtils.ResolveTypeForExpression</c>) and one for members
+    /// (<see cref="RequirePermittedMember"/>), both on both backends. Indexing is deliberately ungated
+    /// - <c>_Docs/type-sandboxing.md</c> §4.2 measures why the two attempts at it were unimplementable.
     /// </p>
     /// <p>
     /// <b>A policy is immutable, and belongs to one expression, fixed when that expression is created.</b>
@@ -32,39 +34,36 @@ namespace SpringExpressions
     /// compilation fails. See §4.3.
     /// </p>
     /// <p>
-    /// <b>The default is on, for both API layers</b> - the inherited weakly typed surface included, not
-    /// only the strongly typed one. A per-overload default would put the permissive setting exactly
-    /// where the risk is highest, make "is this sandboxed?" an invisible property of the call site, and
-    /// keep the frozen suite green by construction - so the largest breaking change on the backlog would
-    /// become the one change that suite cannot see. See §3.5; a split remains the fallback that stage
-    /// 4's measurement may force, and is not the design.
+    /// <b>The default is on since 2026-09-06, for both API layers</b> - the inherited weakly typed
+    /// surface included, not only the strongly typed one. A per-overload default would put the
+    /// permissive setting exactly where the risk is highest, make "is this sandboxed?" an invisible
+    /// property of the call site, and keep the frozen suite green by construction - so the largest
+    /// breaking change on the backlog would become the one change that suite cannot see. See §3.5. The
+    /// measurement that could have forced a split was taken and did not: a consumer's migration is one
+    /// policy at startup, and no test in either suite needed anything else (§8.9).
     /// </p>
     /// <p>
-    /// <b>Not yet in force.</b> <see cref="Default"/> is <see cref="DangerouslyAllowEverything"/> until
-    /// the gates and the catalog are built, so nothing about today's behaviour has changed. Flipping it
-    /// is the last step (§8.1, stage 5).
+    /// <b>A consumer defines a policy with <see cref="SandboxPolicyBuilder"/></b>, obtained from
+    /// <see cref="NewBasedOn"/> - which is also how the built-in
+    /// <see cref="Restricted"/> catalog is authored, so the one catalog that ships is expressible by
+    /// the verbs a consumer has. A fluent <c>Allowing(...)</c> on the policy itself was rejected: it
+    /// reads as mutation of the instance it is called on and carries the discarded-result trap, and it
+    /// leaves nowhere to check §5.3's closure rule, since every intermediate would already be a
+    /// complete policy. <c>Build()</c> is that one place. See §4.5.
     /// </p>
     /// <p>
-    /// <b>The constructor is private while <see cref="Default"/>'s setter is public, and that
-    /// asymmetry is deliberate <i>for now</i>.</b> The value space is currently the two built-ins
-    /// below, which is all the setter needs to do its job - its purpose is the one-line escape,
-    /// <c>SandboxPolicy.Default = SandboxPolicy.DangerouslyAllowEverything</c>. How a consumer defines
-    /// a policy of their own is <b>ruled and not built</b>: a builder,
-    /// <c>SandboxPolicy.NewBasedOn(...).Allow&lt;Uri&gt;(nameof(Uri.Host)).TrustAssemblyOf&lt;Order&gt;().Build()</c>,
-    /// arriving at stage 4. A fluent <c>Allowing(...)</c> on the policy itself was rejected - it reads
-    /// as mutation of the instance it is called on and carries the discarded-result trap, and more
-    /// importantly it leaves nowhere to check §5.3's closure rule, since every intermediate would
-    /// already be a complete policy. <c>Build()</c> is that one place. See §4.5.
-    /// </p>
+    /// Members are named by <b>string</b>, with <c>nameof</c> as the intended spelling, and an entry is
+    /// keyed on the name <i>and the member's kind</i> - <see cref="MemberKind.PropertyOrField"/> or
+    /// <see cref="MemberKind.Method"/> - because only the first of those has a direction to read or
+    /// write. Keying on the name alone made two of the four directional verbs meaningless on methods,
+    /// one of them a refusal that refused nothing; see <see cref="MemberKind"/> for the measurement.
     /// <p>
-    /// Members are named by <b>string</b>, with <c>nameof</c> as the intended spelling - properties,
-    /// fields and methods in one list, because the gate is keyed by name and cannot tell them apart
-    /// (<see cref="TypeVerdict.Allows"/> is the whole check). A mock-library-style
-    /// <c>Allow&lt;Uri&gt;(u =&gt; u.Host)</c> was rejected: it promises overload granularity this
-    /// gate cannot keep, and it does not compile at all for a static class - <c>Math</c>,
-    /// <c>Environment</c> and <c>Convert</c> are static, and CS0718 forbids a static type as a type
-    /// argument. That is also why <c>Allow(Type, params string[])</c> is the primary form and the
-    /// generic one is sugar.
+    /// A mock-library-style <c>Allow&lt;Uri&gt;(u =&gt; u.Host)</c> was rejected: it promises overload
+    /// granularity this gate cannot keep, and it does not compile at all for a static class -
+    /// <c>Math</c>, <c>Environment</c> and <c>Convert</c> are static, and CS0718 forbids a static type
+    /// as a type argument. That is also why <c>Allow(Type, params string[])</c> is the primary form
+    /// and the generic one is sugar.
+    /// </p>
     /// </p>
     /// <p>
     /// <see cref="SpringCore.TypeResolution.TypeRegistry"/> does not remove the need for that builder,
@@ -141,10 +140,22 @@ namespace SpringExpressions
         /// The sandbox on, against the built-in catalog.
         /// </summary>
         /// <remarks>
-        /// <b>The catalog is empty at this stage</b>, so this policy currently denies every type. That
-        /// is deliberate: both gates are built against a stub, and the catalog is curated last, from
-        /// what the two test suites reject once the gates are live - the red list is its specification.
-        /// See §8.2.
+        /// <b>What <see cref="Default"/> is, unless an application replaced it.</b> The catalog was
+        /// curated last, from what the two suites and <c>SandboxCorpusTests</c> reject once the gates
+        /// were live - the red list was its specification, which is why it is measured rather than
+        /// imagined (§8.2).
+        /// <p>
+        /// It permits the types an expression may <i>name</i> - the primitives, <c>DateTime</c>,
+        /// <c>Math</c>, the collection types the language builds, any enum - curates
+        /// <see cref="System.Type"/> and <c>CultureInfo</c>, and forbids the reflection and loader
+        /// family outright. Everything an expression merely <i>reaches</i> is trusted unless forbidden,
+        /// which is §5.2 and is what keeps a consumer's own model out of the catalog entirely.
+        /// </p>
+        /// <p>
+        /// A consumer who needs more starts here: <c>NewBasedOn(Restricted)</c>. Starting from
+        /// <i>nothing</i> is internal-only for now - see
+        /// <c>SandboxPolicyBuilder.StartingFromNothing</c>, which is what builds this.
+        /// </p>
         /// </remarks>
         [NotNull]
         public static SandboxPolicy Restricted
@@ -216,6 +227,28 @@ namespace SpringExpressions
                 : IndexByFullName(catalog);
             _allowedAssemblies = allowedAssemblies;
             _forbiddenAssemblies = forbiddenAssemblies;
+
+            _ambiguousDeclaredTypes = ComputeAmbiguousDeclaredTypes(catalog);
+            _ambiguousDeclaredTypeNames = NamesOf(_ambiguousDeclaredTypes);
+        }
+
+        /// <summary>
+        /// The same set by <see cref="Type.FullName"/>, for the case where the runtime holds two
+        /// <see cref="Type"/> objects for one type - see <see cref="TryGetEntryByName"/>, which needs
+        /// the identical fallback for the identical reason.
+        /// </summary>
+        [NotNull]
+        private static ISet<string> NamesOf([NotNull] ISet<Type> types)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var type in types)
+            {
+                if (type.FullName != null)
+                    names.Add(type.FullName);
+            }
+
+            return names;
         }
 
         /// <summary>The policy a <see cref="SandboxPolicyBuilder"/> produces.</summary>
@@ -425,6 +458,18 @@ namespace SpringExpressions
             if (hasOwnEntry && ownEntry.Forbidden)
                 return TypeVerdict.Denied;
 
+            // Forbidding runs down the tree, and until 2026-09-07 it did not: Forbid<Stream>() denied a
+            // property declared Stream and permitted one declared MemoryStream, because a type nobody
+            // had ruled on answered Unknown - which the member gate reads as trust - before any ancestor
+            // was looked at. Measured on both backends, and it made every Forbid row narrower than it
+            // reads: Forbid<Assembly>() did not cover RuntimeAssembly, Forbid<Delegate>() covered no
+            // actual delegate type.
+            //
+            // Before the allowed-assembly branch, on the same ordering that puts the own-entry refusal
+            // there: an explicit refusal beats a blanket allowance.
+            if (!hasOwnEntry && InheritsARefusal(type))
+                return TypeVerdict.Denied;
+
             if (_allowedAssemblies != null && _allowedAssemblies.Contains(type.Assembly))
                 return TypeVerdict.Unrestricted(hasOwnEntry ? ownEntry.RejectedMembers : null);
 
@@ -487,6 +532,178 @@ namespace SpringExpressions
             }
 
             return TypeVerdict.Catalogued(members, rejected);
+        }
+
+        /// <summary>
+        /// Whether <paramref name="type"/> inherits a refusal: the nearest ancestor anyone wrote an
+        /// entry for forbids it.
+        /// </summary>
+        /// <remarks>
+        /// <b>The nearest entry decides, and <see cref="object"/>'s entry is not one of them.</b> Both
+        /// halves were found by measurement rather than by design, and each fixes the other's failure:
+        /// <p>
+        /// <i>Nearest, not any.</i> A first cut scanned every ancestor and fired on any forbidden one,
+        /// which made <c>System.RuntimeType</c> - the class every <c>typeof</c> and <c>GetType()</c>
+        /// actually hands you - come out <see cref="SandboxVerdict.Denied"/>, because its chain runs
+        /// <c>Type</c> (allowed, with an entry of its own) then <c>MemberInfo</c> (forbidden). So
+        /// <c>Type</c> was reachable while its own runtime class was not. Unobservable at the time,
+        /// since the nodes gate the <c>Type</c> a value <i>represents</i> rather than its runtime
+        /// class - but a boundary that incoherent is waiting for the first path that asks differently.
+        /// </p>
+        /// <p>
+        /// <i>Ignoring <see cref="object"/>.</i> The catalog gives <c>object</c> an entry, for the four
+        /// members every type inherits - so "stop at the nearest entry" would stop at <c>object</c> for
+        /// every class alive, and inheritance would never fire at all. It is skipped here for that
+        /// reason, and it is skipped in exactly the opposite direction by
+        /// <see cref="ReasonTheDeclaredTypeIsAmbiguous"/>, which <i>must</i> include it. The two walks
+        /// answer different questions - <i>is this type banned?</i> against <i>could a value declared
+        /// this way be a banned thing?</i> - so they treat the root of the hierarchy oppositely.
+        /// </p>
+        /// <p>
+        /// <b>Interfaces are consulted only when the base chain named nobody, and only to forbid.</b>
+        /// "Nearest" has no meaning across interfaces, which are a set rather than a chain, so an
+        /// allowing interface entry cannot stop an inherited refusal the way a base class's can.
+        /// </p>
+        /// <p>
+        /// <b>Entries only, never an ancestor's assembly.</b> Every class descends from
+        /// <see cref="object"/>, so consulting ancestors' assemblies would make any
+        /// <c>ForbidAssembly</c> naming the core library deny every type in the process.
+        /// </p>
+        /// </remarks>
+        private bool InheritsARefusal([NotNull] Type type)
+        {
+            for (var baseType = type.BaseType; baseType != null; baseType = baseType.BaseType)
+            {
+                if (baseType == typeof(object))
+                    continue;
+
+                SandboxCatalogEntry entry;
+
+                if (TryGetEntry(baseType, out entry))
+                    return entry.Forbidden;
+            }
+
+            foreach (var implemented in type.GetInterfaces())
+            {
+                SandboxCatalogEntry entry;
+
+                if (TryGetEntry(implemented, out entry) && entry.Forbidden)
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Why a member access on a receiver of this <i>declared</i> type has no compiled form, or null
+        /// when it has one. The compiled path's half of the question a static type cannot answer.
+        /// </summary>
+        /// <remarks>
+        /// <b>This is not a denial and must never be reported as one.</b> It says the declared type
+        /// does not settle whether the access is permitted, so the shape has no compiled form and the
+        /// interpreter - which is looking at the value - decides. The caller sees a
+        /// <c>CompileErrorException</c>, falls back, and gets either a clean answer or a proper
+        /// <see cref="SandboxViolationException"/> from the backend that can tell.
+        /// <p>
+        /// <b>Why it exists.</b> The compiled gate sees the declared type and the interpreter the
+        /// runtime one, so a property declared <c>Stream</c> holding a forbidden <c>FileStream</c> was
+        /// permitted compiled and denied interpreted - <b>with the compiled path as the permissive
+        /// side</b>, which is the wrong way round for a boundary, since which backend runs is not the
+        /// caller's choice. This is the house answer to a question static types cannot settle: refuse
+        /// rather than guess, exactly as the overload gate does.
+        /// </p>
+        /// <p>
+        /// <b>Measured cost, before it was built: two corpus expressions and zero tests.</b> Declining
+        /// <i>every</i> method call on an <c>object</c>-declared receiver - the worst case, with no
+        /// policy condition at all - left both suites fully green and took the corpus from 1,856
+        /// compiled expressions to 1,854. The fear that <c>object</c> would decompile broadly was
+        /// wrong, and wrong for a reason worth keeping: the set is matched against the receiver's
+        /// <b>declared</b> type, not against what a value inherits, and a receiver actually declared
+        /// <c>object</c> can only bind the four members <c>object</c> itself declares anyway.
+        /// </p>
+        /// <p>
+        /// <b>Known limit: a forbidden <i>assembly</i> is not covered.</b> Its types cannot be
+        /// enumerated, and the honest alternative - treating every non-sealed declared type as
+        /// ambiguous whenever any assembly is forbidden - would decompile the world. Recorded rather
+        /// than papered over; see <c>_Docs/type-sandboxing.md</c> §5.4.
+        /// </p>
+        /// </remarks>
+        [CanBeNull]
+        internal string ReasonTheDeclaredTypeIsAmbiguous([NotNull] Type declaredType)
+        {
+            AssertUtils.ArgumentNotNull(declaredType, "declaredType");
+
+            if (_ambiguousDeclaredTypes.Count == 0)
+                return null;
+
+            if (!_ambiguousDeclaredTypes.Contains(declaredType)
+                && !(declaredType.FullName != null
+                     && _ambiguousDeclaredTypeNames.Contains(declaredType.FullName)))
+            {
+                return null;
+            }
+
+            return "a receiver declared [" + declaredType
+                   + "] could hold a value of a type this sandbox forbids, which only the runtime "
+                   + "value settles - so this access has no compiled form and is interpreted";
+        }
+
+        /// <summary>
+        /// Every declared type through which a forbidden value could arrive: the base types and
+        /// interfaces of each forbidden entry, walked once when the policy is built.
+        /// </summary>
+        /// <remarks>
+        /// <b>Walked upward from the ban list, never downward from the loaded types</b>, and that is
+        /// the whole reason this is affordable. Going the other way - scanning every loaded type for
+        /// descendants of a forbidden one - would mark the universal interfaces (<c>IDisposable</c>
+        /// arrives with the first stream, <c>ICloneable</c> and <c>ISerializable</c> with the first
+        /// delegate) and decompile broadly; worse, it could never be complete, because assemblies load
+        /// lazily and a policy built at startup cannot see a subclass whose assembly loads later. A
+        /// boundary whose shape depends on load order is worse than the gap it closes.
+        /// <p>
+        /// <b>What that costs in precision, stated rather than hidden.</b> The walk is exact for the
+        /// case it is built for - forbidding a leaf - because to resolve a member on the declared type
+        /// at all, that declared type must lie in the forbidden type's own ancestry, which is
+        /// precisely what was walked. It leaks in the mirror case: forbid a <i>base</i>, and a subclass
+        /// that adds an unrelated interface can arrive through a property declared as that interface.
+        /// Nothing reachable from the ban list predicts it, and closing it would mean treating every
+        /// interface-declared receiver as ambiguous.
+        /// </p>
+        /// <p>
+        /// A type that is itself forbidden is removed at the end: it is denied outright by both gates
+        /// and never reaches this question.
+        /// </p>
+        /// </remarks>
+        [NotNull]
+        private static ISet<Type> ComputeAmbiguousDeclaredTypes(
+            [CanBeNull] IDictionary<Type, SandboxCatalogEntry> catalog)
+        {
+            var ambiguous = new HashSet<Type>();
+
+            if (catalog == null)
+                return ambiguous;
+
+            foreach (var pair in catalog)
+            {
+                if (!pair.Value.Forbidden)
+                    continue;
+
+                // object is included here and excluded from InheritsARefusal, deliberately - see the
+                // two-walks note on that method.
+                for (var baseType = pair.Key.BaseType; baseType != null; baseType = baseType.BaseType)
+                    ambiguous.Add(baseType);
+
+                foreach (var implemented in pair.Key.GetInterfaces())
+                    ambiguous.Add(implemented);
+            }
+
+            foreach (var pair in catalog)
+            {
+                if (pair.Value.Forbidden)
+                    ambiguous.Remove(pair.Key);
+            }
+
+            return ambiguous;
         }
 
         /// <summary>
@@ -676,12 +893,26 @@ namespace SpringExpressions
         }
 
         /// <summary>
-        /// The built-in catalog - data, not code, and empty until stage 4 curates it from measurement.
+        /// <see cref="Restricted"/> - the built-in catalog, data rather than code, curated from
+        /// measurement.
         /// </summary>
         /// <remarks>
-        /// Every member set added here must be built with <see cref="StringComparer.OrdinalIgnoreCase"/>,
+        /// <b>Authored through the builder verbs, and that is not tidiness.</b> It poked
+        /// <see cref="SandboxCatalogEntry"/> directly until 2026-09-07, which meant the one catalog
+        /// that ships was not expressible by the verbs a consumer has, the verbs were unexercised by
+        /// the only catalog we author, and any future check in <c>Build()</c> - §5.3's closure rule,
+        /// say - would not have applied to the catalog most worth checking.
+        /// <p>
+        /// <b>Every row names the member's kind</b>, and the kinds were classified by reflection rather
+        /// than by eye, because a wrong one denies a member silently. A property row saying
+        /// <i>read</i> also cannot be written if a later framework version adds a setter to it, which
+        /// is the same forward-looking argument that makes an allow-list safer than a reject-list here.
+        /// </p>
+        /// <p>
+        /// Member names are matched case-insensitively - <see cref="MemberKey"/> does that itself -
         /// because this engine's member binding is case-insensitive and a case-sensitive catalog would
         /// deny a spelling the binder accepts. See <see cref="TypeVerdict.Allows"/>.
+        /// </p>
         /// <p>
         /// And every addition drags its return types in with it (§5.3's closure rule): permitting
         /// <c>Environment.OSVersion</c> is pointless unless <c>OperatingSystem</c> is catalogued too,
@@ -751,6 +982,50 @@ namespace SpringExpressions
                      })
             {
                 builder.Forbid(forbidden);
+            }
+
+            // The effect types. §5.3's rule 1 - "never catalogue a type whose purpose is an effect" -
+            // protected both routes when it was written, and protects only *naming* since §5.2 ruled
+            // that a type an expression merely reaches is trusted. So a FileStream a model handed back
+            // was usable: measured, myOrder.Log.WriteByte(65) wrote and Current.ProcessName read.
+            // Forbidding is what keeps them out of the reached route as well.
+            //
+            // **Only a type a model can hand back needs a row.** A static-only type - System.IO.File,
+            // Directory, Path - is reachable in exactly one way, by naming it, and naming an
+            // uncatalogued type is already denied. There are no instances of it for a model to expose,
+            // so a forbid row would buy nothing. That is what keeps this list short, and it is the
+            // question to ask before adding to it.
+            //
+            // **No closure rule applies here**, unlike an allowance: forbidding a type says nothing
+            // about what its members return, because none of them can be reached. §5.3's rule 3 is a
+            // budget on permitting, not on refusing. (An earlier note in this work claimed 1a-ii would
+            // need "closing the catalog over what they return" - that was the allow-side rule applied
+            // to the wrong direction.)
+            //
+            // **Bases, not leaves**, since forbidding runs down the tree (§5.4): Stream covers
+            // FileStream and NetworkStream, TextWriter covers StreamWriter, FileSystemInfo covers
+            // FileInfo and DirectoryInfo. A consumer who wants one subtree member back writes an entry
+            // for it - Forbid<Stream>() with Allow<MemoryStream>(...) is the pinned shape - and the
+            // default here deliberately does not do that for them.
+            //
+            // **This is a breaking change for a consumer whose model exposes one of these**, and it is
+            // the intended one: the sandbox was never protecting them, and now it does.
+            foreach (var effect in new[]
+                     {
+                         // Filesystem and network writing, and everything derived from them.
+                         typeof(System.IO.Stream),
+                         typeof(System.IO.TextWriter),
+                         typeof(System.IO.TextReader),
+
+                         // FileInfo and DirectoryInfo - names, sizes and Delete().
+                         typeof(System.IO.FileSystemInfo),
+
+                         typeof(System.Diagnostics.Process),
+                         typeof(System.Threading.Thread),
+                         typeof(System.Net.Sockets.Socket)
+                     })
+            {
+                builder.Forbid(effect);
             }
 
             // System.Environment, curated rather than forbidden - which is what §5.3 uses it as the
@@ -895,6 +1170,18 @@ namespace SpringExpressions
         [NotNull]
         private static readonly IDictionary<string, SandboxCatalogEntry> EmptyNameIndex =
             new Dictionary<string, SandboxCatalogEntry>(StringComparer.Ordinal);
+
+        /// <summary>
+        /// Declared types through which a forbidden value could arrive - see
+        /// <see cref="ComputeAmbiguousDeclaredTypes"/>. Empty whenever nothing is forbidden, which is
+        /// what makes <see cref="ReasonTheDeclaredTypeIsAmbiguous"/> free for a policy that bans
+        /// nothing.
+        /// </summary>
+        [NotNull]
+        private readonly ISet<Type> _ambiguousDeclaredTypes;
+
+        [NotNull]
+        private readonly ISet<string> _ambiguousDeclaredTypeNames;
 
         /// <summary>Assemblies every type of which is unrestricted, or null.</summary>
         [CanBeNull]

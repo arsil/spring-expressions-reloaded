@@ -448,6 +448,19 @@ namespace SpringExpressions
                     acc = GetPropertyOrFieldAccessor(
                         contextExpressionType, name, BINDING_FLAGS, compilationContext.SandboxPolicy, MemberAccess.Read);
 
+                // A null finalContextExpression means the branch above resolved against a type the
+                // expression *named*, so the type is exact and nothing can be hiding behind it. Where
+                // there is a receiver expression, its declared type may be, and only the interpreter
+                // can settle that - so the shape is refused rather than guessed at.
+                if (acc != null && finalContextExpression != null)
+                {
+                    var ambiguous = compilationContext.SandboxPolicy
+                        .ReasonTheDeclaredTypeIsAmbiguous(contextExpressionType);
+
+                    if (ambiguous != null)
+                        throw CannotCompile(ambiguous);
+                }
+
                 if (acc is PropertyValueAccessor propertyAcc)
                 {
                     // A refusal, not the user's error to hear from here. NotReadablePropertyException
@@ -540,6 +553,17 @@ namespace SpringExpressions
 
                 acc = GetPropertyOrFieldAccessor(
                     contextExpressionType, name, BINDING_FLAGS, compilationContext.SandboxPolicy, MemberAccess.Write);
+
+                // Writing reaches the same member on the same receiver, so it asks the same question -
+                // see the read path above.
+                if (acc != null)
+                {
+                    var ambiguous = compilationContext.SandboxPolicy
+                        .ReasonTheDeclaredTypeIsAmbiguous(contextExpressionType);
+
+                    if (ambiguous != null)
+                        throw CannotCompile(ambiguous);
+                }
 
                 if (acc is PropertyValueAccessor propertyAcc)
                 {

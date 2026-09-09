@@ -406,10 +406,50 @@ namespace SpringExpressions
         /// Load-bearing since §5.2. Under a pure allow-list this was a no-op - not catalogued already
         /// meant denied - but now a type nobody ruled on is trusted when an expression <i>arrives at</i>
         /// one, so this is the only way to keep a reachable type out.
+        /// <p>
+        /// <b><see cref="object"/> is refused, because forbidding it cannot mean anything</b> - and it
+        /// is refused rather than documented because it would otherwise fail <i>silently</i>, which is
+        /// the worst thing a security API can do. The inheritance walk deliberately skips
+        /// <c>object</c>'s entry (see <c>SandboxPolicy.InheritsARefusal</c>: without that skip it would
+        /// terminate at <c>object</c> for every class alive and inherited refusals would never fire at
+        /// all), so a ban on <c>object</c> is invisible to it. Measured before this guard existed:
+        /// <c>Restricted</c> plus <c>Forbid&lt;object&gt;()</c> denied nothing whatever - an
+        /// uncatalogued model's members, <c>Name.Length</c>, <c>T(System.Math).Max(1, 2)</c> all still
+        /// worked.
+        /// </p>
+        /// <p>
+        /// <b>It is exactly one special case, not a category.</b> <c>object</c> is the only type the
+        /// walk skips, so it is the only no-op: <c>Forbid&lt;ValueType&gt;()</c> genuinely works, an
+        /// uncatalogued struct's base chain reaching that entry and being denied.
+        /// </p>
+        /// <p>
+        /// <b>Thrown from here rather than deferred to <see cref="Build"/></b>, unlike §5.3's closure
+        /// rule, which is a property of the whole catalog and has nowhere earlier to live. The
+        /// offending argument is right here in the call, so the stack should point at the line somebody
+        /// typed.
+        /// </p>
         /// </remarks>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="type"/> is <see cref="object"/>. What the caller was probably reaching for -
+        /// a pure allow-list, where nothing uncatalogued is reachable at all - is not offered, and the
+        /// message says so rather than leaving them to guess.
+        /// </exception>
         [NotNull]
         public SandboxPolicyBuilder Forbid([NotNull] Type type)
         {
+            AssertUtils.ArgumentNotNull(type, "type");
+
+            if (type == typeof(object))
+            {
+                throw new ArgumentException(
+                    "Forbid(typeof(object)) cannot mean anything, so it is refused rather than "
+                    + "silently doing nothing: whether an uncatalogued type is reachable is decided by "
+                    + "how the expression reached it, and object's entry is deliberately skipped when a "
+                    + "refusal is inherited. A pure allow-list, in which nothing uncatalogued is "
+                    + "reachable at all, is not currently offered.",
+                    "type");
+            }
+
             EntryFor(type).Forbidden = true;
             return this;
         }
