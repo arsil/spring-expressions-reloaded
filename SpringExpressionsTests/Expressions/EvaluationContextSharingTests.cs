@@ -10,6 +10,20 @@ using SpringExpressions;
 namespace SpringExpressionsTests.Expressions
 {
     /// <summary>
+    /// Two constructors chosen by argument type, for
+    /// <c>EvaluationContextSharingTests.AConstructorIsResolvedForTheArgumentsOfEachEvaluation</c>.
+    /// Top-level because the grammar cannot spell a nested type's name in <c>new</c>.
+    /// </summary>
+    public class ResolutionKeyThing
+    {
+        public ResolutionKeyThing(int n) { Picked = "int:" + n; }
+
+        public ResolutionKeyThing(string s) { Picked = "string:" + s; }
+
+        public string Picked { get; private set; }
+    }
+
+    /// <summary>
     /// A single expression instance may be evaluated many times, and concurrently, against different
     /// roots and different variables dictionaries. Every evaluation must see the root and the
     /// variables handed to <i>it</i> - not the ones another evaluation supplied.
@@ -85,6 +99,85 @@ namespace SpringExpressionsTests.Expressions
                 Assert.Catch(() => reversed.GetValue(absent), mode + ": null first");
                 Assert.AreEqual("Ana", reversed.GetValue(present), mode + ": then present");
             }
+        }
+
+        /// <summary>
+        /// A cached resolution must be keyed on everything the resolution depended on - here the
+        /// argument types that chose the constructor.
+        /// </summary>
+        /// <remarks>
+        /// <c>ConstructorNode</c> re-resolved only when its field was null, so one expression object
+        /// picked a constructor on its first evaluation and kept it: <c>#x = 5</c> then
+        /// <c>#x = 'hi'</c> reused the <c>int</c> constructor and threw <c>InvalidCastException</c>,
+        /// where a freshly parsed expression answered <c>string:hi</c>.
+        /// <p>
+        /// <b>Identically on both backends</b>, which is why no sweep could have found it: same value,
+        /// same runtime type, same read counts. The only reference that exposes this class is a
+        /// freshly-parsed expression, which is `_Docs/open-issues.md` item 35.
+        /// </p>
+        /// </remarks>
+        [Test]
+        public void AConstructorIsResolvedForTheArgumentsOfEachEvaluation()
+        {
+            foreach (var mode in new[] { EvaluationMode.MustInterpret, EvaluationMode.CompileOrInterpret })
+            {
+                var reused = Expression.ParseGetter<object, object>(
+                    "new SpringExpressionsTests.Expressions.ResolutionKeyThing(#x).Picked", mode);
+
+                Assert.AreEqual("int:5", reused.GetValue(null, VariablesWithX(5)), mode.ToString());
+
+                Assert.AreEqual(
+                    "string:hi",
+                    reused.GetValue(null, VariablesWithX("hi")),
+                    mode + ": the second evaluation must resolve for its own arguments");
+
+                // And back again, so the cache is not merely replaced once.
+                Assert.AreEqual("int:7", reused.GetValue(null, VariablesWithX(7)), mode.ToString());
+            }
+        }
+
+        /// <summary>
+        /// The same rule for an indexer, keyed on the container's runtime type and the index types.
+        /// </summary>
+        /// <remarks>
+        /// <c>IndexerNode</c> kept the first indexer it resolved, so <c>Item[0]</c> over two types that
+        /// each declare <c>this[int]</c> threw <c>InvalidPropertyException</c> on the second - again
+        /// identically on both backends.
+        /// </remarks>
+        [Test]
+        public void AnIndexerIsResolvedForTheContainerOfEachEvaluation()
+        {
+            var one = new IndexerKeyRoot { Item = new IndexerKeyBoxOne() };
+            var two = new IndexerKeyRoot { Item = new IndexerKeyBoxTwo() };
+
+            foreach (var mode in new[] { EvaluationMode.MustInterpret, EvaluationMode.CompileOrInterpret })
+            {
+                var reused = Expression.ParseGetter<IndexerKeyRoot, object>("Item[0]", mode);
+
+                Assert.AreEqual("one:0", reused.GetValue(one), mode.ToString());
+
+                Assert.AreEqual(
+                    "two:0",
+                    reused.GetValue(two),
+                    mode + ": the second evaluation must resolve for its own container");
+
+                Assert.AreEqual("one:0", reused.GetValue(one), mode.ToString());
+            }
+        }
+
+        public class IndexerKeyBoxOne
+        {
+            public string this[int i] { get { return "one:" + i; } }
+        }
+
+        public class IndexerKeyBoxTwo
+        {
+            public string this[int i] { get { return "two:" + i; } }
+        }
+
+        public class IndexerKeyRoot
+        {
+            public object Item { get; set; }
         }
 
         [Test]

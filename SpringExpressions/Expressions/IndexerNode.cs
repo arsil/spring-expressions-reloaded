@@ -1,4 +1,4 @@
-﻿#region License
+#region License
 
 /*
  * Copyright © 2002-2011 the original author or authors.
@@ -45,6 +45,10 @@ namespace SpringExpressions
             | BindingFlags.IgnoreCase;
 
         private SafeProperty indexer;
+
+        /// <summary>What <see cref="indexer"/> was resolved for - see the note where it is set.</summary>
+        private int indexerKey;
+
 
         /// <summary>
         /// Create a new instance
@@ -530,16 +534,24 @@ namespace SpringExpressions
         {
             object[] indices = ResolveArguments( evalContext );
 
-            if (indexer == null)
+            // Keyed on the container's runtime type and the index types, because those are what chose
+            // the indexer - see NodeWithArguments.ResolutionKeyOf. Without the key this re-resolved
+            // only when the field was null, so `Item[0]` over two types that each declare `this[int]`
+            // kept the first one's indexer and threw InvalidPropertyException on the second -
+            // identically on both backends, where evaluating the same shape fresh answered.
+            var resolutionKey = ResolutionKeyOf(context.GetType(), indices);
+
+            if (indexer == null || resolutionKey != indexerKey)
             {
                 lock (this)
                 {
-                    if (indexer == null)
+                    if (indexer == null || resolutionKey != indexerKey)
                     {
                         Type contextType = context.GetType();
                         var indexerProperty = GetIndexerPropertyInfo(contextType, indices);
 
                         indexer = new SafeProperty(indexerProperty);
+                        indexerKey = resolutionKey;
                     }
                 }
             }

@@ -55,6 +55,10 @@ public class SandboxDefaultForTheSuite
             // Model types the expressions construct or cast to.
             .AllowAllMembersOf<Inventor>()
 
+            // `new ResolutionKeyThing(#x)` - the cached-resolution pins in
+            // EvaluationContextSharingTests, which construct with a varying variable.
+            .AllowAllMembersOf<ResolutionKeyThing>()
+
             // Overload-resolution fixtures - every one of these is reached by `new X(…)`.
             .AllowAllMembersOf<CtorWidening>()
             .AllowAllMembersOf<CtorTie>()

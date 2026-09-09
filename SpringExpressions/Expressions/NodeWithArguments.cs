@@ -21,6 +21,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using JetBrains.Annotations;
+
 using SpringExpressions.Parser.antlr.collections;
 
 namespace SpringExpressions
@@ -33,6 +35,48 @@ namespace SpringExpressions
     {
         private BaseNode[] args;
         private IDictionary namedArgs;
+
+        /// <summary>
+        /// A key for a resolution that depended on <paramref name="contextType"/> and the runtime
+        /// types of <paramref name="values"/> - so that a node caching that resolution can tell when it
+        /// no longer applies.
+        /// </summary>
+        /// <remarks>
+        /// <b>The rule this exists for: a node that caches a resolution must key the cache on
+        /// everything the resolution depended on.</b> Both defects it was written for behaved
+        /// identically on both backends, so no sweep could see them - only a comparison between a
+        /// reused expression and a fresh one:
+        /// <p>
+        /// <c>ConstructorNode</c> chose its constructor from the argument <i>values</i> and re-resolved
+        /// only when the field was null, so <c>new Thing(#x)</c> with an <c>int</c> and then a
+        /// <c>string</c> reused the int constructor and threw <c>InvalidCastException</c>.
+        /// <c>IndexerNode</c> did the same with the container type and the index types, so
+        /// <c>Item[0]</c> over two types that each declare <c>this[int]</c> threw
+        /// <c>InvalidPropertyException</c> on the second. <c>MethodNode</c> had the shape right all
+        /// along and is what these two now copy.
+        /// </p>
+        /// <p>
+        /// Order-sensitive, and with no fixed table of primes to run off the end of - unlike
+        /// <c>MethodNode</c>'s own older hash, which indexes a 350-entry array by argument position.
+        /// A null value contributes its position but no type, since a null argument constrains the
+        /// resolution differently and the values are not being compared here, only their types.
+        /// </p>
+        /// </remarks>
+        protected static int ResolutionKeyOf([CanBeNull] Type contextType, [CanBeNull] object[] values)
+        {
+            unchecked
+            {
+                var key = contextType == null ? 0 : contextType.GetHashCode();
+
+                if (values != null)
+                {
+                    foreach (var value in values)
+                        key = (key * 397) ^ (value == null ? 0 : value.GetType().GetHashCode());
+                }
+
+                return key;
+            }
+        }
 
         /// <summary>
         /// Create a new instance

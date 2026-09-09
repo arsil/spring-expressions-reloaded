@@ -1,4 +1,4 @@
-﻿#region License
+#region License
 
 /*
  * Copyright © 2002-2011 the original author or authors.
@@ -44,6 +44,10 @@ namespace SpringExpressions
     public class ConstructorNode : NodeWithArguments
     {
         private SafeConstructor constructor;
+
+        /// <summary>What <see cref="constructor"/> was resolved for - see the note where it is set.</summary>
+        private int constructorKey;
+
         private IDictionary namedArgs;
         private ParameterInfo[] parameters;
 
@@ -272,14 +276,23 @@ namespace SpringExpressions
             object[] argValues = ResolveArguments(evalContext);
             IDictionary namedArgValues = ResolveNamedArguments(evalContext);
 
-            if (constructor == null)
+            // Keyed on the argument types, because that is what chose the constructor - see
+            // NodeWithArguments.ResolutionKeyOf. Without the key this re-resolved only when the field
+            // was null, so `new Thing(#x)` picked its constructor from the first evaluation and kept
+            // it: an int then a string reused the int constructor and threw InvalidCastException,
+            // identically on both backends, where evaluating the same shape fresh answered. The named
+            // arguments need no key - their *names* come from the AST and cannot vary.
+            var resolutionKey = ResolutionKeyOf(null, argValues);
+
+            if (constructor == null || resolutionKey != constructorKey)
             {
                 lock(this)
                 {
-                    if (constructor == null)
+                    if (constructor == null || resolutionKey != constructorKey)
                     {
                         constructor = InitializeNode(
                             argValues, namedArgValues, evalContext.SandboxPolicy);
+                        constructorKey = resolutionKey;
                     }
                 }
             }
