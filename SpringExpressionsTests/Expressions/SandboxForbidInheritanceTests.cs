@@ -41,11 +41,43 @@ namespace SpringExpressionsTests.Expressions
             public int Rank { get { return 5; } }
         }
 
+        /// <summary>
+        /// Implements an interface and derives from nothing, so only the interface half of the
+        /// ancestor walk can reach it.
+        /// </summary>
+        public class Closeable : IDisposable
+        {
+            public int Rank { get { return 11; } }
+
+            public void Dispose() { }
+        }
+
+        /// <summary>The same shape without the interface, as the control.</summary>
+        public class NotCloseable
+        {
+            public int Rank { get { return 13; } }
+        }
+
+        /// <summary>
+        /// Declared in this test assembly and derived from a type the shipped catalog forbids - which
+        /// is what lets one policy hold an assembly allowance and an inherited refusal at once.
+        /// </summary>
+        public class OwnStream : MemoryStream
+        {
+            public int Marker { get { return 17; } }
+        }
+
         public class Holder
         {
             public Effectish AsBaseEffectish { get { return new DerivedEffectish(); } }
 
             public Tallyish Tally { get { return new Tallyish(); } }
+
+            public Closeable Closeable { get { return new Closeable(); } }
+
+            public NotCloseable NotCloseable { get { return new NotCloseable(); } }
+
+            public OwnStream Own { get { return new OwnStream(); } }
 
             private readonly MemoryStream _one = new MemoryStream(new byte[] { 1, 2, 3 });
 
@@ -331,6 +363,79 @@ namespace SpringExpressionsTests.Expressions
                     SandboxPolicy.Restricted));
 
             StringAssert.Contains("System.IO.File", denial.Message);
+        }
+
+        [Test]
+        public void AForbiddenInterfaceReachesItsImplementorsAndNothingElse()
+        {
+            // The ancestor walk consults implemented interfaces after the base chain, and only to
+            // forbid - "nearest" has no meaning across a set rather than a chain. Without that second
+            // loop this test is the only thing that fails; it reads like dead code otherwise.
+            var policy = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
+                .Forbid<IDisposable>()
+                .Build();
+
+            Assert.Throws<SandboxViolationException>(
+                () => Expression.ParseGetter<Holder, object>(
+                    "Closeable.Rank", EvaluationMode.MustCompile, policy));
+
+            Assert.Throws<SandboxViolationException>(
+                () => Expression.ParseGetter<Holder, object>(
+                    "Closeable.Rank", EvaluationMode.MustInterpret, policy).GetValue(new Holder()));
+
+            // A class of the same shape that does not implement it is untouched, and so is a
+            // catalogued type - the ban reaches implementors, not everything.
+            Assert.AreEqual(
+                13,
+                Expression.ParseGetter<Holder, object>(
+                    "NotCloseable.Rank", EvaluationMode.MustCompile, policy).GetValue(new Holder()));
+
+            Assert.AreEqual(
+                6,
+                Expression.ParseGetter<Holder, object>(
+                    "Name.Length", EvaluationMode.MustCompile, policy).GetValue(new Holder()));
+        }
+
+        [Test]
+        public void AnInheritedRefusalBeatsAnAllowedAssemblyWhicheverOrderTheyAreWritten()
+        {
+            // A precedence chosen when the inheritance walk was placed *before* the allowed-assembly
+            // branch in Compute, on the standing rule that an explicit refusal beats a blanket
+            // allowance. Move those lines and the allowance would start rescuing forbidden subclasses,
+            // silently and with every other test still green - which is why this is pinned rather than
+            // left to the comment beside them.
+            //
+            // OwnStream derives from MemoryStream, which the shipped catalog forbids through Stream,
+            // and is declared in the very assembly being allowed.
+            var allowanceFirst = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
+                .AllowAssemblyOf<Holder>()
+                .Forbid<Stream>()
+                .Build();
+
+            var refusalFirst = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
+                .Forbid<Stream>()
+                .AllowAssemblyOf<Holder>()
+                .Build();
+
+            foreach (var policy in new[] { allowanceFirst, refusalFirst })
+            {
+                Assert.Throws<SandboxViolationException>(
+                    () => Expression.ParseGetter<Holder, object>(
+                        "Own.Marker", EvaluationMode.MustCompile, policy));
+
+                Assert.Throws<SandboxViolationException>(
+                    () => Expression.ParseGetter<Holder, object>(
+                        "Own.Marker", EvaluationMode.MustInterpret, policy).GetValue(new Holder()));
+            }
+
+            // The allowance is not inert - a type in that assembly with nothing forbidden beneath it
+            // is reachable, so the two rows above are the refusal winning rather than the allowance
+            // never having applied.
+            Assert.AreEqual(
+                13,
+                Expression.ParseGetter<Holder, object>(
+                    "NotCloseable.Rank", EvaluationMode.MustCompile, allowanceFirst)
+                    .GetValue(new Holder()));
         }
 
         [Test]

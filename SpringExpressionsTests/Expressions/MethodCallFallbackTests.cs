@@ -64,20 +64,109 @@ namespace SpringExpressionsTests.Expressions
     public class MethodCallFallbackTests
     {
         /// <summary>
-        /// The compiled path resolves argument nodes against the method's own context - here the type
-        /// name 'long' - instead of #this, so ToString() binds to an instance method with no instance
-        /// to call it on. The interpreter resolves argument nodes against #this and gets it right.
+        /// An argument resolves against <c>#this</c>, on both backends - so <c>ToString()</c> here is
+        /// the root's, not the type name's.
         /// </summary>
+        /// <remarks>
+        /// <b>This test used to pin a refusal, and the refusal was a defect wearing a disguise.</b>
+        /// The compiled path emitted argument nodes against the <i>receiver</i> - here the type name
+        /// <c>long</c> - where the interpreter has always used <c>#this</c>
+        /// (<c>NodeWithArguments.ResolveArgumentInternal</c>). For this shape that produced
+        /// <c>Parse(typeof(long).ToString())</c>, which cannot be emitted at all, so it refused and the
+        /// fallback quietly saved the answer.
+        /// <p>
+        /// The same defect elsewhere was <b>silent and wrong</b> rather than loud: with a property of
+        /// the same name on both the receiver and the root, <c>Inner.Echo(Number)</c> answered the
+        /// receiver's value compiled and the root's interpreted - both compiling, neither complaining.
+        /// See <c>_Docs/open-issues.md</c> item 30.
+        /// </p>
+        /// </remarks>
         [Test]
-        public void ArgumentNodeAgainstTypeNameContextIsRefusedButStillEvaluates()
+        public void AnArgumentResolvesAgainstThisContextOnBothBackends()
         {
-            Assert.Throws<CompileErrorException>(
-                () => Expression.ParseGetter<int, long>(
-                    "long.Parse(ToString())", EvaluationMode.MustCompile));
+            Assert.AreEqual(
+                (long)100,
+                Expression.ParseGetter<int, long>(
+                    "long.Parse(ToString())", EvaluationMode.MustCompile).GetValue(100));
+
+            Assert.AreEqual(
+                (long)100,
+                Expression.ParseGetter<int, long>(
+                    "long.Parse(ToString())", EvaluationMode.MustInterpret).GetValue(100));
 
             IExpression weak = Expression.Parse("long.Parse(ToString())");
 
             Assert.AreEqual((long)100, weak.GetValue(100));
+        }
+
+        /// <summary>
+        /// The silent half of the same defect: an argument naming a member that <b>both</b> the
+        /// receiver and <c>#this</c> declare.
+        /// </summary>
+        /// <remarks>
+        /// <c>long.Parse(ToString())</c> above failed loudly, so a refusal hid it. This shape did not:
+        /// both backends compiled, both answered, and the answers differed - <c>Inner.Echo(Number)</c>
+        /// was 99 compiled and 45 interpreted. Which one a caller got followed from whether their
+        /// expression happened to compile, which follows from their declared context type rather than
+        /// from anything they wrote.
+        /// <p>
+        /// <c>Echo</c> hands back its argument unchanged, so the value that comes out names the
+        /// <c>Number</c> that went in and nothing else is in the way. The string row is here because
+        /// the int one reads like a numeric quirk until you see it happen to a name.
+        /// </p>
+        /// </remarks>
+        [Test]
+        public void AnArgumentTakesThisContextsMemberEvenWhenTheReceiverDeclaresTheSameName()
+        {
+            foreach (var mode in new[] { EvaluationMode.MustCompile, EvaluationMode.MustInterpret })
+            {
+                Assert.AreEqual(
+                    45,
+                    Expression.ParseGetter<ArgumentContextRoot, object>(
+                        "Inner.Echo(Number)", mode).GetValue(new ArgumentContextRoot()),
+                    mode + ": Number is the root's 45, never Inner's 99");
+
+                Assert.AreEqual(
+                    "root",
+                    Expression.ParseGetter<ArgumentContextRoot, object>(
+                        "Inner.EchoText(Label)", mode).GetValue(new ArgumentContextRoot()),
+                    mode + ": Label is the root's, never Inner's");
+
+                Assert.AreEqual(
+                    46,
+                    Expression.ParseGetter<ArgumentContextRoot, object>(
+                        "Inner.Echo(Number + 1)", mode).GetValue(new ArgumentContextRoot()),
+                    mode + ": and inside a larger argument expression too");
+            }
+
+            // A receiver that IS #this - the two contexts coincide, and this row is the control that
+            // says the fix did not simply swap one context for the other everywhere.
+            Assert.AreEqual(
+                45,
+                Expression.ParseGetter<ArgumentContextRoot, object>(
+                    "Echo(Number)", EvaluationMode.MustCompile).GetValue(new ArgumentContextRoot()));
+        }
+
+        public class ArgumentContextInner
+        {
+            public int Number { get { return 99; } }
+
+            public string Label { get { return "inner"; } }
+
+            public int Echo(int n) { return n; }
+
+            public string EchoText(string s) { return s; }
+        }
+
+        public class ArgumentContextRoot
+        {
+            public int Number { get { return 45; } }
+
+            public string Label { get { return "root"; } }
+
+            public ArgumentContextInner Inner { get { return new ArgumentContextInner(); } }
+
+            public int Echo(int n) { return n; }
         }
 
         /// <summary>

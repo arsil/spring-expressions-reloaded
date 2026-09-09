@@ -39,9 +39,26 @@ namespace SpringExpressionsTests.Expressions
     {
         public enum Colour { Red, Green }
 
+        /// <summary>
+        /// A receiver that is <b>not</b> <c>#this</c>, with a method to call on it - corpus gap nine.
+        /// </summary>
+        /// <remarks>
+        /// Every method call the corpus generated had the root as its receiver (<c>Text(x)</c>,
+        /// <c>Count(x)</c>), so the receiver and <c>#this</c> were the same object and item 30 could
+        /// not appear: the compiled path resolved arguments against the receiver where the interpreter
+        /// used <c>#this</c>, and <c>Inner.Echo(Name)</c> therefore answered <c>"inner"</c> compiled
+        /// and <c>"Ana"</c> interpreted - both compiling, neither complaining.
+        /// <p>
+        /// <c>Name</c> shadowing the root's is what makes the rows discriminate, and it was already
+        /// here; only <c>Echo</c> had to be added. It returns its argument unchanged, so the value
+        /// coming out names the member that went in with nothing else in the way.
+        /// </p>
+        /// </remarks>
         public class Inner
         {
             public string Name { get; set; } = "inner";
+
+            public object Echo(object o) { return o; }
         }
 
         /// <summary>
@@ -124,6 +141,14 @@ namespace SpringExpressionsTests.Expressions
             // Counted / Counts: a custom type converting to an integral type, and a collection of one.
             // See the Tally remarks - this is the operand kind whose absence hid a divergence from all
             // four sweeps, and the seventh corpus gap to be found by hand rather than by a test.
+            // SomeType: a Type-valued operand, corpus gap eight. A Type receiver is resolved against
+            // the type it *represents*, so it is the one operand kind whose member lookup runs down a
+            // different path entirely - and the interpreter used to bind an instance method there and
+            // invoke it with the Type object as its target (InvalidCastException where the compiled
+            // path answered). Found by hand while diagnosing something else, like all seven before it;
+            // see _Docs/open-issues.md items 29 and 31.
+            public Type SomeType { get; set; } = typeof(string);
+
             public Tally Counted { get; set; } = new Tally(7);
             public List<Tally> Counts { get; set; } = new List<Tally>
             {
@@ -373,7 +398,10 @@ namespace SpringExpressionsTests.Expressions
                 "Old", "OldMap", "Map", "null", "'lit'", "45", "45.5", "true",
 
                 // A custom type converting to an integral type - the operand kind that was missing.
-                "Counted"
+                "Counted",
+
+                // A Type-valued operand: corpus gap eight, and the seam item 29's divergence lived in.
+                "SomeType"
             };
 
             var operators = new[]
@@ -407,6 +435,11 @@ namespace SpringExpressionsTests.Expressions
                 yield return value + ".ToString()";
                 yield return "Text(" + value + ")";
                 yield return "Count(" + value + ")";
+
+                // A receiver that is not #this - corpus gap nine, and the shape item 30's silent wrong
+                // answer lived in. Both rows above call a method on the *root*, so receiver and #this
+                // are one object and an argument resolved against either gives the same value.
+                yield return "Inner.Echo(" + value + ")";
                 yield return "{" + value + ", " + value + "}";
                 yield return "#{'k' : " + value + "}";
                 yield return "new int[] {" + value + "}";

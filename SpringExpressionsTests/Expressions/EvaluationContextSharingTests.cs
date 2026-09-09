@@ -27,6 +27,66 @@ namespace SpringExpressionsTests.Expressions
         private static Dictionary<string, object> VariablesWithX(object value)
             => new Dictionary<string, object> { { "x", value } };
 
+        public class StaleCacheInner
+        {
+            public object Echo(object o) { return o; }
+        }
+
+        public class StaleCacheRoot
+        {
+            public StaleCacheInner Inner { get; set; }
+
+            public string Name { get; set; } = "Ana";
+        }
+
+        /// <summary>
+        /// A method call on a <b>null</b> receiver must fail whether or not this same expression object
+        /// was evaluated against a present receiver first.
+        /// </summary>
+        /// <remarks>
+        /// <c>MethodNode</c> caches its resolved method on the node, and the null branch used to leave
+        /// that cache alone - so the invoke went ahead with a null target, and a method that never
+        /// touches <c>this</c> simply succeeded. Measured: one expression object answered <c>"Ana"</c>
+        /// for a null <c>Inner</c> after a first evaluation against a present one, where evaluating the
+        /// same shape fresh threw. **The answer depended on evaluation history**, which is this
+        /// fixture's subject in a place nothing had looked - not the variables dictionary but the
+        /// resolved-method cache.
+        /// <p>
+        /// Found by the corpus rows added for gap nine (`_Docs/open-issues.md` item 34), and invisible
+        /// to a probe that builds a fresh expression per root - which is exactly what my first probe
+        /// did, and why it reported agreement.
+        /// </p>
+        /// <p>
+        /// The exception types differ between the backends and that is not the point here: what must
+        /// not happen is one evaluation answering because an earlier one warmed a cache.
+        /// </p>
+        /// </remarks>
+        [Test]
+        public void AMethodCallOnANullReceiverFailsRegardlessOfWhatWasEvaluatedBefore()
+        {
+            var present = new StaleCacheRoot { Inner = new StaleCacheInner() };
+            var absent = new StaleCacheRoot();
+
+            foreach (var mode in new[] { EvaluationMode.MustInterpret, EvaluationMode.MustCompile })
+            {
+                var reused = Expression.ParseGetter<StaleCacheRoot, object>(
+                    "Inner.Echo(Name)", mode);
+
+                Assert.AreEqual("Ana", reused.GetValue(present), mode + ": the present receiver");
+
+                Assert.Catch(
+                    () => reused.GetValue(absent),
+                    mode + ": a null receiver must fail even after a successful evaluation");
+
+                // And the other way round, so neither order is privileged.
+                var reversed = Expression.ParseGetter<StaleCacheRoot, object>(
+                    "Inner.Echo(Name)", mode);
+
+                Assert.Catch(() => reversed.GetValue(absent), mode + ": null first");
+                Assert.AreEqual("Ana", reversed.GetValue(present), mode + ": then present");
+            }
+        }
+
         [Test]
         public void CompiledGetterReadsTheVariablesOfEachCall()
         {

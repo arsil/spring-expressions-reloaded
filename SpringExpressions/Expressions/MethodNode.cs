@@ -125,7 +125,29 @@ namespace SpringExpressions
 				//}
 				//else
 
-				var arg = GetExpressionTreeIfPossible((BaseNode) node, contextExpression, compilationContext);
+				// Against #this, not against the receiver, because that is what an argument resolves
+				// against in this language - NodeWithArguments.ResolveArgumentInternal evaluates every
+				// argument with evalContext.ThisContext, and TestMethodArgumentNodesResolveAgainstThisContext
+				// pins it.
+				//
+				// This emitted them against the *receiver* until 2026-09-09, which is the same thing
+				// whenever the receiver is #this - `Echo(Number)` at the root, and every chain that
+				// starts at #this - and that is nearly every expression, which is why it survived. Where
+				// they differ it was a **silent wrong answer**: with `Number` on both the root and Inner,
+				// `Inner.Echo(Number)` answered 99 compiled and 45 interpreted, both compiling, neither
+				// complaining. `long.Parse(ToString())` is the same defect failing loudly instead.
+				// A lambda is the exception, and the interpreter draws the same line: its
+				// ResolveArgumentInternal returns a LambdaExpressionNode *unevaluated* rather than
+				// resolving it against #this, leaving whoever receives it to supply the context - a
+				// collection processor invoking it per item, say. So a lambda keeps the receiver here;
+				// compiling `Ints.orderBy({|a,b| $a - $b})` against #this loses the item type the body
+				// needs, which is four failing tests, measured.
+				var argumentContext = node is LambdaExpressionNode
+				                      || node.getFirstChild() is LambdaExpressionNode
+					? contextExpression
+					: compilationContext.ThisExpression;
+
+				var arg = GetExpressionTreeIfPossible((BaseNode) node, argumentContext, compilationContext);
 
 				arguments.Add(arg);
 				argumentsTypes.Add(arg.Type);
@@ -167,6 +189,20 @@ namespace SpringExpressions
 				var innerResolved = ResolveMethod(
 					this, contextExpressionType, methodName, arguments, argumentTypesArray);
 
+				// The interpreter's twin of this lookup skips a non-static match so that it falls
+				// through to System.Type, where ToString and GetHashCode really live. **Do not do the
+				// same here**, and the reason is measured rather than cautious: this branch emits its
+				// argument nodes against the type-name context rather than against #this, so
+				// `long.Parse(ToString())` builds `Parse(typeof(long).ToString())` - "System.Int64" -
+				// and throws FormatException at evaluation. Today that shape is *refused*, because the
+				// non-static match leaves no instance for LExpression.Call and BuildCall converts the
+				// failure; the refusal is accidentally the thing protecting the caller from a wrong
+				// answer. Letting it fall through turned two green tests red with the wrong number
+				// rather than an exception.
+				//
+				// So the argument-binding defect has to be fixed before this side can be aligned;
+				// until then the compiled path declines and the interpreter answers, which is
+				// agreement through the fallback. See _Docs/open-issues.md.
 				if (innerResolved != null)
 				{
 					// Gated on the type the method was actually found on, and only once it is found.
@@ -879,6 +915,24 @@ namespace SpringExpressions
                         initialized = true;
                     }
                 }
+                else
+                {
+                    // A null receiver resolves nothing, and it must not be served by whatever a
+                    // *previous* evaluation of this same node resolved. The cache lives on the node,
+                    // so without this the answer depended on evaluation history: one expression object
+                    // evaluated first against a present receiver and then against a null one invoked
+                    // the cached instance method with a null target - and a method that never touches
+                    // `this` simply succeeded, so `Inner.Echo(Name)` answered "Ana" for a null `Inner`
+                    // where evaluating the same shape fresh threw. Measured 2026-09-09, found by the
+                    // corpus rows added for gap nine, and invisible to a probe that builds a fresh
+                    // expression per root.
+                    //
+                    // Clearing it rather than skipping the invoke, so the next evaluation with a real
+                    // receiver resolves again instead of inheriting a stale hash.
+                    cachedInstanceMethod = null;
+                    cachedParameters = null;
+                    initialized = false;
+                }
             }
 
             if (localCollectionProcessor != null)
@@ -933,6 +987,18 @@ namespace SpringExpressions
 
             // check the context type first
             MethodInfo mi = GetBestMethod(contextType, methodName, BINDING_FLAGS, argValues);
+
+            // A value that *is* a Type is searched for the method on the type it represents, which is
+            // what makes T(System.Int32).Parse('5') work - but only a **static** method can be called
+            // that way, because there is no instance of the represented type in hand. The check was
+            // missing, so `someTypeValue.ToString()` bound String.ToString() and then invoked it with
+            // the Type object as its target: InvalidCastException, where the compiled path answered
+            // Type.ToString(). It survived because a member the represented type does *not* declare -
+            // `Name`, `FullName` - missed this lookup and fell through to the System.Type probe below,
+            // which is the branch that was doing the real work all along. Measured 2026-09-09; no
+            // sweep could see it, since no corpus holds a Type-valued property.
+            if (mi != null && context is Type && !mi.IsStatic)
+                mi = null;
 
             // The interpreter's half of the member gate, on the type the method was actually found
             // on. Gating before the probe would turn "not here, try System.Type" into a denial.
