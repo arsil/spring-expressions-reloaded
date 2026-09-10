@@ -62,7 +62,7 @@ namespace SpringExpressions
             // while 'Money + 1' compiled - an asymmetry rather than a rule. Both backends already
             // answered the same value through the fallback, so nothing here changes an answer; it
             // gives the shape a compiled form.
-            operandExpression = BinaryNumericOperatorHelper.ConvertCustomReal(operandExpression);
+            operandExpression = BinaryNumericOperatorHelper.ConvertCustomNumber(operandExpression);
 
             if (UnaryNumericOperatorHelper.TryCreate(operandExpression,
                 UnaryNumericOperatorHelper.UnaryOperator.UnaryMinus, out var result))

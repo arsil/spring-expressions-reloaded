@@ -45,14 +45,14 @@ namespace SpringUtil
 
         /// <summary>
         /// Determines whether the supplied <paramref name="number"/> is of numeric type - a built-in
-        /// number, a type implicitly convertible to a real one, or a type whose TypeConverter reaches
+        /// number, a type implicitly convertible to one, or a type whose TypeConverter reaches
         /// decimal.
         /// </summary>
         public static bool IsNumber(object number)
         {
             var isNumber = (IsInteger(number) || IsNativeDecimal(number));
             if (!isNumber && number != null)
-                isNumber = IsRealType(number.GetType())
+                isNumber = IsNumericType(number.GetType())
                     || TypeDescriptor.GetConverter(number).CanConvertTo(typeof(Decimal));
 
             return isNumber;
@@ -89,11 +89,72 @@ namespace SpringUtil
         }
 
         /// <summary>
+        /// A built-in number - integral or real, nullable or not - or any type that converts
+        /// implicitly to one. This is what the arithmetic, comparison and unary operators mean by
+        /// "number", and it is deliberately wider than <see cref="IsRealType"/>: a caller's own struct
+        /// with <c>implicit operator int</c> is as much a number as one with
+        /// <c>implicit operator decimal</c>, and it computes with the semantics of the built-in it
+        /// converts to - so integer division truncates.
+        /// </summary>
+        /// <remarks>
+        /// <b><c>char</c> and <c>bool</c> are absent on purpose.</b> A <c>char</c> is not a number in
+        /// this language - <c>Letter + 1</c> throws on both backends - so a type converting to one is
+        /// not a number either, and admitting it would make the two disagree.
+        /// </remarks>
+        public static bool IsNumericType(Type type)
+        {
+            type = Nullable.GetUnderlyingType(type) ?? type;
+
+            return IsBuiltInRealType(type)
+                || IsInteger(type)
+                || TryGetImplicitNumericConversion(type, out _);
+        }
+
+        /// <summary>
         /// The implicit operator converting <paramref name="type"/> to a built-in real type, preferring
         /// decimal over double over float when the type offers more than one. A built-in real needs no
         /// conversion and yields false.
         /// </summary>
+        /// <remarks>
+        /// Real-only, and that narrowness is now deliberate rather than incidental: this answers
+        /// <see cref="IsRealType"/>, whose one job is the round-versus-truncate question that refuses a
+        /// real argument against an integral parameter. A type with <c>implicit operator int</c> is a
+        /// number (<see cref="IsNumericType"/>) and is <i>not</i> real - answering true here would make
+        /// <c>TakesInt(counter)</c> refuse a conversion that loses nothing.
+        /// </remarks>
         public static bool TryGetImplicitRealConversion(Type type, out MethodInfo conversion)
+        {
+            return TryGetImplicitConversionToBuiltInNumber(
+                type, integralTargetsCount: false, conversion: out conversion);
+        }
+
+        /// <summary>
+        /// The implicit operator converting <paramref name="type"/> to any built-in number, preferring
+        /// the target that loses least: decimal over double over float, and every real over every
+        /// integral. A built-in number needs no conversion and yields false.
+        /// </summary>
+        /// <remarks>
+        /// <b>The rank is consulted before the other operand is</b>, which is where this parts company
+        /// with C#. C# builds a candidate list (<c>int+int</c>, <c>double+double</c>, …) and lets the
+        /// pair of operands choose; this normalizes each operand on its own and then promotes. The two
+        /// answer alike unless a type declares <i>several</i> numeric conversions - a type converting
+        /// to both <c>int</c> and <c>double</c> divides as a double here and as an int in C#. Matching
+        /// C# would mean porting its betterness rules over user-defined conversions into both backends,
+        /// which is the same chapter of the specification <c>UserDefinedOperatorUtils</c> declines.
+        /// <p>
+        /// Ranking the reals above the integrals is what makes this purely additive: every shape it
+        /// newly admits refused on both backends before, and no operand that already normalized to a
+        /// real changes target.
+        /// </p>
+        /// </remarks>
+        public static bool TryGetImplicitNumericConversion(Type type, out MethodInfo conversion)
+        {
+            return TryGetImplicitConversionToBuiltInNumber(
+                type, integralTargetsCount: true, conversion: out conversion);
+        }
+
+        private static bool TryGetImplicitConversionToBuiltInNumber(
+            Type type, bool integralTargetsCount, out MethodInfo conversion)
         {
             type = Nullable.GetUnderlyingType(type) ?? type;
 
@@ -113,10 +174,7 @@ namespace SpringUtil
                     continue;
 
                 var returnType = Nullable.GetUnderlyingType(method.ReturnType) ?? method.ReturnType;
-                var rank = returnType == typeof(decimal) ? 3
-                    : returnType == typeof(double) ? 2
-                    : returnType == typeof(float) ? 1
-                    : 0;
+                var rank = RankOfNumericTarget(returnType, integralTargetsCount);
 
                 if (rank > bestRank)
                 {
@@ -126,6 +184,32 @@ namespace SpringUtil
             }
 
             return conversion != null;
+        }
+
+        /// <summary>
+        /// How good a conversion target a built-in number is, higher being better: the reals in order
+        /// of what they keep, then the integrals in order of range. Anything else - <c>char</c>,
+        /// <c>bool</c>, a reference type - is not a numeric target at all.
+        /// </summary>
+        private static int RankOfNumericTarget(Type target, bool integralTargetsCount)
+        {
+            if (target == typeof(decimal)) return 11;
+            if (target == typeof(double)) return 10;
+            if (target == typeof(float)) return 9;
+
+            if (!integralTargetsCount)
+                return 0;
+
+            if (target == typeof(long)) return 8;
+            if (target == typeof(ulong)) return 7;
+            if (target == typeof(int)) return 6;
+            if (target == typeof(uint)) return 5;
+            if (target == typeof(short)) return 4;
+            if (target == typeof(ushort)) return 3;
+            if (target == typeof(sbyte)) return 2;
+            if (target == typeof(byte)) return 1;
+
+            return 0;
         }
 
         /// <summary>

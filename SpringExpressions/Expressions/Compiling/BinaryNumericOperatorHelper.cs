@@ -12,14 +12,20 @@ namespace SpringExpressions.Expressions.Compiling
     internal static class BinaryNumericOperatorHelper
     {
         /// <summary>
-        /// Wraps a custom real-valued operand - a type with an implicit conversion to a built-in real -
-        /// in that conversion, so the promotion and comparison rules below see the built-in real. Any
-        /// other operand passes through unchanged.
+        /// Wraps a custom numeric operand - a type with an implicit conversion to a built-in number -
+        /// in that conversion, so the promotion and comparison rules below see the built-in. Any other
+        /// operand passes through unchanged.
         /// </summary>
-        internal static LExpression ConvertCustomReal([NotNull] LExpression operand)
+        /// <remarks>
+        /// The interpreter's twin is <c>NumberUtils.ToBuiltInNumberIfPossible</c>, and both ask
+        /// <c>TypeCheckingUtils.TryGetImplicitNumericConversion</c>, so the two backends convert the
+        /// same operand to the same built-in by construction. An integral target brings integral
+        /// semantics with it: a type declaring <c>implicit operator int</c> divides as an int.
+        /// </remarks>
+        internal static LExpression ConvertCustomNumber([NotNull] LExpression operand)
         {
             if (Type.GetTypeCode(operand.Type) == TypeCode.Object
-                && SpringUtil.TypeCheckingUtils.TryGetImplicitRealConversion(operand.Type, out var conversion))
+                && SpringUtil.TypeCheckingUtils.TryGetImplicitNumericConversion(operand.Type, out var conversion))
             {
                 return LExpression.Convert(operand, conversion.ReturnType, conversion);
             }
@@ -126,8 +132,8 @@ namespace SpringExpressions.Expressions.Compiling
             // A custom real-valued operand converts through its own implicit operator before the
             // promotion rules run, so a caller's decimal-like struct participates in arithmetic like
             // the built-in real it converts to - on this backend and the interpreter alike.
-            left = ConvertCustomReal(left);
-            right = ConvertCustomReal(right);
+            left = ConvertCustomNumber(left);
+            right = ConvertCustomNumber(right);
 
             if (MethodBaseHelpers.IsNullableType(left.Type)
                 || MethodBaseHelpers.IsNullableType(right.Type))

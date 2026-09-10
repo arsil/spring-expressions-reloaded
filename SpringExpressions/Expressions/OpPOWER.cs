@@ -56,8 +56,8 @@ namespace SpringExpressions
             // Custom real-valued operands convert through their own implicit operator first, the same
             // normalization the other arithmetic operators get inside BinaryNumericOperatorHelper -
             // power bypasses the promotion rules with its own to-double conversion below.
-            leftExpression = BinaryNumericOperatorHelper.ConvertCustomReal(leftExpression);
-            rightExpression = BinaryNumericOperatorHelper.ConvertCustomReal(rightExpression);
+            leftExpression = BinaryNumericOperatorHelper.ConvertCustomNumber(leftExpression);
+            rightExpression = BinaryNumericOperatorHelper.ConvertCustomNumber(rightExpression);
 
             if (ExpressionTypeHelper.IsNumericOrNullableNumericExpression(
                    leftExpression, out var leftIsNullable, out var leftTypeCode)

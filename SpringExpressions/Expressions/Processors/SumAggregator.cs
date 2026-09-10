@@ -69,7 +69,7 @@ namespace SpringExpressions.Processors
                 }
 
                 total = total == null
-                    ? NumberUtils.ToBuiltInRealIfPossible(item)
+                    ? NumberUtils.ToBuiltInNumberIfPossible(item)
                     : NumberUtils.Add(total, item);
             }
 

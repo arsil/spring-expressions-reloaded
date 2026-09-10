@@ -74,7 +74,7 @@ namespace SpringExpressions.Processors
                 {
                     if (TypeCheckingUtils.IsNumber(item))
                     {
-                        var normalized = NumberUtils.ToBuiltInRealIfPossible(item);
+                        var normalized = NumberUtils.ToBuiltInNumberIfPossible(item);
 
                         // Every item, not just the first. A float meeting anything wider is that wider
                         // type - '1f + 2.0' is a double - so a collection holding both averages to a

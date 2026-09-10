@@ -53,7 +53,7 @@ namespace SpringExpressions
 
             // See OpUnaryMinus: a custom real converts through its own implicit operator before the
             // promotion rules, after the operator lookup. This node's twin.
-            operandExpression = BinaryNumericOperatorHelper.ConvertCustomReal(operandExpression);
+            operandExpression = BinaryNumericOperatorHelper.ConvertCustomNumber(operandExpression);
 
             if (UnaryNumericOperatorHelper.TryCreate(operandExpression,
                     UnaryNumericOperatorHelper.UnaryOperator.UnaryPlus, out var result))

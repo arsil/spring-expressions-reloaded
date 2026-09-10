@@ -94,8 +94,8 @@ namespace SpringUtil
 
             var promoted = SpringExpressions.Expressions.Compiling.BinaryNumericOperatorHelper
                 .GetPromotedTypeOrNull(
-                    Type.GetTypeCode(NumberUtils.ToBuiltInRealIfPossible(first).GetType()),
-                    Type.GetTypeCode(NumberUtils.ToBuiltInRealIfPossible(second).GetType()));
+                    Type.GetTypeCode(NumberUtils.ToBuiltInNumberIfPossible(first).GetType()),
+                    Type.GetTypeCode(NumberUtils.ToBuiltInNumberIfPossible(second).GetType()));
 
             return promoted == typeof(double) || promoted == typeof(float);
         }
@@ -127,11 +127,11 @@ namespace SpringUtil
                 return 1;
             }
 
-            // Custom real-valued types convert through their implicit operator before anything else:
+            // Custom numeric types convert through their implicit operator before anything else:
             // the coercion below only knows TypeCodes and TypeConverters, and the same-type path would
             // demand an IComparable the custom type need not have.
-            first = NumberUtils.ToBuiltInRealIfPossible(first);
-            second = NumberUtils.ToBuiltInRealIfPossible(second);
+            first = NumberUtils.ToBuiltInNumberIfPossible(first);
+            second = NumberUtils.ToBuiltInNumberIfPossible(second);
 
             var firstArgType = first.GetType();
             var secondArgType = second.GetType();
@@ -187,11 +187,18 @@ namespace SpringUtil
         /// </p>
         /// <p>
         /// It says true for a type this engine already treats as a number without its being
-        /// <see cref="IComparable"/> - a caller's own struct with an implicit conversion to decimal,
-        /// double or float. <c>min()</c>, <c>max()</c> and <c>between</c> have always ordered those,
-        /// since they go through <see cref="Compare(object, object)"/>, which normalizes through the
-        /// conversion; <c>sort()</c> did not, because <c>Comparer&lt;T&gt;.Default</c> has never heard
-        /// of it. Same type, same notion of order, two answers depending on which function was called.
+        /// <see cref="IComparable"/> - a caller's own struct with an implicit conversion to a built-in
+        /// number. <c>min()</c>, <c>max()</c> and <c>between</c> have always ordered those, since they
+        /// go through <see cref="Compare(object, object)"/>, which normalizes through the conversion;
+        /// <c>sort()</c> did not, because <c>Comparer&lt;T&gt;.Default</c> has never heard of it. Same
+        /// type, same notion of order, two answers depending on which function was called.
+        /// </p>
+        /// <p>
+        /// <b>It asks the numeric lookup, not the real-only one</b>, so a struct with
+        /// <c>implicit operator int</c> sorts exactly as one with <c>implicit operator decimal</c>
+        /// does. Asking the narrower question here would reopen the very incoherence this predicate
+        /// was written to close, one conversion target along: <c>Counted + 1</c> would compute while
+        /// <c>Counts.sort()</c> threw.
         /// </p>
         /// <p>
         /// <b><see cref="IComparable"/> is asked first, so nothing that sorts today is affected.</b>
@@ -217,7 +224,7 @@ namespace SpringUtil
                 return false;
             }
 
-            return TypeCheckingUtils.TryGetImplicitRealConversion(itemType, out _);
+            return TypeCheckingUtils.TryGetImplicitNumericConversion(itemType, out _);
         }
 
         private static int CompareSameTypes<T>(object first, object second)

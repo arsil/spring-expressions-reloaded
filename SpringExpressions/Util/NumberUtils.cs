@@ -51,7 +51,7 @@ namespace SpringUtil
         /// </exception>
         public static object Negate(object number)
         {
-            number = ToBuiltInRealIfPossible(number);
+            number = ToBuiltInNumberIfPossible(number);
 
             switch (number)
             {
@@ -96,7 +96,7 @@ namespace SpringUtil
 
         public static object UnaryPlus(object number)
         {
-            number = ToBuiltInRealIfPossible(number);
+            number = ToBuiltInNumberIfPossible(number);
 
             switch (number)
             {
@@ -413,10 +413,10 @@ namespace SpringUtil
         /// <param name="n">The second number.</param>
         public static object Power(object m, object n)
         {
-            // Custom real-valued operands convert through their implicit operator first:
+            // Custom numeric operands convert through their implicit operator first:
             // Convert.ToDouble only knows IConvertible.
-            m = ToBuiltInRealIfPossible(m);
-            n = ToBuiltInRealIfPossible(n);
+            m = ToBuiltInNumberIfPossible(m);
+            n = ToBuiltInNumberIfPossible(n);
 
             return Math.Pow(Convert.ToDouble(m), Convert.ToDouble(n));
         }
@@ -458,12 +458,19 @@ namespace SpringUtil
         }
 
         /// <summary>
-        /// Converts a value of a custom real-valued type into the built-in real its implicit operator
-        /// declares - decimal preferred over double over float - so it can participate in arithmetic
-        /// and comparison exactly like the built-in it converts to. Built-in values, and types with no
-        /// implicit real conversion, come back unchanged.
+        /// Converts a value of a custom numeric type into the built-in number its implicit operator
+        /// declares - decimal preferred over double over float, and every real over every integral -
+        /// so it can participate in arithmetic and comparison exactly like the built-in it converts
+        /// to. Built-in values, and types with no implicit numeric conversion, come back unchanged.
         /// </summary>
-        internal static object ToBuiltInRealIfPossible(object value)
+        /// <remarks>
+        /// This is the interpreter's half of the normalization; the compiled path does the same thing
+        /// to the operand <i>expression</i> in
+        /// <c>BinaryNumericOperatorHelper.ConvertCustomNumber</c>. Both ask
+        /// <see cref="TypeCheckingUtils.TryGetImplicitNumericConversion"/>, so the two backends pick
+        /// the same target by construction.
+        /// </remarks>
+        internal static object ToBuiltInNumberIfPossible(object value)
         {
             if (value == null)
                 return null;
@@ -472,13 +479,13 @@ namespace SpringUtil
             if (Type.GetTypeCode(type) != TypeCode.Object)
                 return value;
 
-            var converter = CustomRealConverters.GetOrAdd(type, CreateCustomRealConverter);
+            var converter = CustomNumberConverters.GetOrAdd(type, CreateCustomNumberConverter);
             return converter == null ? value : converter(value);
         }
 
-        private static Func<object, object> CreateCustomRealConverter(Type type)
+        private static Func<object, object> CreateCustomNumberConverter(Type type)
         {
-            if (!TypeCheckingUtils.TryGetImplicitRealConversion(type, out var conversion))
+            if (!TypeCheckingUtils.TryGetImplicitNumericConversion(type, out var conversion))
                 return null;
 
             var value = LExpression.Parameter(typeof(object), "value");
@@ -489,7 +496,7 @@ namespace SpringUtil
             return LExpression.Lambda<Func<object, object>>(body, value).Compile();
         }
 
-        private static readonly ConcurrentDictionary<Type, Func<object, object>> CustomRealConverters
+        private static readonly ConcurrentDictionary<Type, Func<object, object>> CustomNumberConverters
             = new ConcurrentDictionary<Type, Func<object, object>>();
 
 		#region Constructor (s) / Destructor

@@ -48,6 +48,28 @@ namespace SpringUtil
         public static implicit operator int(ImplicitlyInt value) { return value._value; }
     }
 
+    /// <summary>
+    /// Convertible to char and to nothing else. A char is not a number in this language, so a type
+    /// whose only conversion reaches one is not a number either.
+    /// </summary>
+    public struct ImplicitlyChar
+    {
+        private readonly char _value;
+
+        public ImplicitlyChar(char value) { _value = value; }
+
+        public static implicit operator char(ImplicitlyChar value) { return value._value; }
+    }
+
+    /// <summary>
+    /// Offers an integral target and a real one, so the rank has to choose between them.
+    /// </summary>
+    public struct ImplicitlyIntAndDouble
+    {
+        public static implicit operator int(ImplicitlyIntAndDouble value) { return 0; }
+        public static implicit operator double(ImplicitlyIntAndDouble value) { return 0d; }
+    }
+
     public class ImplicitlyDecimalClass
     {
         public static implicit operator decimal(ImplicitlyDecimalClass value) { return 0m; }
@@ -197,6 +219,83 @@ namespace SpringUtil
 
             Assert.IsFalse(TypeCheckingUtils.TryGetImplicitRealConversion(typeof(ExplicitlyDecimal), out _));
             Assert.IsFalse(TypeCheckingUtils.TryGetImplicitRealConversion(typeof(decimal), out _));
+        }
+
+        /// <summary>
+        /// The numeric lookup accepts integral targets as well, which is what lets a struct with
+        /// <c>implicit operator int</c> take part in arithmetic. The real-only lookup beside it must
+        /// keep saying no about the same type - the two answer different questions.
+        /// </summary>
+        [Test]
+        public void TryGetImplicitNumericConversionAcceptsIntegralTargets()
+        {
+            Assert.IsTrue(TypeCheckingUtils.TryGetImplicitNumericConversion(
+                typeof(ImplicitlyInt), out var conversion));
+            Assert.AreEqual(typeof(int), conversion.ReturnType);
+
+            Assert.IsFalse(TypeCheckingUtils.TryGetImplicitRealConversion(typeof(ImplicitlyInt), out _));
+        }
+
+        /// <summary>
+        /// Every real target outranks every integral one, so a type offering both normalizes to the
+        /// real. That is what makes the integral targets purely additive - no operand that already
+        /// converted to a real changes what it converts to.
+        /// </summary>
+        [Test]
+        public void TryGetImplicitNumericConversionPrefersARealTargetOverAnIntegralOne()
+        {
+            Assert.IsTrue(TypeCheckingUtils.TryGetImplicitNumericConversion(
+                typeof(ImplicitlyIntAndDouble), out var conversion));
+            Assert.AreEqual(typeof(double), conversion.ReturnType);
+
+            Assert.IsTrue(TypeCheckingUtils.TryGetImplicitNumericConversion(
+                typeof(ImplicitlyDecimalAndDouble), out var stillDecimal));
+            Assert.AreEqual(typeof(decimal), stillDecimal.ReturnType);
+        }
+
+        /// <summary>
+        /// A conversion to char is not a conversion to a number, because a char is not a number here:
+        /// <c>Letter + 1</c> throws on both backends. Admitting one would make the two disagree.
+        /// </summary>
+        [Test]
+        public void AConversionToCharIsNotANumericConversion()
+        {
+            Assert.IsFalse(TypeCheckingUtils.TryGetImplicitNumericConversion(typeof(ImplicitlyChar), out _));
+            Assert.IsFalse(TypeCheckingUtils.IsNumericType(typeof(ImplicitlyChar)));
+            Assert.IsFalse(TypeCheckingUtils.IsNumericType(typeof(char)));
+        }
+
+        [Test]
+        public void IsNumericTypeCoversBuiltInsAndConvertibleTypesAlike()
+        {
+            Assert.IsTrue(TypeCheckingUtils.IsNumericType(typeof(int)));
+            Assert.IsTrue(TypeCheckingUtils.IsNumericType(typeof(ulong)));
+            Assert.IsTrue(TypeCheckingUtils.IsNumericType(typeof(decimal)));
+            Assert.IsTrue(TypeCheckingUtils.IsNumericType(typeof(int?)));
+            Assert.IsTrue(TypeCheckingUtils.IsNumericType(typeof(ImplicitlyInt)));
+            Assert.IsTrue(TypeCheckingUtils.IsNumericType(typeof(ImplicitlyDecimal)));
+            Assert.IsTrue(TypeCheckingUtils.IsNumericType(typeof(ImplicitlyDecimalClass)));
+
+            Assert.IsFalse(TypeCheckingUtils.IsNumericType(typeof(bool)));
+            Assert.IsFalse(TypeCheckingUtils.IsNumericType(typeof(string)));
+            Assert.IsFalse(TypeCheckingUtils.IsNumericType(typeof(object)));
+            Assert.IsFalse(TypeCheckingUtils.IsNumericType(typeof(ExplicitlyDecimal)));
+        }
+
+        /// <summary>
+        /// The two predicates must not be collapsed into one. <c>IsRealType</c> exists to answer the
+        /// round-versus-truncate question that refuses a real argument against an integral parameter;
+        /// a type converting to <c>int</c> loses nothing on that trip, so it is a number and is not
+        /// real. Collapsing them makes <c>TakesInt(counter)</c> refuse.
+        /// </summary>
+        [Test]
+        public void AnIntegralConversionIsNumericButNotReal()
+        {
+            Assert.IsTrue(TypeCheckingUtils.IsNumericType(typeof(ImplicitlyInt)));
+            Assert.IsFalse(TypeCheckingUtils.IsRealType(typeof(ImplicitlyInt)));
+
+            Assert.IsTrue(TypeCheckingUtils.IsNumericType(typeof(ImplicitlyDecimal)));
+            Assert.IsTrue(TypeCheckingUtils.IsRealType(typeof(ImplicitlyDecimal)));
         }
 
         [Test]

@@ -39,8 +39,8 @@ namespace SpringExpressions.Expressions.Compiling
             // A custom real-valued operand converts through its own implicit operator before the
             // comparison rules run, so a caller's decimal-like struct compares like the built-in real
             // it converts to - on this backend and the interpreter alike.
-            leftExpression = BinaryNumericOperatorHelper.ConvertCustomReal(leftExpression);
-            rightExpression = BinaryNumericOperatorHelper.ConvertCustomReal(rightExpression);
+            leftExpression = BinaryNumericOperatorHelper.ConvertCustomNumber(leftExpression);
+            rightExpression = BinaryNumericOperatorHelper.ConvertCustomNumber(rightExpression);
 
             // Nothing sorts before everything, and a nullable holding no value is one of the kinds of
             // nothing. The three outcomes are the operator applied to the *sort order* the two operands
