@@ -59,6 +59,9 @@ public class SandboxDefaultForTheSuite
             // EvaluationContextSharingTests, which construct with a varying variable.
             .AllowAllMembersOf<ResolutionKeyThing>()
 
+            // `new ResolutionProbe(<value>)` - the corpus rows for gap ten.
+            .AllowAllMembersOf<ResolutionProbe>()
+
             // Overload-resolution fixtures - every one of these is reached by `new X(…)`.
             .AllowAllMembersOf<CtorWidening>()
             .AllowAllMembersOf<CtorTie>()

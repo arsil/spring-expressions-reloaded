@@ -96,10 +96,9 @@ namespace SpringCore.TypeConversion
                 {
                     // convert individual elements to array elements
                     Type componentType = requiredType.GetElementType();
-                    if (newValue is ICollection)
+                    if (TryGetElements(newValue, out var arrayElements))
                     {
-                        ICollection elements = (ICollection)newValue;
-                        return ToArrayWithTypeConversion(componentType, elements, propertyName);
+                        return ToArrayWithTypeConversion(componentType, arrayElements, propertyName);
                     }
                     else if (newValue is string)
                     {
@@ -127,10 +126,33 @@ namespace SpringCore.TypeConversion
                 {
                     // convert individual elements to array elements
                     Type componentType = requiredType.GetGenericArguments()[0];
-                    if (newValue is ICollection)
+                    if (TryGetElements(newValue, out var elements))
                     {
-                        ICollection elements = (ICollection)newValue;
                         return ToTypedCollectionWithTypeConversion(typeof(SpringCollections.Generic.HashedSet<>), componentType, elements, propertyName);
+                    }
+                }
+
+                // if required type is a BCL ISet<T>, convert all the elements
+                //
+                // The branch above knows only the *vendored* set, which is all this library had when
+                // it was written - so a consumer whose property is a HashSet<T> or an ISet<T> could be
+                // assigned nothing but an already-built set: a list, an array, an ArrayList or a list
+                // literal all threw InvalidCastException, having fallen through to the IEnumerable<T>
+                // branch below and been built into a List<T>. Measured, all four.
+                //
+                // Assigning to a *vendored* set property has always worked from any of those, and
+                // still does - the branch above is untouched. This is the same capability for the set
+                // type the framework actually has, and it matters more since the fork's collection
+                // operators began returning BCL sets. Before ISet<T> (.NET 4.0) there was nothing to
+                // write here, which is why upstream did not.
+                if (requiredType != null && requiredType.IsGenericType
+                    && TypeImplementsGenericInterface(requiredType, typeof(ISet<>)))
+                {
+                    Type componentType = requiredType.GetGenericArguments()[0];
+                    if (TryGetElements(newValue, out var setElements))
+                    {
+                        return ToTypedCollectionWithTypeConversion(
+                            typeof(HashSet<>), componentType, setElements, propertyName);
                     }
                 }
 
@@ -139,9 +161,8 @@ namespace SpringCore.TypeConversion
                 {
                     // convert individual elements to array elements
                     Type componentType = requiredType.GetGenericArguments()[0];
-                    if (newValue is ICollection)
+                    if (TryGetElements(newValue, out var elements))
                     {
-                        ICollection elements = (ICollection)newValue;
                         return ToTypedCollectionWithTypeConversion(typeof(List<>), componentType, elements, propertyName);
                     }
                 }
@@ -178,9 +199,8 @@ namespace SpringCore.TypeConversion
                 {
                     // convert individual elements to array elements
                     Type componentType = requiredType.GetGenericArguments()[0];
-                    if (newValue is ICollection)
+                    if (TryGetElements(newValue, out var elements))
                     {
-                        ICollection elements = (ICollection)newValue;
                         return ToTypedCollectionWithTypeConversion(typeof(List<>), componentType, elements, propertyName);
                     }
                 }
@@ -257,6 +277,50 @@ namespace SpringCore.TypeConversion
                 }
             }
             return newValue;
+        }
+
+        /// <summary>
+        /// The items of <paramref name="value"/> when it is a collection of them, materialised so the
+        /// builders below can count them.
+        /// </summary>
+        /// <remarks>
+        /// <b>A BCL <c>HashSet&lt;T&gt;</c> is not a non-generic <see cref="ICollection"/></b>, and
+        /// every branch here used to test for exactly that - so a set reaching this converter matched
+        /// none of them. Measured before the fix: assigning a set to an <b>array</b> property fell
+        /// through to the single-value case below and produced a <b>one-element array holding the
+        /// set's <c>ToString()</c></b>, silently; assigning one to a <c>List&lt;T&gt;</c> property
+        /// threw. It became reachable when the fork's collection operators began returning BCL sets
+        /// instead of the vendored <c>HybridSet</c>, which <i>is</i> a non-generic
+        /// <see cref="ICollection"/>.
+        /// <p>
+        /// The same blind spot, one layer up, is what made every collection processor refuse a
+        /// <c>HashSet&lt;T&gt;</c> - see <c>ICollectionProcessor.Process</c>, widened from
+        /// <see cref="ICollection"/> to <see cref="IEnumerable"/> for the identical reason. This is
+        /// that ruling applied where the values are converted rather than processed.
+        /// </p>
+        /// <p>
+        /// <b>A string is deliberately not a collection here.</b> It is enumerable, but the array
+        /// branch has its own handling for one - a comma-delimited list, or <c>char[]</c> - and that
+        /// has to keep winning.
+        /// </p>
+        /// </remarks>
+        private static bool TryGetElements(object value, out ICollection elements)
+        {
+            elements = value as ICollection;
+
+            if (elements != null)
+                return true;
+
+            if (value is string || !(value is IEnumerable enumerable))
+                return false;
+
+            var items = new List<object>();
+
+            foreach (var item in enumerable)
+                items.Add(item);
+
+            elements = items;
+            return true;
         }
 
         private static object ToArrayWithTypeConversion(Type componentType, ICollection elements, string propertyName)

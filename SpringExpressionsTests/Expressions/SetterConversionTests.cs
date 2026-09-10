@@ -118,13 +118,31 @@ namespace SpringExpressionsTests.Expressions
         }
 
         [Test]
-        public void ACollectionIntoAnArrayMemberIsRefusedAndTheInterpreterCoercesIt()
+        public void ACollectionCompilesIntoAnArrayMemberWhenTheItemTypesMatch()
         {
-            // The one row that is an open decision rather than a settled refusal: emitting a ToArray
-            // would agree with the interpreter, and nobody has ruled whether the compiled setter
-            // should build collections on the caller's behalf.
-            AssertRefusedButInterpreted<List<string>>(
+            // Ruled 2026-09-10: the compiled setter builds the target's collection kind when the two
+            // sides hold the *same item type*. There is nothing to convert then - only a container to
+            // build - so the backends agree by construction, on the runtime type as well as the value.
+            //
+            // This used to be refused, and the entry recording it claimed "emitting a ToArray would
+            // agree with the interpreter". It would not, in general: the interpreter converts element
+            // by element, which is the next test.
+            AssertCompilesAndLands<List<string>>(
                 "Tags", new List<string> { "SPELL" }, new[] { "SPELL" });
+
+            AssertCompilesAndLands<HashSet<string>>(
+                "Tags", new HashSet<string> { "SPELL" }, new[] { "SPELL" });
+        }
+
+        [Test]
+        public void ACollectionWhoseItemsNeedConvertingIsStillRefused()
+        {
+            // The row the rule deliberately leaves behind, and the reason it is drawn at the item
+            // type: the interpreter turns each 1 into "1" through its own converter, and nothing
+            // emitted here reproduces that. Guessing at a per-element conversion is how the two
+            // backends drift, so this keeps falling back and the interpreter answers.
+            AssertRefusedButInterpreted<List<int>>(
+                "Tags", new List<int> { 1, 2 }, new[] { "1", "2" });
         }
 
         [Test]

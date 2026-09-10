@@ -34,6 +34,34 @@ namespace SpringExpressionsTests.Expressions
     /// keep current: when a defect is fixed, its row is removed and this test says so.
     /// </p>
     /// </remarks>
+    /// <summary>
+    /// Overloaded constructors and an overloaded indexer, so the corpus can express a resolution
+    /// chosen from a <i>value</i> - corpus gap ten.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both were resolved once and cached with no key</b> (`_Docs/open-issues.md` item 35), which
+    /// the corpus could not reach: it constructed only arrays and indexed only with the constant
+    /// <c>[0]</c> and <c>['a']</c>, so no constructor or indexer was ever chosen from an operand whose
+    /// type varies. <c>Anything</c> is the operand that makes these rows bite - it holds <c>45</c>,
+    /// then <c>null</c>, then <c>"text"</c> across the three roots, and the sweeps reuse one expression
+    /// object across all three.
+    /// <p>
+    /// Top-level because the grammar cannot spell a nested type's name in <c>new</c>.
+    /// </p>
+    /// </remarks>
+    public class ResolutionProbe
+    {
+        public ResolutionProbe(int n) { Picked = "int:" + n; }
+
+        public ResolutionProbe(string s) { Picked = "string:" + s; }
+
+        public string Picked { get; private set; }
+
+        public string this[int i] { get { return "byInt:" + i; } }
+
+        public string this[string s] { get { return "byString:" + s; } }
+    }
+
     [TestFixture]
     public class CompilationNeverLeaksTests
     {
@@ -42,6 +70,7 @@ namespace SpringExpressionsTests.Expressions
         /// <summary>
         /// A receiver that is <b>not</b> <c>#this</c>, with a method to call on it - corpus gap nine.
         /// </summary>
+        /// <remarks>See the class-level note; kept beside the corpus it belongs to.</remarks>
         /// <remarks>
         /// Every method call the corpus generated had the root as its receiver (<c>Text(x)</c>,
         /// <c>Count(x)</c>), so the receiver and <c>#this</c> were the same object and item 30 could
@@ -148,6 +177,10 @@ namespace SpringExpressionsTests.Expressions
             // path answered). Found by hand while diagnosing something else, like all seven before it;
             // see _Docs/open-issues.md items 29 and 31.
             public Type SomeType { get; set; } = typeof(string);
+
+            // Corpus gap ten: something to construct and something to index whose resolution is
+            // chosen from the operand - see the ResolutionProbe remarks.
+            public ResolutionProbe Probe { get; set; } = new ResolutionProbe(0);
 
             public Tally Counted { get; set; } = new Tally(7);
             public List<Tally> Counts { get; set; } = new List<Tally>
@@ -440,6 +473,13 @@ namespace SpringExpressionsTests.Expressions
                 // answer lived in. Both rows above call a method on the *root*, so receiver and #this
                 // are one object and an argument resolved against either gives the same value.
                 yield return "Inner.Echo(" + value + ")";
+
+                // Corpus gap ten: a constructor and an indexer chosen from the operand's type, which
+                // is what item 35's two cache defects needed. Nothing here constructed a fixture type
+                // or indexed with anything but a constant before.
+                yield return "new SpringExpressionsTests.Expressions.ResolutionProbe("
+                             + value + ").Picked";
+                yield return "Probe[" + value + "]";
                 yield return "{" + value + ", " + value + "}";
                 yield return "#{'k' : " + value + "}";
                 yield return "new int[] {" + value + "}";

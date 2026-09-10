@@ -707,9 +707,98 @@ namespace SpringExpressions
                     return converted;
             }
 
+            if (TryBuildCollectionOfTheSameItemType(newValueExpression, memberType, out converted))
+                return converted;
+
             throw CannotCompile(
                 $"no compiled assignment of a '{newValueExpression.Type}' to '{name}', which is of type "
                 + $"'{memberType}'; the interpreter converts values the emitted assignment cannot");
+        }
+
+        /// <summary>
+        /// Builds the target's collection kind when the two sides hold the <b>same item type</b> -
+        /// a list into an array, a set into a list, an array into a set - or answers false.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// <b>The rule is the identical item type, and that is what makes this safe.</b> The
+        /// interpreter converts <i>element by element</i>
+        /// (<c>TypeConversionUtils.ToArrayWithTypeConversion</c> and its sibling), so it can turn a
+        /// <c>List&lt;int&gt;</c> into a <c>string[]</c> of <c>"1"</c>, <c>"2"</c>. Nothing emitted here
+        /// reproduces that, and guessing at a conversion is how the two backends drift. Where the item
+        /// types already match there is nothing to convert - only a container to build - and the two
+        /// backends agree by construction, including on the result's runtime type.
+        /// </p>
+        /// <p>
+        /// So <c>Strings = Ints</c> (a <c>List&lt;int&gt;</c> into a <c>string[]</c>) is still refused
+        /// and still served by the interpreter, while the ten other rows that used to fall back now
+        /// compile. Measured before and after.
+        /// </p>
+        /// <p>
+        /// <b>A value already assignable never reaches here</b>, because
+        /// <c>ArrayElementConversions</c> has taken it above - which matters: the interpreter returns
+        /// such a value <i>as it is</i>, and copying it would lose the reference identity
+        /// <c>ConstructedSetExitsTests</c> exists to protect.
+        /// </p>
+        /// <p>
+        /// <b>The vendored set is deliberately not built here.</b> A
+        /// <c>SpringCollections.Generic.ISet&lt;T&gt;</c> target keeps falling back, where the
+        /// interpreter builds a <c>HashedSet&lt;&gt;</c>: teaching the emitted path a vendored type on
+        /// its way out of this codebase buys a shape nobody writes.
+        /// </p>
+        /// </remarks>
+        private static bool TryBuildCollectionOfTheSameItemType(
+            [NotNull] LExpression newValueExpression,
+            [NotNull] Type memberType,
+            out LExpression converted)
+        {
+            converted = null;
+
+            var sourceItem = CollectionOperandUtils.GetEnumerableItemType(newValueExpression.Type);
+
+            if (sourceItem == null)
+                return false;
+
+            var targetItem = CollectionOperandUtils.GetEnumerableItemType(memberType);
+
+            if (targetItem == null || targetItem != sourceItem)
+                return false;
+
+            // The source has to be seen as IEnumerable<T> for any of the three constructions.
+            var sequenceType = typeof(IEnumerable<>).MakeGenericType(sourceItem);
+
+            if (!sequenceType.IsAssignableFrom(newValueExpression.Type))
+                return false;
+
+            var source = newValueExpression.Type == sequenceType
+                ? newValueExpression
+                : LExpression.Convert(newValueExpression, sequenceType);
+
+            if (memberType.IsArray)
+            {
+                converted = LExpression.Call(
+                    typeof(System.Linq.Enumerable), "ToArray", new[] { sourceItem }, source);
+
+                return true;
+            }
+
+            // A concrete type the target can hold, chosen to match what the interpreter builds: a
+            // HashSet for a set-shaped target, a List for everything else.
+            var built = SpringExpressions.Expressions.LinqExpressionHelpers.MethodBaseHelpers
+                    .IsGenericSet(memberType)
+                ? typeof(HashSet<>).MakeGenericType(sourceItem)
+                : typeof(List<>).MakeGenericType(sourceItem);
+
+            if (!memberType.IsAssignableFrom(built))
+                return false;
+
+            var constructor = built.GetConstructor(new[] { sequenceType });
+
+            if (constructor == null)
+                return false;
+
+            converted = LExpression.New(constructor, source);
+            return true;
         }
 
         private void RefuseObjectValueAgainstTypedMember(
