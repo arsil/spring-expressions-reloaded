@@ -825,7 +825,7 @@ namespace SpringExpressions
         /// <param name="context">Context to evaluate expressions against.</param>
         /// <param name="evalContext">Current expression evaluation context.</param>
         /// <param name="newValue">New value for this node.</param>
-        protected override void Set(object context, EvaluationContext evalContext, object newValue)
+        protected override object Set(object context, EvaluationContext evalContext, object newValue)
         {
             lock (this)
             {
@@ -844,12 +844,11 @@ namespace SpringExpressions
                 }
                 if (IsProperty || IsField)
                 {
-                    SetPropertyOrFieldValue(context, evalContext, newValue);
+                    return SetPropertyOrFieldValue(context, evalContext, newValue);
                 }
-                else
-                {
-                    accessor.Set(context, newValue);
-                }
+
+                accessor.Set(context, newValue);
+                return newValue;
             }
         }
 
@@ -911,7 +910,7 @@ namespace SpringExpressions
         /// <param name="context">Context to evaluate expressions against.</param>
         /// <param name="evalContext">Current expression evaluation context.</param>
         /// <param name="newValue">New value for this node.</param>
-        private void SetPropertyOrFieldValue(object context, EvaluationContext evalContext, object newValue)
+        private object SetPropertyOrFieldValue(object context, EvaluationContext evalContext, object newValue)
         {
             bool isWriteable = accessor.IsWriteable;
             Type targetType = accessor.TargetType;
@@ -935,6 +934,7 @@ namespace SpringExpressions
                 else if (newValue == null || ObjectUtils.IsAssignable(targetType, newValue)) // targetType.IsAssignableFrom(newValue.GetType())
                 {
                     SetPropertyOrFieldValueInternal(context, newValue);
+                    return newValue;
                 }
                 else if (!RemotingServices.IsTransparentProxy(newValue) &&
                          (newValue is IList || newValue is IDictionary || newValue is ISet))
@@ -944,12 +944,16 @@ namespace SpringExpressions
                         object tmpValue =
                             TypeConversionUtils.ConvertValueIfNecessary(targetType, newValue, this.memberName);
                         SetPropertyOrFieldValueInternal(context, tmpValue);
+                        return tmpValue;
                     }
+
+                    return newValue;
                 }
                 else
                 {
                     object tmpValue = TypeConversionUtils.ConvertValueIfNecessary(targetType, newValue, this.memberName);
                     SetPropertyOrFieldValueInternal(context, tmpValue);
+                    return tmpValue;
                 }
             }
             catch (TargetInvocationException ex)
@@ -983,6 +987,9 @@ namespace SpringExpressions
                     new PropertyChangeEventArgs(this.memberName, null, newValue);
                 throw new TypeMismatchException(propertyChangeEvent, targetType, ex);
             }
+
+            // Reached only through the read-only branch, where AddToCollections took the value.
+            return newValue;
         }
 
         /// <summary>

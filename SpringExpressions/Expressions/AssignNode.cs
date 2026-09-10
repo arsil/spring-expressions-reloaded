@@ -79,9 +79,12 @@ namespace SpringExpressions
                 result = GetValue(((BaseNode)right), context, evalContext);
             }
 
-            SetValue(((BaseNode)left), context, evalContext, result );
-
-            return result;
+            // An assignment evaluates to the value as the *target* holds it, not to the value as it
+            // was read - which is C#'s rule ("the result has the same type as the left operand") and
+            // what this engine's compiled path has always emitted, since a LINQ Assign yields the
+            // assigned value. Returning the value read made 'Big = 5' into a long member answer
+            // Int32 interpreted and Int64 compiled.
+            return SetValue(((BaseNode)left), context, evalContext, result);
         }
     }
 }

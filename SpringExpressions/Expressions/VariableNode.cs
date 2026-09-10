@@ -153,12 +153,15 @@ namespace SpringExpressions
         /// <param name="context">Context to evaluate expressions against.</param>
         /// <param name="evalContext">Current expression evaluation context.</param>
         /// <param name="newValue">New value for this node.</param>
-        protected override void Set(object context, EvaluationContext evalContext, object newValue)
+        protected override object Set(object context, EvaluationContext evalContext, object newValue)
         {
             var variableName = getText();
 
             ValidateForbiddenVariablesForSetter(variableName);
             SetVariable(evalContext.Variables, variableName, newValue);
+
+            // A variable is untyped, so nothing converts and the value written is the value given.
+            return newValue;
         }
 
         private static LExpression BoxIfValueType(LExpression expression)

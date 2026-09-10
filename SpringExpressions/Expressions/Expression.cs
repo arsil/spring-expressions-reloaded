@@ -650,7 +650,7 @@ namespace SpringExpressions
 		/// <param name="evalContext">Current expression evaluation context.</param>
 		/// <param name="newValue">Value to set last node to.</param>
 		/// <exception cref="NotSupportedException">If navigation expression is empty.</exception>
-		protected override void Set( object context, EvaluationContext evalContext, object newValue )
+		protected override object Set( object context, EvaluationContext evalContext, object newValue )
         {
             AssertChainIsAssignable();
 
@@ -672,12 +672,10 @@ namespace SpringExpressions
                         throw new NotWritablePropertyException( "Cannot read the value of '" + node.getText() + "' property in the expression.", e );
                     }
                 }
-                SetValue(((BaseNode)node), target, evalContext, newValue);
+                return SetValue(((BaseNode)node), target, evalContext, newValue);
             }
-            else
-            {
-                throw new NotSupportedException( "You cannot set the value for an empty expression." );
-            }
+
+            throw new NotSupportedException( "You cannot set the value for an empty expression." );
         }
 
         // Deleted 2026-09-04: internal PropertyInfo GetPropertyInfo(object, IDictionary), inherited

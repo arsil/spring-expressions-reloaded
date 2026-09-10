@@ -240,7 +240,7 @@ namespace SpringExpressions
         /// because most of the node types do not support value setting.
         /// </p>
         /// </remarks>
-        protected virtual void Set(object context, EvaluationContext evalContext, object newValue)
+        protected virtual object Set(object context, EvaluationContext evalContext, object newValue)
         {
             throw new NotSupportedException("You cannot set the value for the node of this type: [" + this.GetType().Name + "].");
         }
@@ -266,9 +266,13 @@ namespace SpringExpressions
             return node.Get(context, evalContext);
         }
 
-        protected void SetValue(BaseNode node, object context, EvaluationContext evalContext, object newValue)
+        /// <summary>
+        /// Writes <paramref name="newValue"/> through <paramref name="node"/> and answers the value
+        /// as the target holds it, which is what an assignment expression evaluates to.
+        /// </summary>
+        protected object SetValue(BaseNode node, object context, EvaluationContext evalContext, object newValue)
         {
-            node.Set(context, evalContext, newValue);
+            return node.Set(context, evalContext, newValue);
         }
 
 		[NotNull]

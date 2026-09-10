@@ -129,7 +129,7 @@ namespace SpringExpressions
         /// <param name="context">Context to evaluate expressions against.</param>
         /// <param name="evalContext">Current expression evaluation context.</param>
         /// <param name="newValue">New value for this node.</param>
-        protected override void Set(object context, EvaluationContext evalContext, object newValue)
+        protected override object Set(object context, EvaluationContext evalContext, object newValue)
         {
             string varName = this.getText();
             IDictionary locals = evalContext.LocalVariables;
@@ -139,6 +139,9 @@ namespace SpringExpressions
                 evalContext.LocalVariables = locals;
             }
             locals[varName] = newValue;
+
+            // A local is untyped, so nothing converts and the value written is the value given.
+            return newValue;
         }
     }
 }

@@ -212,14 +212,47 @@ namespace SpringExpressions
                 throw CannotCompile("no compiled indexer for this container and index type");
             }
 
-                // TODO: error: ??? nie rozumiem komentarza:) może pobranie arraya? tylko trzeba przetestować, czy nie stracimy typu!.. .bo jak przez object, to syf!
             if (contextExpression.Type.IsArray)
             {
+                var elementType = contextExpression.Type.GetElementType();
+
+                var element = newValueExpression;
+
+                if (element.Type != elementType)
+                {
+                    var nullLiteral = element is System.Linq.Expressions.ConstantExpression constant
+                        && constant.Value == null;
+
+                    if (nullLiteral
+                        && (!elementType.IsValueType || Nullable.GetUnderlyingType(elementType) != null))
+                    {
+                        element = LExpression.Constant(null, elementType);
+                    }
+                    else if (PreservesTheAssignedValue(element.Type, elementType)
+                             || SpringUtil.TypeCheckingUtils.IsCSharpImplicitNumericConversion(
+                                 element.Type, elementType))
+                    {
+                        // A widening write converts and the assignment answers the widened value -
+                        // Array.SetValue widens on the interpreted side too, so the two agree.
+                        element = LExpression.Convert(element, elementType);
+                    }
+                    else
+                    {
+                        throw CannotCompile(
+                            $"cannot write a value of type '{newValueExpression.Type}' into an array "
+                            + $"of '{elementType}' without a conversion the interpreter would not make");
+                    }
+                }
+
                 try
                 {
+                    // ArrayAccess, not ArrayIndex. ArrayIndex yields a read-only node, so Assign
+                    // refused it with "Expression must be writeable" - reported as a type mismatch
+                    // between two identical types, which is what made the cause hard to see. An
+                    // ArrayAccess is an IndexExpression and is assignable.
                     return BuildAssign(
-                        LExpression.ArrayIndex(contextExpression, arguments),
-                        newValueExpression);
+                        LExpression.ArrayAccess(contextExpression, arguments),
+                        element);
                 }
                 catch (ArgumentException)
                 {
@@ -252,7 +285,88 @@ namespace SpringExpressions
             var finalArguments = new List<LExpression>(resolved.Item2);
             MethodNode.ConvertParameters(this, resolved.Item1, finalArguments);
 
+            // An assignment evaluates to the value assigned - AssignNode.Get returns it - and a call
+            // to a void set accessor evaluates to nothing, so 'Ints[0] = 5' answered 5 interpreted
+            // and null compiled. Assigning through the indexer as an IndexExpression fixes both
+            // halves at once: the node is an Assign, so it yields the value, and the void-expression
+            // compiler keeps accepting it (it admits a void body or an Assign, and would have
+            // refused a Block).
+            var last = finalArguments.Count - 1;
+
+            if (!PreservesTheAssignedValue(resolved.Item2[last].Type, finalArguments[last].Type))
+            {
+                throw CannotCompile(
+                    $"cannot write a value of type '{newValueExpression.Type}' through this indexer "
+                    + "without converting it, and the interpreter - which writes a collection through "
+                    + "the non-generic IList - cannot perform that write at all, so compiling it "
+                    + "would answer where the interpreter throws");
+            }
+
+            var indexer = FindIndexerFor(resolved.Item1);
+
+            if (indexer != null)
+            {
+                try
+                {
+                    return BuildAssign(
+                        LExpression.Property(
+                            contextExpression, indexer, finalArguments.GetRange(0, last)),
+                        finalArguments[last]);
+                }
+                catch (ArgumentException)
+                {
+                    // The accessor resolved but the property form will not take these arguments -
+                    // fall through to the call, which is what this emitted before.
+                }
+            }
+
             return LExpression.Call(contextExpression, resolved.Item1, finalArguments);
+        }
+
+        /// <summary>
+        /// Whether writing a <paramref name="from"/> into a slot of type <paramref name="to"/> needs
+        /// no conversion at all - an identity, reference or boxing write.
+        /// </summary>
+        /// <remarks>
+        /// A conversion is not forbidden here; the array branch performs the implicit numeric
+        /// widenings, because <see cref="Array.SetValue"/> widens on the interpreted side too and the
+        /// two then agree. This is the cheaper question asked first, and it is what lets
+        /// <c>Officers['advisors'] = &lt;an Inventor[]&gt;</c> through an <c>object</c> slot compile:
+        /// the value is the same object either way.
+        /// <p>
+        /// The accessor branch stops here rather than widening, and the reason is not the value but
+        /// the interpreter: it writes a list through the <b>non-generic</b>
+        /// <see cref="System.Collections.IList"/>, which will not take a boxed <c>int</c> for a
+        /// <c>long</c> slot. Converting here would answer where the interpreter throws.
+        /// </p>
+        /// </remarks>
+        private static bool PreservesTheAssignedValue([NotNull] Type from, [NotNull] Type to)
+        {
+            return from == to || to.IsAssignableFrom(from);
+        }
+
+        /// <summary>
+        /// The indexer whose set accessor is <paramref name="setAccessor"/>, or null when the
+        /// declaring type does not present one - in which case the caller emits the accessor call.
+        /// </summary>
+        [CanBeNull]
+        private static PropertyInfo FindIndexerFor([NotNull] MethodInfo setAccessor)
+        {
+            var declaringType = setAccessor.DeclaringType;
+            if (declaringType == null)
+                return null;
+
+            foreach (var property in declaringType.GetProperties(
+                         BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy))
+            {
+                if (property.GetIndexParameters().Length > 0
+                    && property.GetSetMethod(true) == setAccessor)
+                {
+                    return property;
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -403,7 +517,7 @@ namespace SpringExpressions
         /// <param name="context">Context to evaluate expressions against.</param>
         /// <param name="evalContext">Current expression evaluation context.</param>
         /// <param name="newValue">New value for this node.</param>
-        protected override void Set(object context, EvaluationContext evalContext, object newValue)
+        protected override object Set(object context, EvaluationContext evalContext, object newValue)
         {
             if (context == null)
             {
@@ -415,20 +529,23 @@ namespace SpringExpressions
             {
                 if (context is Array)
                 {
-                    SetArrayValue( (Array) context, evalContext,newValue );
+                    return SetArrayValue( (Array) context, evalContext,newValue );
                 }
-                else if (context is IList)
+
+                if (context is IList)
                 {
                     SetListValue( (IList) context, evalContext,newValue );
+                    return newValue;
                 }
-                else if (context is IDictionary)
+
+                if (context is IDictionary)
                 {
                     SetDictionaryValue( (IDictionary) context, evalContext,newValue );
+                    return newValue;
                 }
-                else
-                {
-                    SetGenericIndexer( context, evalContext,newValue );
-                }
+
+                SetGenericIndexer( context, evalContext,newValue );
+                return newValue;
             }
             catch (TargetInvocationException e)
             {
@@ -499,7 +616,7 @@ namespace SpringExpressions
             return indexer.GetValue(context, indices);
         }
 
-        private void SetArrayValue(Array array, EvaluationContext evalContext,object newValue)
+        private object SetArrayValue(Array array, EvaluationContext evalContext,object newValue)
         {
             int argCount = array.Rank;
             AssertArgumentCount(argCount);
@@ -510,6 +627,12 @@ namespace SpringExpressions
                 indices[i] = (Int32) ResolveArgument(i, evalContext);
             }
             array.SetValue(newValue, indices);
+
+            // An assignment evaluates to the value as the target holds it, and Array.SetValue widens
+            // by the CLR's primitive table on the way in - so an int written into a long[] is a long
+            // from here on, which is what C# answers for (arr[0] = 5) and what the compiled path
+            // emits. Reading the slot back is exact and has no side effects on an array.
+            return array.GetValue(indices);
         }
 
         private void SetListValue(IList list, EvaluationContext evalContext,object newValue)
