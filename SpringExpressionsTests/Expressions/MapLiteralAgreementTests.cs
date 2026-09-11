@@ -1,8 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 
 using NUnit.Framework;
 
 using SpringExpressions;
+using SpringExpressions.Expressions.Compiling.Expressions;
 
 namespace SpringExpressionsTests.Expressions
 {
@@ -33,8 +35,9 @@ namespace SpringExpressionsTests.Expressions
         {
             var result = TestCompiledVsInterpreted<object>("#{'a' : 1, 'b' : 2}").Result;
 
-            Assert.AreEqual(typeof(Dictionary<object, object>), result.GetType());
-            Assert.AreEqual(new Dictionary<object, object> { { "a", 1 }, { "b", 2 } }, result);
+            // Uniform entries keep both component types on both backends since the map-literal rule.
+            Assert.AreEqual(typeof(Dictionary<string, int>), result.GetType());
+            Assert.AreEqual(new Dictionary<string, int> { { "a", 1 }, { "b", 2 } }, result);
         }
 
         /// <summary>
@@ -60,8 +63,10 @@ namespace SpringExpressionsTests.Expressions
         {
             var result = TestCompiledVsInterpreted<object>("#{1 : 'a', 2 : 5}").Result;
 
-            Assert.AreEqual(typeof(Dictionary<object, object>), result.GetType());
-            Assert.AreEqual(new Dictionary<object, object> { { 1, "a" }, { 2, 5 } }, result);
+            // The keys are uniform and survive; the values are not and fall to object. Each component
+            // is unified on its own, so a mismatch in one does not collapse the other.
+            Assert.AreEqual(typeof(Dictionary<int, object>), result.GetType());
+            Assert.AreEqual(new Dictionary<int, object> { { 1, "a" }, { 2, 5 } }, result);
 
             var typed = TestCompiledVsInterpreted<Dictionary<int, object>>("#{1 : 'a', 2 : 5}").Result;
 
@@ -77,8 +82,8 @@ namespace SpringExpressionsTests.Expressions
         {
             var result = TestCompiledVsInterpreted<object>("#{1 : 'a', 'x' : 'b'}").Result;
 
-            Assert.AreEqual(typeof(Dictionary<object, object>), result.GetType());
-            Assert.AreEqual(new Dictionary<object, object> { { 1, "a" }, { "x", "b" } }, result);
+            Assert.AreEqual(typeof(Dictionary<object, string>), result.GetType());
+            Assert.AreEqual(new Dictionary<object, string> { { 1, "a" }, { "x", "b" } }, result);
 
             var typed = TestCompiledVsInterpreted<Dictionary<object, string>>("#{1 : 'a', 'x' : 'b'}").Result;
 
@@ -123,5 +128,99 @@ namespace SpringExpressionsTests.Expressions
             Assert.AreSame(holder.Map,
                 InterpretGetter<TypedMapHolder, Dictionary<string, int>>("Map").GetValue(holder));
         }
+
+        // ---------- the literal rule, asked of each component ----------
+
+        /// <summary>
+        /// A map literal keeps its entry types on both backends when nothing narrower was requested -
+        /// the list literal's rule, applied to keys and values independently.
+        /// </summary>
+        [Test]
+        public void AMapLiteralKeepsItsEntryTypesOnBothBackends()
+        {
+            Assert.AreEqual(typeof(Dictionary<string, int>),
+                CompileGetter<object>("#{'a' : 1, 'b' : 2}").GetValue().GetType());
+            Assert.AreEqual(typeof(Dictionary<string, int>),
+                InterpretGetter<object>("#{'a' : 1, 'b' : 2}").GetValue().GetType());
+        }
+
+        /// <summary>
+        /// A component whose declared type the runtime can narrow has no compiled form, because the
+        /// interpreter would infer a different type for it.
+        /// </summary>
+        /// <remarks>
+        /// <c>Anything</c> is declared <c>object</c> and holds an <c>int</c>. The interpreter's answer
+        /// is asserted beside the refusal, so this cannot pass because the expression is meaningless.
+        /// </remarks>
+        [Test]
+        public void AValueWhoseRuntimeTypeCouldBeNarrowerIsNotCompiled()
+        {
+            var holder = new NarrowableEntryHolder();
+
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<NarrowableEntryHolder, object>("#{1 : Anything}"));
+
+            Assert.AreEqual(typeof(Dictionary<int, int>),
+                InterpretGetter<NarrowableEntryHolder, object>("#{1 : Anything}")
+                    .GetValue(holder).GetType());
+        }
+
+        /// <summary>
+        /// And the same on the key side, which is the half a whole-pair rule would have missed.
+        /// </summary>
+        [Test]
+        public void AKeyWhoseRuntimeTypeCouldBeNarrowerIsNotCompiled()
+        {
+            var holder = new NarrowableEntryHolder();
+
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<NarrowableEntryHolder, object>("#{Anything : 1}"));
+
+            Assert.AreEqual(typeof(Dictionary<int, int>),
+                InterpretGetter<NarrowableEntryHolder, object>("#{Anything : 1}")
+                    .GetValue(holder).GetType());
+        }
+
+        /// <summary>
+        /// A null component is declined too, and deliberately - unlike the list literal, where a null
+        /// element is exempted.
+        /// </summary>
+        /// <remarks>
+        /// DO NOT "FIX" THIS BY EXEMPTING object. By the time an entry is a KeyValuePair&lt;object, T&gt;
+        /// the difference between "a null was written here" and "this component is genuinely
+        /// object-typed" is gone, so exempting object would let <c>#{Anything : 1}</c> through - where
+        /// the compiled path says object and the interpreter says int. The cost is this one shape,
+        /// which both backends would in fact have agreed on, and the interpreter serves it.
+        /// </remarks>
+        [Test]
+        public void ANullComponentIsDeclinedEvenThoughTheBackendsWouldAgree()
+        {
+            Assert.Throws<CompileErrorException>(() => CompileGetter<object>("#{1 : null}"));
+
+            Assert.AreEqual(typeof(Dictionary<object, object>),
+                InterpretGetter<object>("#{1 : null}").GetValue().GetType());
+        }
+
+        /// <summary>
+        /// The cost, stated rather than hidden: a collection is a non-sealed reference type, so a map
+        /// literal holding one has no compiled form. The interpreter serves it.
+        /// </summary>
+        [Test]
+        public void AMapLiteralHoldingACollectionIsNotCompiled()
+        {
+            Assert.Throws<CompileErrorException>(() => CompileGetter<object>("#{1 : {1,2,3}}"));
+
+            var interpreted = (IDictionary)InterpretGetter<object>("#{1 : {1,2,3}}").GetValue();
+
+            Assert.AreEqual(typeof(List<int>), interpreted[1].GetType());
+        }
+    }
+
+    /// <summary>
+    /// A component whose declared type is wider than the value it holds.
+    /// </summary>
+    public class NarrowableEntryHolder
+    {
+        public object Anything { get; set; } = 45;
     }
 }

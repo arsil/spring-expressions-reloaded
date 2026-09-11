@@ -292,6 +292,54 @@ namespace SpringUtil
         }
 
         /// <summary>
+        /// Whether a value of static type <paramref name="type"/> can turn out to be something more
+        /// specific at runtime.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// This is what decides whether the interpreter, which only ever sees runtime types, can reach
+        /// the same answer as the compiled path, which only ever sees static ones. It is asked of every
+        /// element of a collection <i>literal</i>: where nothing can narrow, both backends compute the
+        /// same item type and the literal keeps it; where something can, the compiled path declines the
+        /// literal so that only the interpreter runs and there is nothing to disagree with.
+        /// </p>
+        /// <p>
+        /// Measured over the shapes a literal holds, rather than reasoned about:
+        /// </p>
+        /// <list type="bullet">
+        /// <item><c>int</c>, <c>DateTime</c>, an enum - a non-nullable value type is exactly itself when
+        /// boxed.</item>
+        /// <item><c>string</c>, or any sealed class - nothing can derive from it.</item>
+        /// <item><c>object</c>, or any non-sealed class or interface - the value may be a subtype, and
+        /// the interpreter would name that subtype. A collection is one of these, which is why a
+        /// literal holding a collection has no compiled form.</item>
+        /// <item><c>int?</c> - boxing a nullable yields the underlying type or a null reference, never a
+        /// <c>Nullable&lt;int&gt;</c>, so the two can never agree.</item>
+        /// <item>An array is covariant only over reference element types: an <c>int[]</c> is always an
+        /// <c>int[]</c>, while an <c>object[]</c> may be a <c>string[]</c>.</item>
+        /// </list>
+        /// <p>
+        /// A null literal is not asked about by the callers at all - it contributes no runtime type, so
+        /// both backends take the item type from the other elements and already agree.
+        /// </p>
+        /// </remarks>
+        public static bool RuntimeCanNarrow([NotNull] Type type)
+        {
+            if (type.IsArray)
+            {
+                var elementType = type.GetElementType();
+                return elementType == null
+                       || !elementType.IsValueType
+                       || Nullable.GetUnderlyingType(elementType) != null;
+            }
+
+            if (type.IsValueType)
+                return Nullable.GetUnderlyingType(type) != null;
+
+            return !type.IsSealed;
+        }
+
+        /// <summary>
         /// An integral type, char or enum, nullable or not - the targets a real-to-integral conversion
         /// would have to round or truncate into.
         /// </summary>

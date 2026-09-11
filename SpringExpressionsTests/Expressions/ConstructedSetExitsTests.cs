@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using NUnit.Framework;
 
 using SpringExpressions;
+using SpringExpressions.Expressions.Compiling.Expressions;
 
 namespace SpringExpressionsTests.Expressions
 {
@@ -51,6 +52,19 @@ namespace SpringExpressionsTests.Expressions
             Received = value;
             return "typed";
         }
+
+        /// <summary>
+        /// A parameter that names a collection but no item type. It accepts the typed shape and the
+        /// interpreter's alike, which is exactly why it has to be given the interpreter's.
+        /// </summary>
+        public string TakeNonGenericList(IList value)
+        {
+            Received = value;
+            return "non-generic";
+        }
+
+        /// <summary>The same question as a member rather than a parameter.</summary>
+        public IList NonGenericListProp { get; set; }
     }
 
     /// <summary>
@@ -98,13 +112,20 @@ namespace SpringExpressionsTests.Expressions
 
         // ---------- every other exit: reshaped as well, so the backends agree ----------
 
+        /// <summary>
+        /// A literal holding a collection has no compiled form - a collection is a non-sealed reference
+        /// type, and the literal rule declines an element the runtime could narrow - so the interpreter
+        /// serves this shape and its set is object-typed as always.
+        /// </summary>
+        /// <remarks>
+        /// This was a compiled pin until the literal rule landed. It is kept as the record of what that
+        /// rule costs at this exit, and its interpreted half is unchanged.
+        /// </remarks>
         [Test]
-        public void NestedInAReturnedList()
+        public void NestedInAReturnedListIsNotCompiled()
         {
-            var outer = (IList)CompileGetter<ConstructedSetExitsContext, object>("{ {1,2} + {3} }")
-                .GetValue(new ConstructedSetExitsContext());
-
-            Assert.AreEqual(typeof(HashSet<object>), outer[0].GetType());
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<ConstructedSetExitsContext, object>("{ {1,2} + {3} }"));
         }
 
         [Test]
@@ -116,13 +137,16 @@ namespace SpringExpressionsTests.Expressions
             Assert.AreEqual(typeof(HashSet<object>), outer[0].GetType());
         }
 
+        /// <summary>
+        /// A map literal holding a collection has no compiled form, for the same reason as the list
+        /// above: a collection is a non-sealed reference type, and the literal rule declines a
+        /// component the runtime could narrow.
+        /// </summary>
         [Test]
-        public void AsAValueInAReturnedMap()
+        public void AsAValueInAReturnedMapIsNotCompiled()
         {
-            var map = (IDictionary)CompileGetter<ConstructedSetExitsContext, object>("#{1 : {1,2} + {3}}")
-                .GetValue(new ConstructedSetExitsContext());
-
-            Assert.AreEqual(typeof(HashSet<object>), map[1].GetType());
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<ConstructedSetExitsContext, object>("#{1 : {1,2} + {3}}"));
         }
 
         [Test]
@@ -290,6 +314,91 @@ namespace SpringExpressionsTests.Expressions
                     .GetValue(new ConstructedSetExitsContext()));
         }
 
+        // ---------- a sink that names no item type gets the interpreter's shape ----------
+
+        /// <summary>
+        /// The non-generic System.Collections.IList accepts a List&lt;int&gt; and a List&lt;object&gt;
+        /// alike, so it cannot settle which one to hand over - and the answer is the interpreter's,
+        /// exactly as for an object-typed sink.
+        /// </summary>
+        /// <remarks>
+        /// These thirteen rows survived the first pass at reshaping the exits, because the question
+        /// being asked was "does the sink accept the typed shape". It does, so the item type was kept
+        /// and the interpreter still handed over a collection of object. The right question is whether
+        /// the sink accepts the INTERPRETER's shape: if it does, that is what both backends hand over.
+        /// Found by measuring the parameter surface for a different question, not by a test.
+        /// </remarks>
+        /// <summary>
+        /// A projection, not a literal: a literal keeps its own item type on both backends now, so it
+        /// no longer exercises the reshaping at all. A projection is computed, stays object-typed, and
+        /// is what these rows are about.
+        /// </summary>
+        [Test]
+        public void PassedToANonGenericCollectionParameter()
+        {
+            var context = new ConstructedSetExitsContext();
+
+            CompileGetter<ConstructedSetExitsContext, object>("TakeNonGenericList(Owned.!{#this})")
+                .GetValue(context);
+
+            Assert.AreEqual(typeof(List<object>), context.Received.GetType());
+        }
+
+        [Test]
+        public void PassedToANonGenericCollectionParameterByTheInterpreter()
+        {
+            var context = new ConstructedSetExitsContext();
+
+            InterpretGetter<ConstructedSetExitsContext, object>("TakeNonGenericList(Owned.!{#this})")
+                .GetValue(context);
+
+            Assert.AreEqual(typeof(List<object>), context.Received.GetType());
+        }
+
+        [Test]
+        public void AssignedToANonGenericListProperty()
+        {
+            var context = new ConstructedSetExitsContext();
+
+            CompileGetter<ConstructedSetExitsContext, object>("NonGenericListProp = Owned.!{#this}")
+                .GetValue(context);
+
+            Assert.AreEqual(typeof(List<object>), context.NonGenericListProp.GetType());
+        }
+
+        [Test]
+        public void AssignedToANonGenericListPropertyByTheInterpreter()
+        {
+            var context = new ConstructedSetExitsContext();
+
+            InterpretGetter<ConstructedSetExitsContext, object>("NonGenericListProp = Owned.!{#this}")
+                .GetValue(context);
+
+            Assert.AreEqual(typeof(List<object>), context.NonGenericListProp.GetType());
+        }
+
+        /// <summary>
+        /// And the same at the root, which is where the predicate lives: a non-generic requested type
+        /// gets the interpreter's shape, while one that names the item type still gets it.
+        /// </summary>
+        [Test]
+        public void RequestedAsANonGenericList()
+        {
+            var value = CompileGetter<ConstructedSetExitsContext, IList>("Owned.!{#this}")
+                .GetValue(new ConstructedSetExitsContext());
+
+            Assert.AreEqual(typeof(List<object>), value.GetType());
+        }
+
+        [Test]
+        public void RequestedAsAListOfInt()
+        {
+            var value = CompileGetter<ConstructedSetExitsContext, List<int>>("Owned.!{#this}")
+                .GetValue(new ConstructedSetExitsContext());
+
+            Assert.AreEqual(typeof(List<int>), value.GetType());
+        }
+
         // ---------- a collection the caller owns is never reshaped ----------
 
         /// <summary>
@@ -311,19 +420,22 @@ namespace SpringExpressionsTests.Expressions
             Assert.AreSame(interpretedContext.Owned, interpretedContext.Received);
         }
 
+        /// <summary>
+        /// Nesting the caller's own collection in a literal is interpreter-only for the same reason as
+        /// the test above - the element is a collection - and the instance still comes through
+        /// untouched, which is what this row is really guarding.
+        /// </summary>
         [Test]
-        public void ACallerOwnedCollectionNestedInABuiltListIsTheVeryInstanceOnBothBackends()
+        public void ACallerOwnedCollectionNestedInABuiltListIsTheVeryInstance()
         {
-            var compiledContext = new ConstructedSetExitsContext();
-            var compiledOuter = (IList)CompileGetter<ConstructedSetExitsContext, object>("{ Owned }")
-                .GetValue(compiledContext);
+            var context = new ConstructedSetExitsContext();
+            var outer = (IList)InterpretGetter<ConstructedSetExitsContext, object>("{ Owned }")
+                .GetValue(context);
 
-            var interpretedContext = new ConstructedSetExitsContext();
-            var interpretedOuter = (IList)InterpretGetter<ConstructedSetExitsContext, object>("{ Owned }")
-                .GetValue(interpretedContext);
+            Assert.AreSame(context.Owned, outer[0]);
 
-            Assert.AreSame(compiledContext.Owned, compiledOuter[0]);
-            Assert.AreSame(interpretedContext.Owned, interpretedOuter[0]);
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<ConstructedSetExitsContext, object>("{ Owned }"));
         }
 
         [Test]

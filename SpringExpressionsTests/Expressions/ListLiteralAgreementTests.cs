@@ -1,8 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 
 using NUnit.Framework;
 
 using SpringExpressions;
+using SpringExpressions.Expressions.Compiling.Expressions;
 
 namespace SpringExpressionsTests.Expressions
 {
@@ -81,19 +83,56 @@ namespace SpringExpressionsTests.Expressions
             Assert.AreEqual(typeof(List<int>), CompileGetter<List<int>>("{1,2,3}").GetValue().GetType());
             Assert.AreEqual(typeof(List<int>), CompileGetter<IList<int>>("{1,2,3}").GetValue().GetType());
             Assert.AreEqual(typeof(List<int>), CompileGetter<IEnumerable<int>>("{1,2,3}").GetValue().GetType());
-            Assert.AreEqual(typeof(List<object>), CompileGetter<object>("{1,2,3}").GetValue().GetType());
+            Assert.AreEqual(typeof(List<int>), CompileGetter<object>("{1,2,3}").GetValue().GetType());
         }
 
         /// <summary>
-        /// A literal is a list, so duplicates and order survive - the reprojection must not deduplicate the
-        /// way the set one does.
+        /// A literal keeps the item type its items share, on both backends, even when nothing narrower
+        /// was asked for - so an integer literal is a List&lt;int&gt; and not a List&lt;object&gt;.
+        /// </summary>
+        /// <remarks>
+        /// The interpreter reaches that item type from the items' runtime types and the compiled path
+        /// from their static ones, and the compiled path declines the literal whenever those two could
+        /// differ - see AnElementWhoseRuntimeTypeCouldBeNarrowerIsNotCompiled. This is the one place in
+        /// the engine where a collection it built is not object-typed, and it is possible here because
+        /// a literal's items are written down: it always has at least one, and each one's static type
+        /// is right there.
+        /// </remarks>
+        [Test]
+        public void ALiteralKeepsItsItemTypeOnBothBackends()
+        {
+            Assert.AreEqual(typeof(List<int>),
+                CompileGetter<object>("{1,2,3}").GetValue().GetType());
+            Assert.AreEqual(typeof(List<int>),
+                InterpretGetter<object>("{1,2,3}").GetValue().GetType());
+
+            Assert.AreEqual(typeof(List<string>),
+                CompileGetter<object>("{'a','b'}").GetValue().GetType());
+            Assert.AreEqual(typeof(List<string>),
+                InterpretGetter<object>("{'a','b'}").GetValue().GetType());
+        }
+
+        /// <summary>
+        /// Items with no common type leave the literal object-typed, on both backends.
+        /// </summary>
+        [Test]
+        public void AMixedLiteralIsObjectTypedOnBothBackends()
+        {
+            Assert.AreEqual(typeof(List<object>),
+                CompileGetter<object>("{1,'a'}").GetValue().GetType());
+            Assert.AreEqual(typeof(List<object>),
+                InterpretGetter<object>("{1,'a'}").GetValue().GetType());
+        }
+
+        /// <summary>
+        /// A literal is a list, so duplicates and order survive.
         /// </summary>
         [Test]
         public void ReprojectionKeepsOrderAndDuplicates()
         {
-            var result = (IList<object>)CompileGetter<object>("{3,1,3,2}").GetValue();
+            var result = (IList<int>)CompileGetter<object>("{3,1,3,2}").GetValue();
 
-            Assert.AreEqual(new object[] { 3, 1, 3, 2 }, result);
+            Assert.AreEqual(new List<int> { 3, 1, 3, 2 }, result);
         }
 
         /// <summary>
@@ -135,5 +174,145 @@ namespace SpringExpressionsTests.Expressions
             Assert.AreEqual(typeof(List<object>), result.GetType());
             Assert.AreEqual(new List<object> { 1, "a" }, result);
         }
+
+        // ---------- where the two backends could not agree, the literal is not compiled ----------
+
+        /// <summary>
+        /// An element whose declared type the runtime can narrow has no compiled form, because the
+        /// interpreter would infer a different item type from the value.
+        /// </summary>
+        /// <remarks>
+        /// <c>Anything</c> is declared <c>object</c> and holds an <c>int</c>: the compiled path would
+        /// unify to <c>object</c> and the interpreter to <c>int</c>. Rather than pick one, the compiled
+        /// path stands aside so that only the interpreter runs and there is nothing to disagree with -
+        /// the same shape as the overload gate, and as item 21's ruling on comparisons.
+        ///
+        /// The interpreter's answer is asserted beside the refusal so this cannot pass because the
+        /// expression is meaningless.
+        /// </remarks>
+        [Test]
+        public void AnElementWhoseRuntimeTypeCouldBeNarrowerIsNotCompiled()
+        {
+            var holder = new NarrowableElementHolder();
+
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<NarrowableElementHolder, object>("{Anything, Anything}"));
+
+            Assert.AreEqual(typeof(List<int>),
+                InterpretGetter<NarrowableElementHolder, object>("{Anything, Anything}")
+                    .GetValue(holder).GetType());
+        }
+
+        /// <summary>
+        /// A nullable element likewise: boxing a nullable yields the underlying type, never a
+        /// Nullable&lt;T&gt;, so the compiled path's Nullable&lt;int&gt; and the interpreter's int could
+        /// never agree.
+        /// </summary>
+        [Test]
+        public void ANullableElementIsNotCompiled()
+        {
+            var holder = new NarrowableElementHolder();
+
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<NarrowableElementHolder, object>("{MaybeNumber, MaybeNumber}"));
+
+            Assert.AreEqual(typeof(List<int>),
+                InterpretGetter<NarrowableElementHolder, object>("{MaybeNumber, MaybeNumber}")
+                    .GetValue(holder).GetType());
+        }
+
+        /// <summary>
+        /// And a base-declared element holding a derived value - the plainest form of the same thing.
+        /// </summary>
+        [Test]
+        public void ABaseDeclaredElementIsNotCompiled()
+        {
+            var holder = new NarrowableElementHolder();
+
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<NarrowableElementHolder, object>("{AsBase, AsBase}"));
+
+            Assert.AreEqual(typeof(List<DerivedElement>),
+                InterpretGetter<NarrowableElementHolder, object>("{AsBase, AsBase}")
+                    .GetValue(holder).GetType());
+        }
+
+        /// <summary>
+        /// A sealed reference type cannot be narrowed, so a literal of strings compiles - which is what
+        /// stops the rule above from being "decline every reference type".
+        /// </summary>
+        [Test]
+        public void ASealedElementTypeStillCompiles()
+        {
+            var holder = new NarrowableElementHolder();
+
+            Assert.AreEqual(typeof(List<string>),
+                CompileGetter<NarrowableElementHolder, object>("{Label, Label}")
+                    .GetValue(holder).GetType());
+            Assert.AreEqual(typeof(List<string>),
+                InterpretGetter<NarrowableElementHolder, object>("{Label, Label}")
+                    .GetValue(holder).GetType());
+        }
+
+        /// <summary>
+        /// A null element is not asked about: it contributes no runtime type, so both backends take the
+        /// item type from the other elements and reach the same answer.
+        /// </summary>
+        [Test]
+        public void ANullElementDoesNotStopCompilation()
+        {
+            var holder = new NarrowableElementHolder();
+
+            Assert.AreEqual(typeof(List<string>),
+                CompileGetter<NarrowableElementHolder, object>("{Label, null}")
+                    .GetValue(holder).GetType());
+            Assert.AreEqual(typeof(List<string>),
+                InterpretGetter<NarrowableElementHolder, object>("{Label, null}")
+                    .GetValue(holder).GetType());
+        }
+
+        /// <summary>
+        /// A null beside a value type has nowhere to live, so the literal falls to object on both.
+        /// </summary>
+        [Test]
+        public void ANullBesideAValueTypeFallsToObjectOnBothBackends()
+        {
+            Assert.AreEqual(typeof(List<object>),
+                CompileGetter<object>("{1, null}").GetValue().GetType());
+            Assert.AreEqual(typeof(List<object>),
+                InterpretGetter<object>("{1, null}").GetValue().GetType());
+        }
+
+        /// <summary>
+        /// The cost of the rule, stated rather than hidden: a collection is a non-sealed reference type,
+        /// so a literal holding one has no compiled form. The interpreter serves it.
+        /// </summary>
+        [Test]
+        public void ALiteralHoldingACollectionIsNotCompiled()
+        {
+            var holder = new TypedListHolder();
+
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<TypedListHolder, object>("{Ints}"));
+
+            var interpreted = (IList)InterpretGetter<TypedListHolder, object>("{Ints}").GetValue(holder);
+
+            Assert.AreSame(holder.Ints, interpreted[0]);
+        }
     }
+
+    /// <summary>
+    /// Elements whose declared type is wider than the value they hold, and one that is not.
+    /// </summary>
+    public class NarrowableElementHolder
+    {
+        public object Anything { get; set; } = 45;
+        public int? MaybeNumber { get; set; } = 5;
+        public BaseElement AsBase { get; set; } = new DerivedElement();
+        public string Label { get; set; } = "x";
+    }
+
+    public class BaseElement { }
+
+    public class DerivedElement : BaseElement { }
 }

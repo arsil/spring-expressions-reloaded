@@ -69,9 +69,14 @@ namespace SpringExpressions.Expressions
                 return body;
             }
 
-            // A requested type that a plain HashSet<T> satisfies: copy into one, keeping the item type.
-            if (resultType != typeof(object)
-                && resultType.IsAssignableFrom(typeof(HashSet<>).MakeGenericType(itemType)))
+            // The item type is kept only where the interpreter's own shape would not satisfy the sink.
+            //
+            // Asking whether the sink accepts the TYPED shape is the wrong question, and it cost
+            // thirteen rows: System.Collections.IList accepts a HashSet<int> and a HashSet<object>
+            // alike, so a non-generic parameter or property kept the item type compiled while the
+            // interpreter handed over its set of object. A sink that names no item type must get the
+            // interpreter's shape, exactly as an object-typed one does.
+            if (!resultType.IsAssignableFrom(typeof(HashSet<object>)))
             {
                 return LExpression.Call(ToTypedHashSetMethodInfo.MakeGenericMethod(itemType), body);
             }
@@ -131,9 +136,9 @@ namespace SpringExpressions.Expressions
                 return body;
             }
 
-            // Nothing narrower requested: hand back what the interpreter would have built.
-            if (resultType != typeof(object)
-                && resultType.IsAssignableFrom(typeof(List<>).MakeGenericType(itemType)))
+            // Kept only where the interpreter's own shape would not satisfy the sink - see the note in
+            // NormalizeSetResult for why the mirror question is the wrong one.
+            if (!resultType.IsAssignableFrom(typeof(List<object>)))
             {
                 return LExpression.Call(ToTypedListMethodInfo.MakeGenericMethod(itemType), body);
             }
@@ -165,9 +170,9 @@ namespace SpringExpressions.Expressions
                 return body;
             }
 
-            // A requested type that a plain Dictionary<K,V> satisfies: copy into one, keeping the types.
-            if (resultType != typeof(object)
-                && resultType.IsAssignableFrom(typeof(Dictionary<,>).MakeGenericType(keyType, valueType)))
+            // Kept only where the interpreter's own shape would not satisfy the sink - see the note in
+            // NormalizeSetResult for why the mirror question is the wrong one.
+            if (!resultType.IsAssignableFrom(typeof(Dictionary<object, object>)))
             {
                 return LExpression.Call(
                     ToTypedDictionaryMethodInfo.MakeGenericMethod(keyType, valueType), body);
