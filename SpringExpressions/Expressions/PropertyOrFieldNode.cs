@@ -583,11 +583,19 @@ namespace SpringExpressions
 
                     var memberInfo = (PropertyInfo)propertyAcc.MemberInfo;
 
-                    RefuseObjectValueAgainstTypedMember(newValueExpression, memberInfo.PropertyType);
+                    // A collection this engine built is reshaped on the way into the member, to the
+                    // shape the interpreter writes. The member's declared type is the sink, so an
+                    // object property gets a collection of object while one that names the item type
+                    // keeps it; a collection the caller owns is not registered and is written as the
+                    // very instance.
+                    var newValue = compilationContext.NormalizeIfConstructed(
+                        newValueExpression, memberInfo.PropertyType);
+
+                    RefuseObjectValueAgainstTypedMember(newValue, memberInfo.PropertyType);
 
                     return BuildAssign(
                         LExpression.Property(finalContextExpression, memberInfo),
-                        ConvertNewValueOrRefuse(newValueExpression, memberInfo.PropertyType, name));
+                        ConvertNewValueOrRefuse(newValue, memberInfo.PropertyType, name));
                 }
 
                 if (acc is FieldValueAccessor fieldAcc)
@@ -613,11 +621,15 @@ namespace SpringExpressions
                     */
                     var memberInfo = (FieldInfo)fieldAcc.MemberInfo;
 
-                    RefuseObjectValueAgainstTypedMember(newValueExpression, memberInfo.FieldType);
+                    // Reshaped on the way in, exactly as for a property above.
+                    var newValue = compilationContext.NormalizeIfConstructed(
+                        newValueExpression, memberInfo.FieldType);
+
+                    RefuseObjectValueAgainstTypedMember(newValue, memberInfo.FieldType);
 
                     return BuildAssign(
                         LExpression.Field(finalContextExpression, memberInfo),
-                        ConvertNewValueOrRefuse(newValueExpression, memberInfo.FieldType, name));
+                        ConvertNewValueOrRefuse(newValue, memberInfo.FieldType, name));
                 }
 
                 throw CannotCompile("no property or field of this name on the context type");

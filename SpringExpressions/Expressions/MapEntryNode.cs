@@ -53,6 +53,13 @@ namespace SpringExpressions
 
             var value = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
 
+            // A key or value that is itself a collection this engine built is reshaped to what the
+            // interpreter would have stored: it builds a Dictionary<object, object>, so neither
+            // component keeps an item type. A collection the caller owns is not registered and is
+            // stored as the very instance.
+            key = compilationContext.NormalizeIfConstructed(key, typeof(object));
+            value = compilationContext.NormalizeIfConstructed(value, typeof(object));
+
             var genericKvP = typeof(KeyValuePair<,>).MakeGenericType(key.Type, value.Type);
             var mi = genericKvP.GetConstructor(new[] { key.Type, value.Type });
 

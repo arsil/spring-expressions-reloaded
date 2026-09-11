@@ -280,7 +280,7 @@ namespace SpringExpressions
                 ? new List<LExpression>(resolvedArguments)
                 : arguments;
 
-            ConvertParameters(this, methodInfo, finalArguments);
+            ConvertParameters(this, methodInfo, finalArguments, compilationContext);
 			return BuildCall(instance, methodInfo, finalArguments);
 	    }
 
@@ -571,7 +571,7 @@ namespace SpringExpressions
         // Shared with ConstructorNode: the conversion gate is identical for method and constructor
         // arguments, so it takes MethodBase and labels its messages accordingly.
         /// <param name="node">The node being compiled, so a refusal can name it - see ResolveMethod.</param>
-        internal static void ConvertParameters([NotNull] BaseNode node, [NotNull] MethodBase method, [NotNull, ItemNotNull] List<LExpression> arguments)
+        internal static void ConvertParameters([NotNull] BaseNode node, [NotNull] MethodBase method, [NotNull, ItemNotNull] List<LExpression> arguments, [NotNull] CompilationContext compilationContext)
         {
             var methodParameters = method.GetParameters();
 
@@ -603,6 +603,12 @@ namespace SpringExpressions
             for (int i = 0; i < arguments.Count; i++)
             {
                 var parameterType = methodParameters[i].ParameterType;
+
+                // A collection this engine built is reshaped on the way into the argument, to the shape
+                // the interpreter passes - see CompilationContext.NormalizeIfConstructed. The parameter
+                // type is the sink, so an object parameter gets a collection of object while one that
+                // names the item type keeps it.
+                arguments[i] = compilationContext.NormalizeIfConstructed(arguments[i], parameterType);
                 var argument = arguments[i];
 
                 if (argument.Type == parameterType)

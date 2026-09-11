@@ -67,6 +67,12 @@ namespace SpringExpressions
 
                 var arg = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
 
+                // An item that is itself a collection this engine built is reshaped to what the
+                // interpreter would have put in the list - it builds a List<object> and so boxes every
+                // item, which leaves it no item type to keep. The caller's own collection is not
+                // registered and goes in as the very instance.
+                arg = compilationContext.NormalizeIfConstructed(arg, typeof(object));
+
                 arguments.Add(arg);
 
 

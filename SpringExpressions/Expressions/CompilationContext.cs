@@ -94,6 +94,32 @@ namespace SpringExpressions
             return _constructedCollections.Contains(expression);
         }
 
+        /// <summary>
+        /// Reshapes a collection this engine built into the shape the interpreter would have handed to
+        /// <paramref name="sinkType"/>, wherever the value leaves the expression by some route other
+        /// than being its answer.
+        /// </summary>
+        /// <remarks>
+        /// The root is reshaped in Compiler and a local's slot in LocalVariableNode; this is every other
+        /// exit - a method, constructor or index argument, an item of a built list or array, a map key or
+        /// value, a property or field, and the caller's variables dictionary. Without it the compiled
+        /// path handed out the typed collection it had built while the interpreter handed out one of
+        /// object, so a caller who cast got an exception on one backend and not the other.
+        ///
+        /// The sink's own declared type decides: an object-typed sink cannot use an item type, so the
+        /// collection is flattened, while a sink that names the narrow type keeps it and the call or
+        /// assignment still compiles. A collection the caller owns is never registered, so it is not
+        /// touched and arrives as the very instance.
+        /// </remarks>
+        [NotNull]
+        public LExpression NormalizeIfConstructed(
+            [NotNull] LExpression expression, [NotNull] System.Type sinkType)
+        {
+            return IsConstructedCollection(expression)
+                ? Expressions.Compiler.NormalizeConstructedCollection(expression, sinkType)
+                : expression;
+        }
+
         public void AddLocalVariable(string variableName, ParameterExpression variableExpression)
         {
             if (_localVariables == null)

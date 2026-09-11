@@ -102,6 +102,11 @@ namespace SpringExpressions
                     var item = GetExpressionTreeIfPossible(
                         (BaseNode)itemNode, contextExpression, compilationContext);
 
+                    // An item that is itself a collection this engine built is reshaped to what the
+                    // element type can hold - the declared element type is the sink, so 'new object[]'
+                    // gets a collection of object while 'new List<int>[]' keeps the item type.
+                    item = compilationContext.NormalizeIfConstructed(item, arrayType);
+
                     items.Add(ConvertItemToElementType(item, arrayType));
                 }
 

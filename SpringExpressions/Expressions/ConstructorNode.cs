@@ -128,7 +128,7 @@ namespace SpringExpressions
                 throw CannotCompile("no compiled constructor matching these arguments");
 
             var finalArguments = new List<LExpression>(resolved.Item2);
-            MethodNode.ConvertParameters(this, resolved.Item1, finalArguments);
+            MethodNode.ConvertParameters(this, resolved.Item1, finalArguments, compilationContext);
 
             var newExpression = LExpression.New(resolved.Item1, finalArguments);
 

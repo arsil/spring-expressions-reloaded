@@ -118,7 +118,12 @@ namespace SpringExpressions
                     // the same assignment behaving differently for no reason a caller could see.
                     // It was a hard failure until BuildCall turned it into a refusal, and the
                     // refusal is what this removes.
-                    BoxIfValueType(newValueExpression)
+                    // A collection this engine built is reshaped on the way into the dictionary, to
+                    // the shape the interpreter stores there. The dictionary holds objects, so there
+                    // is no item type for it to keep; a collection the caller owns is not registered
+                    // and is stored as the very instance.
+                    BoxIfValueType(
+                        compilationContext.NormalizeIfConstructed(newValueExpression, typeof(object)))
                 };
 
             // Still through BuildCall: it names this node in anything else the call factory rejects.
