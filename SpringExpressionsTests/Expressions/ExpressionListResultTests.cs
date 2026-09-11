@@ -1,0 +1,129 @@
+﻿using NUnit.Framework;
+
+using System.Collections.Generic;
+
+using SpringExpressions;
+
+namespace SpringExpressionsTests.Expressions
+{
+    public class ExpressionListResultHolder
+    {
+        public List<string> Words { get; } = new List<string> { "a", "b" };
+        public List<int> Ints { get; } = new List<int> { 3, 1, 2 };
+
+        /// <summary>A collection the caller owns - it must come back as itself, not as a copy.</summary>
+        public List<int> Owned { get; } = new List<int> { 9, 8 };
+    }
+
+    /// <summary>
+    /// An expression list answers what its last element answers, including whether that value is a
+    /// collection the engine built.
+    /// </summary>
+    /// <remarks>
+    /// The compiled path builds a <c>List&lt;string&gt;</c> where it knows the item type and the
+    /// interpreter builds a <c>List&lt;object&gt;</c>, so <c>Compiler</c> reshapes the result to
+    /// <c>List&lt;object&gt;</c> at the end - but only for a collection the engine **built**, since a
+    /// collection merely **read** is the caller's own object and copying it would lose its identity.
+    /// It tells them apart by a registry keyed on the emitted expression, and
+    /// <c>ProjectionNode</c> registers its own call.
+    /// <p>
+    /// <b>Wrapping the projection changed which node is at the root.</b> In
+    /// <c>(1; Words.!{#this})</c> the root is the block, which nobody registered, so the reshaping
+    /// was skipped and a <c>List&lt;string&gt;</c> escaped. The list propagates the registration from
+    /// its last element now.
+    /// </p>
+    /// </remarks>
+    [TestFixture]
+    public class ExpressionListResultTests : BaseCompiledTests
+    {
+        [Test]
+        public void AWrappedProjectionKeepsTheShapeOfAnUnwrappedOne()
+        {
+            var holder = new ExpressionListResultHolder();
+
+            TestCompiledVsInterpreted<ExpressionListResultHolder, object>("Words.!{#this}", holder);
+            TestCompiledVsInterpreted<ExpressionListResultHolder, object>("(1; Words.!{#this})", holder);
+            TestCompiledVsInterpreted<ExpressionListResultHolder, object>(
+                "(1; 2; Words.!{#this})", holder);
+            TestCompiledVsInterpreted<ExpressionListResultHolder, object>(
+                "($n = 2; Words.!{#this})", holder);
+        }
+
+        [Test]
+        public void EveryKindOfCollectionTheEngineBuildsPropagates()
+        {
+            var holder = new ExpressionListResultHolder();
+
+            TestCompiledVsInterpreted<ExpressionListResultHolder, object>(
+                "(1; Words.?{#this != null})", holder);
+            TestCompiledVsInterpreted<ExpressionListResultHolder, object>("(1; {1,2})", holder);
+            TestCompiledVsInterpreted<ExpressionListResultHolder, object>("(1; #{'k' : 1})", holder);
+            TestCompiledVsInterpreted<ExpressionListResultHolder, object>("(1; Ints.sort())", holder);
+        }
+
+        /// <summary>
+        /// A collection the caller owns is not the engine's to reshape, wrapped or not: it keeps its
+        /// own type and the very instance.
+        /// </summary>
+        /// <remarks>
+        /// This is the assertion that matters, because the cheap version of the fix - "a list whose
+        /// last element is a collection is a constructed collection" - would pass every test above
+        /// and quietly hand back a copy here. The test is on the last element having been
+        /// <i>registered</i>, not on it being a collection.
+        /// </remarks>
+        [Test]
+        public void AReadCollectionIsNeitherReshapedNorCopied()
+        {
+            var holder = new ExpressionListResultHolder();
+
+            TestCompiledVsInterpreted<ExpressionListResultHolder, object>("(1; Owned)", holder);
+
+            var compiled = Expression
+                .ParseGetter<ExpressionListResultHolder, object>("(1; Owned)", EvaluationMode.MustCompile)
+                .GetValue(holder);
+
+            Assert.AreSame(holder.Owned, compiled, "a read collection must come back as itself");
+
+            var interpreted = Expression
+                .ParseGetter<ExpressionListResultHolder, object>("(1; Owned)", EvaluationMode.MustInterpret)
+                .GetValue(holder);
+
+            Assert.AreSame(holder.Owned, interpreted);
+        }
+
+        /// <summary>
+        /// Parking the collection in a local still costs the reshaping, and that one is not a
+        /// registry question.
+        /// </summary>
+        /// <remarks>
+        /// <b>Do not "fix" this the same way.</b> The list's last element here is a local *read*, a
+        /// different expression from the projection call that was registered - and nothing says the
+        /// local still holds what the projection produced, since it could have been reassigned in
+        /// between. Following the value through a variable is dataflow, not a lookup. This is the
+        /// only non-root exit left.
+        /// </remarks>
+        [Test]
+        public void ParkingACollectionInALocalStillCostsTheReshaping()
+        {
+            var holder = new ExpressionListResultHolder();
+
+            var compiled = Expression
+                .ParseGetter<ExpressionListResultHolder, object>(
+                    "($xs = Words.!{#this}; $xs)", EvaluationMode.MustCompile)
+                .GetValue(holder);
+
+            var interpreted = Expression
+                .ParseGetter<ExpressionListResultHolder, object>(
+                    "($xs = Words.!{#this}; $xs)", EvaluationMode.MustInterpret)
+                .GetValue(holder);
+
+            Assert.AreEqual(typeof(List<string>), compiled.GetType());
+            Assert.AreEqual(typeof(List<object>), interpreted.GetType());
+
+            CollectionAssert.AreEqual(
+                new[] { "a", "b" }, (System.Collections.IEnumerable)compiled);
+            CollectionAssert.AreEqual(
+                new object[] { "a", "b" }, (System.Collections.IEnumerable)interpreted);
+        }
+    }
+}

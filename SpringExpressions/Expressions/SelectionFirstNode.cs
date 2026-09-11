@@ -108,16 +108,20 @@ namespace SpringExpressions
             var functionExpr = finalLambdaMi.Invoke(null,
                 new object[] { selectionExpression, new ParameterExpression[] { ctxParam } });
 
-            var compileMi = functionExpr.GetType().GetMethod("Compile", System.Type.EmptyTypes);
-
-            // .Compile()
-            var compiledFunction = compileMi.Invoke(functionExpr, new object[0]);
+            // The body lambda is NESTED in the emitted tree rather than compiled to a delegate here
+            // and handed in as a constant. A separately compiled lambda has no enclosing scope at
+            // all, so nothing outside the body was reachable from inside it: '#root', every
+            // '#variable' and the $locals block all emitted a reference to a parameter of the outer
+            // lambda and came out as "variable 'context' referenced from scope '', but it is not
+            // defined" - absorbed, and reported to the caller as an internal compiler error about
+            // their own ordinary expression. Nesting lets the outer compilation build the closure,
+            // which is what a nested lambda in an expression tree does anyway.
 
             // One item, not a collection - nothing to register as constructed.
             return LExpression.Call(
                 finalSelectionMi,
                 contextExpression,
-                LExpression.Constant(compiledFunction));
+                (LExpression)functionExpr);
         }
 
         /// <summary>

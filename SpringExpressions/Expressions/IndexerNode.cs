@@ -412,6 +412,31 @@ namespace SpringExpressions
             return null;
         }
 
+        /// <summary>
+        /// The emitted index expressions, or true when one of them has no compiled form.
+        /// </summary>
+        /// <remarks>
+        /// <b>An index resolves against <c>#this</c>, not against the container.</b> The interpreter
+        /// says so - <c>NodeWithArguments.ResolveArgumentInternal</c> evaluates every argument
+        /// against <c>evalContext.ThisContext</c> - and this emitted them against
+        /// <c>contextExpression</c>, which for an indexer is the collection being indexed. So
+        /// <c>Numbers[Zero]</c> looked for <c>Zero</c> on <c>int[]</c> and refused, and where the
+        /// container happened to declare the same name it silently bound the wrong one:
+        /// <c>Ints[Count]</c> used the root's <c>Count</c> interpreted and <c>List&lt;int&gt;.Count</c>
+        /// compiled.
+        /// <p>
+        /// <b>The same defect <c>MethodNode</c> had, and wider.</b> There the receiver *is*
+        /// <c>#this</c> for any chain starting at the root, so only a nested receiver showed it.
+        /// An indexer's context is the container and never <c>#this</c>, so every non-literal index
+        /// was affected - only indexing <c>#this</c> itself agreed.
+        /// </p>
+        /// <p>
+        /// The lambda carve-out <c>MethodNode</c> needs is mirrored rather than relied upon to be
+        /// unreachable: there a lambda argument keeps the receiver, because a collection processor
+        /// supplies the item context its body needs. An index is a value and no grammar production
+        /// puts a lambda in one, so this branch costs nothing and stops the two nodes drifting.
+        /// </p>
+        /// </remarks>
         private bool TryGetArguments(
             LExpression contextExpression, 
             CompilationContext compilationContext, 
@@ -424,17 +449,17 @@ namespace SpringExpressions
             var node = getFirstChild();
             while (node != null)
             {
-                //if (node.getFirstChild() is LambdaExpressionNode)
-                //{
-                //	argList.Add((BaseNode)node.getFirstChild());
-                //}
                 //else if (node is NamedArgumentNode)
                 //{
                 //	namedArgs.Add(node.getText(), node);
                 //}
-                //else
 
-                var arg = GetExpressionTreeIfPossible((BaseNode)node, contextExpression, compilationContext);
+                var indexContext = node is LambdaExpressionNode
+                                   || node.getFirstChild() is LambdaExpressionNode
+                    ? contextExpression
+                    : compilationContext.ThisExpression;
+
+                var arg = GetExpressionTreeIfPossible((BaseNode)node, indexContext, compilationContext);
                 if (arg == null)
                     return true;
 

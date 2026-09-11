@@ -112,9 +112,13 @@ namespace SpringExpressions
             return BuildAssign(storage, BoxIfValueType(newValueExpression));
         }
 
+        /// <summary>
+        /// A scope with no storage for locals at all. Every compilation now has one - a projection or
+        /// selection body shares its enclosing scope since 2026-09-11 - so this is a guard against a
+        /// future scope that does not, not a shape any expression reaches today.
+        /// </summary>
         private const string LocalsOutOfScopeReason
-            = "a projection or selection body is compiled on its own and handed in as a delegate, so "
-            + "local variables of the enclosing expression are not in scope there";
+            = "this scope has no storage for local variables";
 
         private static LExpression BoxIfValueType([NotNull] LExpression expression)
         {

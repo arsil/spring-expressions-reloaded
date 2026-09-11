@@ -55,7 +55,28 @@ namespace SpringExpressions
                 node = node.getNextSibling();
             }
 
-            return LExpression.Block(expressions);
+            var block = LExpression.Block(expressions);
+
+            // A list's value is its last element's value, so if that element built a collection then
+            // so did the list.
+            //
+            // Without this the registration is lost the moment a projection is wrapped. Compiler asks
+            // whether the *root* expression was registered, and ProjectionNode registers its own
+            // call - so in '(1; Words.!{#this})' the root is this block, which nobody registered, the
+            // reshaping is skipped, and a List<string> escapes where the interpreter answers
+            // List<object>.
+            //
+            // The test is on the last element having been *registered*, not on it being a collection,
+            // and that is what keeps a read collection out: '(1; SomeListProperty)' hands back the
+            // caller's own object, reference identity and all, exactly as 'SomeListProperty' does.
+            // Claiming it would copy it.
+            if (expressions.Count > 0
+                && compilationContext.IsConstructedCollection(expressions[expressions.Count - 1]))
+            {
+                compilationContext.MarkAsConstructedCollection(block);
+            }
+
+            return block;
         }
 
         /// <summary>

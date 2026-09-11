@@ -15,6 +15,7 @@ namespace SpringExpressionsTests.Expressions
         public decimal Price { get { return 2.5m; } }
 
         public List<int> Ints { get { return new List<int> { 3, 1, 2 }; } }
+        public List<string> Names { get { return new List<string> { "a", "b" }; } }
 
         public int Twice(int n) { return n * 2; }
         public string Join(string a, string b) { return a + "|" + b; }
@@ -315,23 +316,69 @@ namespace SpringExpressionsTests.Expressions
         // ----- interaction with the rest of the language
 
         /// <summary>
-        /// The compiled storage is a block variable of the enclosing compilation, and a projection or
-        /// selection body is compiled by its own Compile() call and handed in as a constant delegate,
-        /// so locals are not in scope there. Refused compiled, served by the interpreter, whose
-        /// locals live on the evaluation context a projection shares. Do not "fix" one side.
+        /// The storage is one block variable of the enclosing compilation, and a projection or
+        /// selection body shares that scope - so a local crosses into a body and a write inside one
+        /// is visible after it.
         /// </summary>
+        /// <remarks>
+        /// Both were refusals until 2026-09-11. The body used to be compiled by its own
+        /// <c>Compile()</c> call and handed in as a constant delegate, which made an outer block
+        /// variable genuinely unreachable; nesting the body lambda ended that, and the scope is
+        /// simply shared now.
+        /// </remarks>
         [Test]
-        public void LocalsInsideAProjectionAreRefusedButStillEvaluate()
+        public void LocalsCrossIntoAProjectionBodyInBothDirections()
         {
-            Assert.Throws<CompileErrorException>(
+            // Summed rather than compared as a list: wrapping a projection in an expression list
+            // costs its result the root reshaping, so it comes back typed compiled and object-typed
+            // interpreted. That predates this change and is nothing to do with locals - '(1;
+            // Words.!{#this})' does it too. _Docs/open-issues.md item 47.
+            TestCompiledVsInterpreted<LocalStorageCases, object>(
+                "($n = 10; Ints.!{ $n }.sum())", new LocalStorageCases())
+                .ResultEqualsTo(30);
+
+            // written from inside the body, read after it - one slot, one evaluation. Ints is
+            // {3, 1, 2}, so the last item assigned is 2.
+            TestCompiledVsInterpreted<LocalStorageCases, object>(
+                "($last = 0; Ints.!{ $last = #this }; $last)", new LocalStorageCases())
+                .ResultEqualsTo(2);
+        }
+
+        /// <summary>
+        /// The accumulate-into-a-builder shape, which is what asking about locals in a body was
+        /// really about: a local for the accumulator, a projection for the loop, an expression list
+        /// to sequence them.
+        /// </summary>
+        /// <remarks>
+        /// <b>The casts are the price and they are not this scope's doing</b> - a local is
+        /// object-typed everywhere, so reaching a member of whatever it holds needs one here exactly
+        /// as it does outside a body. Without them the refusal is the ordinary
+        /// <c>MethodNode 'Append'</c> one, not anything about projections.
+        /// </remarks>
+        [Test]
+        public void ABuilderAccumulatesAcrossAProjectionBody()
+        {
+            const string Builder = "T(System.Text.StringBuilder)";
+
+            TestCompiledVsInterpreted<LocalStorageCases, object>(
+                "($sb = new System.Text.StringBuilder(); "
+                + "Names.!{($sb as " + Builder + ").Append(#this)}; "
+                + "($sb as " + Builder + ").ToString())",
+                new LocalStorageCases())
+                .ResultEqualsTo("ab");
+
+            // and the same accumulation without a builder at all
+            TestCompiledVsInterpreted<LocalStorageCases, object>(
+                "($s = ''; Names.!{$s = $s + #this}; $s)", new LocalStorageCases())
+                .ResultEqualsTo("ab");
+
+            // uncast, it refuses for the reason every object-typed local refuses
+            var refusal = Assert.Throws<CompileErrorException>(
                 () => Expression.ParseGetter<LocalStorageCases, object>(
-                    "($n = 10; Ints.!{ $n })", EvaluationMode.MustCompile));
+                    "($sb = new System.Text.StringBuilder(); Names.!{$sb.Append(#this)}; $sb.ToString())",
+                    EvaluationMode.MustCompile));
 
-            var interpreted = Expression.ParseGetter<LocalStorageCases, object>(
-                "($n = 10; Ints.!{ $n })", EvaluationMode.MustInterpret);
-
-            Assert.AreEqual(
-                new List<object> { 10, 10, 10 }, interpreted.GetValue(new LocalStorageCases()));
+            StringAssert.Contains("Append", refusal.Message);
         }
 
         /// <summary>

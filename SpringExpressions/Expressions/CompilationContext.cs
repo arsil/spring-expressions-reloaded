@@ -27,7 +27,7 @@ namespace SpringExpressions
         {
             return new CompilationContext(
                 RootContextExpression, thisExpression, VariablesExpression, SandboxPolicy,
-                _constructedCollections);
+                _constructedCollections, _localStorage, _localStorageOrder);
         }
         // todo: error: context expression != RootExpression    !!!!  !!!!! !!!!
 
@@ -36,7 +36,9 @@ namespace SpringExpressions
             LExpression thisExpression,
             LExpression variablesExpression,
             [NotNull] SandboxPolicy sandboxPolicy,
-            HashSet<LExpression> constructedCollections)
+            HashSet<LExpression> constructedCollections,
+            Dictionary<string, ParameterExpression> localStorage,
+            List<ParameterExpression> localStorageOrder)
         {
             RootContextExpression = rootContextExpression;
             ThisExpression = thisExpression;
@@ -47,12 +49,17 @@ namespace SpringExpressions
             // root that Compiler finally inspects is the one it registered into.
             _constructedCollections = constructedCollections;
 
-            // No local storage, and deliberately none inherited: every caller of this builds a
-            // delegate with its own Compile() call and hands it in as a constant, so its tree is a
-            // separate compilation unit and cannot reference a block variable declared in the outer
-            // one.
-            _localStorage = null;
-            _localStorageOrder = null;
+            // Shared, like the registry above: a projection or selection body is part of the same
+            // compilation now - its lambda is nested in the emitted tree rather than compiled on its
+            // own and handed in as a constant - so a block variable declared in the outer scope is
+            // reachable from inside the body and the outer lambda's closure carries it.
+            //
+            // This used to be null, and the reason was true when written: with the body compiled
+            // separately, emitting a reference to an outer block variable produced an unbound-variable
+            // failure out of the LINQ compiler. Nesting the body removed that, and with it the only
+            // mechanical argument for making a body different from anywhere else.
+            _localStorage = localStorage;
+            _localStorageOrder = localStorageOrder;
         }
 
         /// <summary>
@@ -137,11 +144,15 @@ namespace SpringExpressions
         /// <c>_Docs/open-issues.md</c> item 15, which this is the compiled half of.
         /// </p>
         /// <p>
-        /// A projection or selection body has no such scope: it is compiled by its own
-        /// <c>Compile()</c> call and passed into the emitted tree as a constant delegate, so a block
-        /// variable of the enclosing compilation is simply not in scope there. Emitting one anyway
-        /// produced an unbound-variable failure out of the LINQ compiler, which the absorbing wrapper
-        /// then had to report as an internal defect.
+        /// <b>A projection or selection body shares the enclosing scope</b>, so a local declared
+        /// outside one is readable and writable inside it - <c>($s = ''; Words.!{$s = $s + #this};
+        /// $s)</c> compiles. That was a refusal until 2026-09-11, and correctly so at the time: the
+        /// body was compiled by its own <c>Compile()</c> call and handed into the tree as a constant
+        /// delegate, so an outer block variable was genuinely not in scope and emitting a reference
+        /// to one produced an unbound-variable failure. Nesting the body lambda removed the
+        /// obstacle, and with it the only argument for treating a body differently from anywhere
+        /// else. What remains inside a body is the ordinary object-typed-local story: a local's
+        /// members need a cast, exactly as they do outside one.
         /// </p>
         /// </remarks>
         public bool TryGetLocalStorage(

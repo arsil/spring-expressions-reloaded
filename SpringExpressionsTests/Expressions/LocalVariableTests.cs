@@ -168,25 +168,26 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// A projection or selection body is compiled by its own Compile() call and handed into the
-        /// emitted tree as a constant delegate, so a block variable of the enclosing compilation is
-        /// not in scope inside it. Emitting one anyway produced an unbound-variable failure out of the
-        /// LINQ compiler, which the absorbing wrapper reported as an internal defect; it is an honest
-        /// refusal now, and the interpreter - whose locals live on the evaluation context that the
-        /// projection shares - answers.
+        /// A local declared outside a projection is readable inside its body.
         /// </summary>
+        /// <remarks>
+        /// This was a refusal until 2026-09-11, and the reason was real at the time: the body was
+        /// compiled by its own <c>Compile()</c> call and handed into the tree as a constant delegate,
+        /// so a block variable of the enclosing compilation was genuinely not in scope and emitting a
+        /// reference to one produced an unbound-variable failure out of the LINQ compiler. Nesting
+        /// the body lambda removed the obstacle; the scope is shared and the outer lambda's closure
+        /// carries the variable.
+        /// </remarks>
         [Test]
-        public void ALocalInsideAProjectionIsRefusedButStillEvaluates()
+        public void ALocalIsReadableInsideAProjectionBody()
         {
-            Assert.Throws<CompileErrorException>(
-                () => Expression.ParseGetter<LocalVariableCases, object>(
-                    "($x = 7; Ints.!{ $x })", EvaluationMode.MustCompile));
-
-            var interpreted = Expression.ParseGetter<LocalVariableCases, object>(
-                "($x = 7; Ints.!{ $x })", EvaluationMode.MustInterpret);
-
-            Assert.AreEqual(
-                new List<object> { 7, 7, 7 }, interpreted.GetValue(new LocalVariableCases()));
+            // Summed rather than compared as a list: an expression list costs its result the root
+            // reshaping, so a projection wrapped in one comes back List<string> compiled and
+            // List<object> interpreted - a divergence that predates this and has nothing to do with
+            // locals, since '(1; Words.!{#this})' does it too. See _Docs/open-issues.md item 47.
+            TestCompiledVsInterpreted<LocalVariableCases, object>(
+                "($x = 7; Ints.!{ $x }.sum())", new LocalVariableCases())
+                .ResultEqualsTo(21);
         }
 
         /// <summary>

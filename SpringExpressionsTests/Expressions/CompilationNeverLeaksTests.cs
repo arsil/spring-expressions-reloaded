@@ -182,6 +182,12 @@ namespace SpringExpressionsTests.Expressions
             // chosen from the operand - see the ResolutionProbe remarks.
             public ResolutionProbe Probe { get; set; } = new ResolutionProbe(0);
 
+            // An index that reads a member of the root rather than a literal - corpus gap thirteen.
+            // Length is deliberately a name an array also declares, so an index bound against the
+            // container instead of #this picks a different member rather than failing to find one.
+            public int Index { get; set; }
+            public int Length { get; set; }
+
             public Tally Counted { get; set; } = new Tally(7);
             public List<Tally> Counts { get; set; } = new List<Tally>
             {
@@ -519,8 +525,43 @@ namespace SpringExpressionsTests.Expressions
                 yield return source + ".?{#this != null}";
                 yield return source + ".^{#this != null}";
                 yield return source + ".${#this != null}";
+
+                // Corpus gap fourteen: a body that mentions something outside itself. Every body
+                // above is written in terms of #this alone, so nothing sampled what a body can
+                // reach - and the answer was nothing at all, because the body was compiled to a
+                // delegate separately and handed in as a constant. '#root' and every '#variable'
+                // came out as an absorbed internal compiler error, which is precisely what this
+                // fixture exists to catch and could not, for want of a row.
+                yield return source + ".!{#root.Number}";
+                yield return source + ".?{#root.Flag}";
+
+                // A $local reaching into a body, and one written from inside it. Both were refused
+                // outright until the body lambda was nested, so neither shape had ever been swept;
+                // now they are ordinary compilations and the only thing standing between a local and
+                // a member of whatever it holds is the cast an object-typed local always needed.
+                yield return "($n = 1; " + source + ".!{#this})";
+                yield return "($n = 1; " + source + ".?{#root.Flag})";
+                yield return source + ".!{$x = #this}";
+
+                // A collection the engine built, wrapped in an expression list, and one merely read
+                // wrapped the same way. The wrapper used to cost the built one its root reshaping -
+                // it came back typed compiled and object-typed interpreted - while the read one must
+                // keep its own type and its identity. Both directions matter, and '; ' appeared in
+                // no corpus at all before this.
+                yield return "(1; " + source + ".!{#this})";
+                yield return "(1; " + source + ")";
                 yield return source + "[0]";
                 yield return source + "['a']";
+
+                // Corpus gap thirteen: an index that is not a constant. Every indexing row above
+                // writes a literal, so nothing sampled the context an index resolves against - and
+                // it was the container rather than #this, which is item 30's defect one node over.
+                // 'Index' is declared on the root and 'Length' on both the root and an array, so the
+                // second row is the one that binds a *different member* per backend rather than
+                // merely refusing on one of them. A refusal is invisible to the evaluation sweep,
+                // since there is no compiled answer to compare.
+                yield return source + "[Index]";
+                yield return source + "[Length]";
             }
 
             yield return "date('2001-01-01')";
