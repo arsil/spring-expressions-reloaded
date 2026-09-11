@@ -109,6 +109,21 @@ namespace SpringExpressions
             // own, so without this '$x = 5' would refuse while '$x = 'five'' compiled - the kind of
             // split that made the same assignment behave differently for no reason a caller could
             // see.
+            // A collection this engine built is reshaped on the way in, to the shape the interpreter
+            // stores. The interpreter builds a List<object> and puts that in its slot; without this
+            // the compiled path stored the typed list it had built, so '($xs = Ints.!{…}; $xs)'
+            // answered List<int> against the interpreter's List<object>.
+            //
+            // It has to happen here rather than at the read: a slot is object-typed, so by the time
+            // the value comes back out there is no static type left to reshape. A collection merely
+            // *read* is not registered and so is stored untouched - the caller's own object, identity
+            // and all.
+            if (compilationContext.IsConstructedCollection(newValueExpression))
+            {
+                newValueExpression = Expressions.Compiler.NormalizeConstructedCollection(
+                    newValueExpression, typeof(object));
+            }
+
             return BuildAssign(storage, BoxIfValueType(newValueExpression));
         }
 

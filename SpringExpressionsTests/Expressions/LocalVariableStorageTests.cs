@@ -395,39 +395,37 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// Parking an engine-built collection in a local costs it the root reshaping, so the compiled
-        /// path hands back the <c>List&lt;int&gt;</c> the projection built where the interpreter hands
-        /// back <c>List&lt;object&gt;</c>. The items are equal and only the item type differs.
+        /// Parking an engine-built collection in a local does not change its shape: it is reshaped on
+        /// the way <i>into</i> the slot, so it comes back as the <c>List&lt;object&gt;</c> the
+        /// interpreter stores.
         /// </summary>
         /// <remarks>
-        /// Not this storage's doing, and not new: <c>Compiler</c> reshapes only an expression the
-        /// compilation registered as a constructed collection, and a local read is a different
-        /// expression from the projection call that was registered. It is the documented non-root
-        /// exit - the same contrast <c>PassedToAMethodOnTheContextByTheInterpreter</c> pins for a
-        /// method argument - with a local as one more exit. Do not "fix" one side: making the read
-        /// inherit the registration means tracking values through assignments, which is the flow
-        /// analysis open-issues item 14 declines.
+        /// This diverged until 2026-09-11 - the compiled path handed back the <c>List&lt;int&gt;</c>
+        /// the projection had built - and the reason is worth keeping: a slot is object-typed, so by
+        /// the time the value is read back there is no static list type left for <c>Compiler</c> to
+        /// narrow, and reshaping the read is a no-op. At the assignment the value still has its real
+        /// type. It also mirrors the interpreter exactly, which builds a <c>List&lt;object&gt;</c>
+        /// and stores <i>that</i> - so the two agree for every later use of the local, not only at
+        /// the root.
         /// </remarks>
         [Test]
-        public void AConstructedCollectionParkedInALocalKeepsItsItemType()
+        public void AConstructedCollectionParkedInALocalIsReshapedOnTheWayIn()
         {
-            var compiled = Expression.ParseGetter<LocalStorageCases, object>(
-                "($xs = Ints.!{ #this * 2 }; $xs)", EvaluationMode.MustCompile);
-            var interpreted = Expression.ParseGetter<LocalStorageCases, object>(
-                "($xs = Ints.!{ #this * 2 }; $xs)", EvaluationMode.MustInterpret);
+            TestCompiledVsInterpreted<LocalStorageCases, object>(
+                "($xs = Ints.!{ #this * 2 }; $xs)", new LocalStorageCases())
+                .ResultEqualsTo(new List<object> { 6, 2, 4 });
 
-            Assert.AreEqual(
-                typeof(List<int>), compiled.GetValue(new LocalStorageCases()).GetType());
-            Assert.AreEqual(
-                typeof(List<object>), interpreted.GetValue(new LocalStorageCases()).GetType());
-
-            Assert.AreEqual(
-                new List<object> { 6, 2, 4 }, interpreted.GetValue(new LocalStorageCases()));
-
-            // Straight out of the projection, with nothing parked, both reshape to List<object>.
+            // unparked, which always agreed
             TestCompiledVsInterpreted<LocalStorageCases, object>(
                 "Ints.!{ #this * 2 }", new LocalStorageCases())
                 .ResultEqualsTo(new List<object> { 6, 2, 4 });
+
+            // and used as a collection afterwards rather than merely handed back. The cast is the
+            // ordinary object-typed-local one, not anything to do with the reshaping.
+            TestCompiledVsInterpreted<LocalStorageCases, object>(
+                "($xs = Ints.!{ #this * 2 }; ($xs as T(System.Collections.ICollection)).Count)",
+                new LocalStorageCases())
+                .ResultEqualsTo(3);
         }
 
         [Test]

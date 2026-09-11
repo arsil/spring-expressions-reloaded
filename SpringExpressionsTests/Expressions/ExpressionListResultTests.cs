@@ -92,38 +92,42 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// Parking the collection in a local still costs the reshaping, and that one is not a
-        /// registry question.
+        /// Parking the collection in a local agrees too, by a different mechanism: the reshaping
+        /// happens on the way into the slot rather than at the root.
         /// </summary>
         /// <remarks>
-        /// <b>Do not "fix" this the same way.</b> The list's last element here is a local *read*, a
-        /// different expression from the projection call that was registered - and nothing says the
-        /// local still holds what the projection produced, since it could have been reassigned in
-        /// between. Following the value through a variable is dataflow, not a lookup. This is the
-        /// only non-root exit left.
+        /// The list's last element here is a local <i>read</i>, not the registered projection call,
+        /// so the propagation above cannot see it - and a slot is object-typed, so reshaping the read
+        /// would be a no-op anyway. <c>LocalVariableNode</c> normalizes a registered collection as it
+        /// is stored instead, which is exactly what the interpreter does. A collection merely read is
+        /// not registered and is stored untouched.
         /// </remarks>
         [Test]
-        public void ParkingACollectionInALocalStillCostsTheReshaping()
+        public void ParkingACollectionInALocalAgreesToo()
         {
             var holder = new ExpressionListResultHolder();
 
-            var compiled = Expression
+            TestCompiledVsInterpreted<ExpressionListResultHolder, object>(
+                "($xs = Words.!{#this}; $xs)", holder);
+
+            TestCompiledVsInterpreted<ExpressionListResultHolder, object>(
+                "($xs = Ints.!{#this}; $xs)", holder);
+
+            // a collection the caller owns, parked and handed back: still their own instance
+            var owned = Expression
                 .ParseGetter<ExpressionListResultHolder, object>(
-                    "($xs = Words.!{#this}; $xs)", EvaluationMode.MustCompile)
+                    "($xs = Owned; $xs)", EvaluationMode.MustCompile)
                 .GetValue(holder);
 
-            var interpreted = Expression
+            Assert.AreSame(holder.Owned, owned);
+
+            // and one reassigned from built to read keeps the read one, untouched
+            var reassigned = Expression
                 .ParseGetter<ExpressionListResultHolder, object>(
-                    "($xs = Words.!{#this}; $xs)", EvaluationMode.MustInterpret)
+                    "($xs = Words.!{#this}; $xs = Owned; $xs)", EvaluationMode.MustCompile)
                 .GetValue(holder);
 
-            Assert.AreEqual(typeof(List<string>), compiled.GetType());
-            Assert.AreEqual(typeof(List<object>), interpreted.GetType());
-
-            CollectionAssert.AreEqual(
-                new[] { "a", "b" }, (System.Collections.IEnumerable)compiled);
-            CollectionAssert.AreEqual(
-                new object[] { "a", "b" }, (System.Collections.IEnumerable)interpreted);
+            Assert.AreSame(holder.Owned, reassigned);
         }
     }
 }

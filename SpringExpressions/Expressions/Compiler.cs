@@ -83,6 +83,36 @@ namespace SpringExpressions.Expressions
         }
 
         /// <summary>
+        /// A collection this engine built, reshaped to the shape the interpreter would have produced -
+        /// or to <paramref name="resultType"/> where something narrower was asked for.
+        /// </summary>
+        /// <remarks>
+        /// Two callers, and the second is what makes a local behave like everything else.
+        /// <see cref="CompileGetterCore{TResult,TContext}"/> calls it on the root, and
+        /// <c>LocalVariableNode</c> calls it on the way <i>into</i> a <c>$local</c>'s slot, with
+        /// <c>object</c> as the request.
+        /// <p>
+        /// <b>Reshaping at the assignment rather than at the read is what makes it work at all.</b> A
+        /// local's slot is object-typed, so by the time the value is read back there is no static list
+        /// type left to narrow and these three do nothing - which is why
+        /// <c>($xs = Ints.!{…}; $xs)</c> used to hand back a <c>List&lt;int&gt;</c> compiled against
+        /// the interpreter's <c>List&lt;object&gt;</c>. At the assignment the value still has its real
+        /// type. It also mirrors the interpreter exactly: it builds a <c>List&lt;object&gt;</c> and
+        /// stores <i>that</i>, so the two agree for every later use of the local, not only at the root.
+        /// </p>
+        /// <p>
+        /// A collection merely <i>read</i> never reaches here - the caller checks the registry first -
+        /// so assigning one to a local still stores the caller's own object, identity intact.
+        /// </p>
+        /// </remarks>
+        internal static LExpression NormalizeConstructedCollection(LExpression body, Type resultType)
+        {
+            body = NormalizeSetResult(body, resultType);
+            body = NormalizeListResult(body, resultType);
+            return NormalizeDictionaryResult(body, resultType);
+        }
+
+        /// <summary>
         /// The list counterpart of <see cref="NormalizeSetResult"/>.
         /// </summary>
         /// <remarks>
@@ -281,9 +311,7 @@ namespace SpringExpressions.Expressions
             // as it came, reference identity included, which is also what the interpreter does.
             if (compilationContext.IsConstructedCollection(exp))
             {
-                exp = NormalizeSetResult(exp, typeof(TResult));
-                exp = NormalizeListResult(exp, typeof(TResult));
-                exp = NormalizeDictionaryResult(exp, typeof(TResult));
+                exp = NormalizeConstructedCollection(exp, typeof(TResult));
             }
 
             // An object-typed body carries no compile-time information, so a typed request over it is
