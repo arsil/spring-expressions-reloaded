@@ -241,16 +241,22 @@ namespace SpringExpressionsTests.Expressions
         /// A sealed reference type cannot be narrowed, so a literal of strings compiles - which is what
         /// stops the rule above from being "decline every reference type".
         /// </summary>
+        /// <remarks>
+        /// The elements are string <i>constants</i>, and that is the whole of what keeps this shape
+        /// compiling: a constant cannot be null, so the interpreter is guaranteed a value to take the
+        /// item type from. The same literal written from string <i>properties</i> is declined - see
+        /// <see cref="AListWhoseElementsCouldAllBeNullIsDeclined"/>.
+        /// </remarks>
         [Test]
         public void ASealedElementTypeStillCompiles()
         {
             var holder = new NarrowableElementHolder();
 
             Assert.AreEqual(typeof(List<string>),
-                CompileGetter<NarrowableElementHolder, object>("{Label, Label}")
+                CompileGetter<NarrowableElementHolder, object>("{'a', 'b'}")
                     .GetValue(holder).GetType());
             Assert.AreEqual(typeof(List<string>),
-                InterpretGetter<NarrowableElementHolder, object>("{Label, Label}")
+                InterpretGetter<NarrowableElementHolder, object>("{'a', 'b'}")
                     .GetValue(holder).GetType());
         }
 
@@ -264,10 +270,94 @@ namespace SpringExpressionsTests.Expressions
             var holder = new NarrowableElementHolder();
 
             Assert.AreEqual(typeof(List<string>),
-                CompileGetter<NarrowableElementHolder, object>("{Label, null}")
+                CompileGetter<NarrowableElementHolder, object>("{'a', null}")
                     .GetValue(holder).GetType());
             Assert.AreEqual(typeof(List<string>),
-                InterpretGetter<NarrowableElementHolder, object>("{Label, null}")
+                InterpretGetter<NarrowableElementHolder, object>("{'a', null}")
+                    .GetValue(holder).GetType());
+        }
+
+        /// <summary>
+        /// A null element is skipped wherever it sits, so the same literal written the other way round
+        /// is the same literal.
+        /// </summary>
+        /// <remarks>
+        /// It was not: the unification excused a null only once a type had been seen, so a LEADING null
+        /// dragged the item type to object while the interpreter - which skips nulls whatever their
+        /// position - answered <c>List&lt;string&gt;</c>. Same characters, different order, different
+        /// answer, and no sweep could see it because the comparison rendered every closed generic as
+        /// <c>List`1</c>.
+        /// </remarks>
+        [Test]
+        public void ALeadingNullIsSkippedLikeATrailingOne()
+        {
+            var holder = new NarrowableElementHolder();
+
+            Assert.AreEqual(typeof(List<string>),
+                CompileGetter<NarrowableElementHolder, object>("{null, 'a'}")
+                    .GetValue(holder).GetType());
+            Assert.AreEqual(typeof(List<string>),
+                InterpretGetter<NarrowableElementHolder, object>("{null, 'a'}")
+                    .GetValue(holder).GetType());
+        }
+
+        /// <summary>
+        /// Where every element could be null at runtime they all might be, and then the interpreter has
+        /// nothing to take an item type from. It answers <c>List&lt;object&gt;</c>; the compiled path
+        /// would keep <c>string</c>. So it declines, and the interpreter is the only backend that runs.
+        /// </summary>
+        /// <remarks>
+        /// <c>{NullName}</c> was <c>List&lt;string&gt;</c> compiled and <c>List&lt;object&gt;</c>
+        /// interpreted - a live divergence for three days. <b>Do not "fix" this by keeping the static
+        /// type:</b> whether every element is null is a question about the data, which the compiled
+        /// path cannot answer and must not guess.
+        /// </remarks>
+        [Test]
+        public void AListWhoseElementsCouldAllBeNullIsDeclined()
+        {
+            var holder = new NarrowableElementHolder();
+
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<NarrowableElementHolder, object>("{NullName}"));
+            Assert.AreEqual(typeof(List<object>),
+                InterpretGetter<NarrowableElementHolder, object>("{NullName}")
+                    .GetValue(holder).GetType());
+
+            // The same shape one value away from it: Label holds "x" today, so the interpreter answers
+            // List<string> - and would answer List<object> the day it holds null. Declined for that.
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<NarrowableElementHolder, object>("{Label, Label}"));
+            Assert.AreEqual(typeof(List<string>),
+                InterpretGetter<NarrowableElementHolder, object>("{Label, Label}")
+                    .GetValue(holder).GetType());
+
+            // A null literal beside them settles nothing - it is a value that could be null too.
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<NarrowableElementHolder, object>("{Label, null}"));
+        }
+
+        /// <summary>
+        /// One element that cannot be null is enough: the interpreter is then guaranteed a value to
+        /// take the item type from, so the literal keeps it on both backends.
+        /// </summary>
+        [Test]
+        public void OneElementThatCannotBeNullKeepsTheItemType()
+        {
+            var holder = new NarrowableElementHolder();
+
+            Assert.AreEqual(typeof(List<string>),
+                CompileGetter<NarrowableElementHolder, object>("{'a', NullName}")
+                    .GetValue(holder).GetType());
+            Assert.AreEqual(typeof(List<string>),
+                InterpretGetter<NarrowableElementHolder, object>("{'a', NullName}")
+                    .GetValue(holder).GetType());
+
+            // A value type cannot be null either, which is why every numeric literal is untouched.
+            Assert.AreEqual(typeof(List<int>),
+                CompileGetter<NarrowableElementHolder, object>("{1, 2}")
+                    .GetValue(holder).GetType());
+            Assert.AreEqual(typeof(List<int>),
+                InterpretGetter<NarrowableElementHolder, object>("{1, 2}")
                     .GetValue(holder).GetType());
         }
 
@@ -310,6 +400,12 @@ namespace SpringExpressionsTests.Expressions
         public int? MaybeNumber { get; set; } = 5;
         public BaseElement AsBase { get; set; } = new DerivedElement();
         public string Label { get; set; } = "x";
+
+        /// <summary>
+        /// A string property holding null, for the all-null rule: the interpreter has no value to take
+        /// an item type from and answers <c>List&lt;object&gt;</c>.
+        /// </summary>
+        public string NullName { get; set; }
     }
 
     public class BaseElement { }

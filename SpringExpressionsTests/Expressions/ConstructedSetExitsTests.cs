@@ -54,6 +54,28 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
+        /// Names the item type but not the kind, so a list would satisfy it too - which is what makes
+        /// it the pin for "a set stays a set".
+        /// </summary>
+        public string TakeEnumerableOfInt(IEnumerable<int> value)
+        {
+            Received = value;
+            return "enumerable";
+        }
+
+        /// <summary>
+        /// A collection to build one from, for the overload rows.
+        /// </summary>
+        public List<int> Ints { get; set; } = new List<int> { 3, 1, 2 };
+
+        /// <summary>
+        /// Overloaded, so the argument's item type decides which one runs.
+        /// </summary>
+        public string Pick(object value) { return "Pick(object)"; }
+
+        public string Pick(List<int> value) { return "Pick(List<int>)"; }
+
+        /// <summary>
         /// A parameter that names a collection but no item type. It accepts the typed shape and the
         /// interpreter's alike, which is exactly why it has to be given the interpreter's.
         /// </summary>
@@ -295,22 +317,112 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// And the interpreter cannot make that call at all - it has only a set of object to offer an
-        /// ISet&lt;int&gt; parameter - so one backend answers where the other throws.
+        /// And the interpreter makes the same call: it coerces the set it built into the kind the
+        /// parameter asks for, so both backends hand over a <c>HashSet&lt;int&gt;</c>.
         /// </summary>
         /// <remarks>
-        /// DO NOT FIX ONE SIDE. This is pre-existing and was measured identical before and after the
-        /// exits were reshaped: the sink names the item type, so nothing about this row changed. It is
-        /// the mirror image of the divergence this fixture is about - there the compiled path knew an
-        /// item type the interpreter did not, here a parameter demands one the interpreter cannot
-        /// produce. Closing it means deciding what the interpreter should do with a typed parameter,
-        /// which is a ruling of its own and is recorded in _Docs/open-issues.md.
+        /// <p>
+        /// This asserted the divergence until 2026-09-14 - the interpreter threw
+        /// <c>InvalidCastException</c>, having only a set of object to offer an
+        /// <c>ISet&lt;int&gt;</c> parameter, while the compiled path made the call. Which backend a
+        /// caller got followed from their declared context type rather than from anything they wrote.
+        /// </p>
+        /// <p>
+        /// The ruling: <b>passing a collection the engine built to a method coerces it to the
+        /// parameter's kind</b>, the way assigning one to a property already does. Only a collection
+        /// the engine built, and only where the value does not already fit - a collection the caller
+        /// owns arrives as the very instance, which the identity pins below still hold.
+        /// </p>
         /// </remarks>
         [Test]
-        public void PassedToAParameterThatNamesTheItemTypeThrowsInTheInterpreter()
+        public void PassedToAParameterThatNamesTheItemTypeIsCoercedInTheInterpreter()
+        {
+            var context = new ConstructedSetExitsContext();
+
+            InterpretGetter<ConstructedSetExitsContext, object>("TakeSetOfInt({1,2} + {3})")
+                .GetValue(context);
+
+            Assert.AreEqual(typeof(HashSet<int>), context.Received.GetType());
+        }
+
+        /// <summary>
+        /// A set stays a set. The parameter asks only for an <c>IEnumerable&lt;int&gt;</c>, which a
+        /// list would satisfy - and the compiled path hands over the <c>HashSet&lt;int&gt;</c> it
+        /// built, so the interpreter must too.
+        /// </summary>
+        /// <remarks>
+        /// The target-driven converter builds a <c>List&lt;T&gt;</c> for a loose target, so a first cut
+        /// handed this method a list here and a set compiled - the same divergence one step along,
+        /// caught by measuring rather than by review.
+        /// </remarks>
+        [Test]
+        public void CoercingASetToALooseParameterKeepsItASet()
+        {
+            var interpreted = new ConstructedSetExitsContext();
+            InterpretGetter<ConstructedSetExitsContext, object>("TakeEnumerableOfInt({1,2} + {3})")
+                .GetValue(interpreted);
+
+            var compiled = new ConstructedSetExitsContext();
+            CompileGetter<ConstructedSetExitsContext, object>("TakeEnumerableOfInt({1,2} + {3})")
+                .GetValue(compiled);
+
+            Assert.AreEqual(typeof(HashSet<int>), interpreted.Received.GetType());
+            Assert.AreEqual(typeof(HashSet<int>), compiled.Received.GetType());
+        }
+
+        /// <summary>
+        /// A collection the CALLER owns is never coerced, so a row that fails today keeps failing on
+        /// both backends rather than starting to work on one.
+        /// </summary>
+        /// <remarks>
+        /// This is the pin that killed the cheap version of the rule. Deciding from the value alone -
+        /// "coerce any object-typed container" - made <c>TakeSetOfInt(OwnedObjects)</c> succeed here
+        /// while the compiled path threw <c>InvalidCastException</c> at run time: a NEW divergence, in
+        /// a row that agreed before. The compiled path does not always refuse what it cannot convert;
+        /// sometimes it compiles and throws. So the question has to be "did the engine build this",
+        /// which only the node can answer.
+        /// </remarks>
+        [Test]
+        public void ACallerOwnedCollectionIsNotCoercedAtAParameter()
         {
             Assert.Throws<InvalidCastException>(
-                () => InterpretGetter<ConstructedSetExitsContext, object>("TakeSetOfInt({1,2} + {3})")
+                () => InterpretGetter<ConstructedSetExitsContext, object>("TakeSetOfInt(Owned)")
+                    .GetValue(new ConstructedSetExitsContext()));
+
+            Assert.Throws<InvalidCastException>(
+                () => CompileGetter<ConstructedSetExitsContext, object>("TakeSetOfInt(Owned)")
+                    .GetValue(new ConstructedSetExitsContext()));
+        }
+
+        /// <summary>
+        /// With several candidates the item type decides WHICH method is called, and the interpreter
+        /// cannot be brought level - an empty projection has no items to take an item type from. So
+        /// the compiled path stands aside and the interpreter chooses alone.
+        /// </summary>
+        /// <remarks>
+        /// <c>Pick(Ints.!{#this})</c> against <c>Pick(object)</c> and <c>Pick(List&lt;int&gt;)</c>
+        /// called <c>Pick(List&lt;int&gt;)</c> compiled and <c>Pick(object)</c> interpreted - both
+        /// succeeding, no exception anywhere, two backends running different code. Eight such rows,
+        /// measured 2026-09-14; the literal and caller-owned versions of the same shape agreed
+        /// throughout, which is what identified the cause.
+        /// </remarks>
+        [Test]
+        public void AnOverloadChosenByABuiltCollectionIsRefusedCompiled()
+        {
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<ConstructedSetExitsContext, object>("Pick(Ints.!{#this})"));
+
+            Assert.AreEqual("Pick(object)",
+                InterpretGetter<ConstructedSetExitsContext, object>("Pick(Ints.!{#this})")
+                    .GetValue(new ConstructedSetExitsContext()));
+
+            // A literal is not affected: both backends hold a List<int> for it, so both pick the same
+            // candidate and the shape still compiles.
+            Assert.AreEqual("Pick(List<int>)",
+                CompileGetter<ConstructedSetExitsContext, object>("Pick({1,2,3})")
+                    .GetValue(new ConstructedSetExitsContext()));
+            Assert.AreEqual("Pick(List<int>)",
+                InterpretGetter<ConstructedSetExitsContext, object>("Pick({1,2,3})")
                     .GetValue(new ConstructedSetExitsContext()));
         }
 

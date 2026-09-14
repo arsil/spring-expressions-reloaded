@@ -267,10 +267,13 @@ namespace SpringExpressionsTests.Expressions
                 foreach (var item in items)
                     parts.Add(item == null ? "null" : item.ToString());
 
-                return value.GetType().Name + "[" + string.Join(",", parts) + "]";
+                // ToString(), not Name: Name is "List`1" for every closed generic, so List<string> and
+                // List<object> would compare equal here. EvaluationNeverDivergesTests had the same
+                // defect and it hid four real divergences for three days - see open-issues item 55.
+                return value.GetType() + "[" + string.Join(",", parts) + "]";
             }
 
-            return value.GetType().Name + ":" + value;
+            return value.GetType() + ":" + value;
         }
 
         private class NamedRoot

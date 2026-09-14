@@ -139,6 +139,77 @@ namespace SpringExpressions
         }
 
         /// <summary>
+        /// Which arguments are collections this engine builds, rather than ones the caller owns.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// The interpreter's answer to the question the compiled path answers with
+        /// <c>CompilationContext.IsConstructedCollection</c> - a registry it fills while emitting. At
+        /// evaluation there is no such registry and the value cannot be asked: a
+        /// <c>List&lt;object&gt;</c> the engine built and one the caller declared look identical. The
+        /// node does know, because it is the same tree the compiler walks, so the question is
+        /// structural: did this argument's node <i>construct</i> a collection?
+        /// </p>
+        /// <p>
+        /// Structural means it stays in step by being kept in step - a new collection-producing node
+        /// belongs on this list. The consequence of missing one is a shape that keeps the divergence
+        /// it has today, not a wrong answer.
+        /// </p>
+        /// </remarks>
+        [NotNull]
+        protected bool[] ArgumentsThatBuildTheirOwnCollection()
+        {
+            InitializeNode();
+
+            if (_argumentsThatBuildTheirOwnCollection == null)
+            {
+                var flags = new bool[args.Length];
+                for (var i = 0; i < args.Length; i++)
+                    flags[i] = BuildsItsOwnCollection(args[i]);
+
+                _argumentsThatBuildTheirOwnCollection = flags;
+            }
+
+            return _argumentsThatBuildTheirOwnCollection;
+        }
+
+        private bool[] _argumentsThatBuildTheirOwnCollection;
+
+        private static bool BuildsItsOwnCollection([CanBeNull] BaseNode node)
+        {
+            // A chain is an Expression whose children are its links, and its value is the last link's:
+            // 'Ints.!{#this}' arrives here as Expression[PropertyOrFieldNode, ProjectionNode]. An
+            // expression list propagates from its last element the same way - item 47's rule.
+            if (node is Expression || node is ExpressionListNode)
+            {
+                var last = node.getFirstChild();
+                if (last == null)
+                    return false;
+
+                while (last.getNextSibling() != null)
+                    last = last.getNextSibling();
+
+                return BuildsItsOwnCollection(last as BaseNode);
+            }
+
+            if (node is ListInitializerNode || node is MapInitializerNode)
+                return true;
+
+            if (node is ProjectionNode || node is SelectionNode)
+                return true;
+
+            // The set and dictionary operators. '+' also concatenates and adds, which is why the
+            // value is tested as well as the node before anything is coerced.
+            if (node is OpADD || node is OpSUBTRACT || node is OpMULTIPLY)
+                return true;
+
+            // sort(), distinct(), reverse(), nonNull(), orderBy(), convert() - a call whose name is a
+            // collection processor builds the list it returns. A call by any other name does not.
+            var method = node as MethodNode;
+            return method != null && MethodNode.IsCollectionProcessorName(method.getText());
+        }
+
+        /// <summary>
         /// Asserts the argument count.
         /// </summary>
         /// <param name="requiredCount">The required count.</param>

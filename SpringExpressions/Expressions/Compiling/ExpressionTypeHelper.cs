@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Linq.Expressions;
+
 using JetBrains.Annotations;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -9,6 +11,34 @@ namespace SpringExpressions.Expressions.Compiling
 {
     internal static class ExpressionTypeHelper
     {
+        /// <summary>
+        /// Whether the value this expression produces could be a null reference at run time.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// Asked of every element of a collection <i>literal</i>, and for one question only: if
+        /// <b>every</b> element could be null, then at run time they all might be, and the interpreter
+        /// - which reads the item type off the values - would have nothing to read and answer
+        /// <c>object</c> where the compiled path kept the static type. <c>{NullName}</c> was
+        /// <c>List&lt;string&gt;</c> compiled and <c>List&lt;object&gt;</c> interpreted for exactly
+        /// that reason.
+        /// </p>
+        /// <p>
+        /// Deliberately only two shapes answer "no": a non-nullable value type, which has no null to
+        /// hold, and a constant, whose value is in the expression. That keeps <c>{1, 2}</c> and
+        /// <c>{'a', 'b'}</c> - the literals anybody actually writes - compiling, and it is honest
+        /// about everything else: a <c>string</c> property may hold null however it was declared.
+        /// </p>
+        /// </remarks>
+        public static bool CanBeNullAtRuntime([NotNull] LExpression expression)
+        {
+            if (expression is ConstantExpression constant)
+                return constant.Value == null;
+
+            var type = expression.Type;
+            return !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
+        }
+
         public static bool IsNumericExpression([NotNull] LExpression expression)
         {
             //   0 - A null reference.

@@ -22,8 +22,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
+using System.Linq.Expressions;
+
 using JetBrains.Annotations;
 
+using SpringExpressions.Expressions.Compiling;
 using SpringExpressions.Parser.antlr.collections;
 using SpringUtil;
 
@@ -50,6 +53,8 @@ namespace SpringExpressions
              var node = getFirstChild();
              Type commonKeyType = null;
              Type commonValueType = null;
+             var everyKeyCouldBeNull = true;
+             var everyValueCouldBeNull = true;
              List<LExpression> dictionaryEntries = new List<LExpression>();
 
              while (node != null)
@@ -92,6 +97,17 @@ namespace SpringExpressions
                      }
                  }
 
+                 // Whether a column could be entirely null at run time, asked of the key and the value
+                 // expressions MapEntryNode built the pair from. If one whole column is null the
+                 // interpreter has no value to read that component's type off - and it then answers
+                 // Dictionary<object, object> for BOTH components, since neither can be named alone.
+                 // '#{1 : NullName}' was Dictionary<int, string> compiled against that.
+                 if (item is NewExpression pair && pair.Arguments.Count == 2)
+                 {
+                     everyKeyCouldBeNull &= ExpressionTypeHelper.CanBeNullAtRuntime(pair.Arguments[0]);
+                     everyValueCouldBeNull &= ExpressionTypeHelper.CanBeNullAtRuntime(pair.Arguments[1]);
+                 }
+
                  commonKeyType = commonKeyType == null || commonKeyType == entryTypes[0]
                      ? entryTypes[0]
                      : typeof(object);
@@ -104,6 +120,16 @@ namespace SpringExpressions
 
              if (commonKeyType == null)
                  throw CannotCompile("no compiled form for this map initializer");
+
+             if ((everyKeyCouldBeNull || everyValueCouldBeNull)
+                 && (commonKeyType != typeof(object) || commonValueType != typeof(object)))
+             {
+                 throw CannotCompile(
+                     "every key or every value could be null at runtime, so the interpreter may find "
+                     + "no value to take that component's type from and build a "
+                     + "Dictionary<object, object> where this would keep "
+                     + $"'{commonKeyType}' and '{commonValueType}'");
+             }
 
              if (commonKeyType != typeof(object) || commonValueType != typeof(object))
              {

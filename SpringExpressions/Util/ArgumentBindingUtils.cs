@@ -4,6 +4,9 @@ using System.Reflection;
 
 using JetBrains.Annotations;
 
+using SpringCore.TypeConversion;
+using SpringUtil;
+
 using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions.Util
@@ -290,6 +293,98 @@ namespace SpringExpressions.Util
 
             bound = result;
             return ArgumentBinding.Expanded;
+        }
+
+        /// <summary>
+        /// Coerces a collection argument into the kind of collection the parameter asks for, in place.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// <b>The interpreter's half of "a collection the engine built fits the parameter it is passed
+        /// to".</b> The compiled path holds a <c>List&lt;int&gt;</c> for
+        /// <c>Ints.!{#this}</c>; the interpreter holds a <c>List&lt;object&gt;</c>, because it has
+        /// boxed values and nothing else. So <c>TakeListOfInt(Ints.!{#this})</c> made the call
+        /// compiled and threw <c>InvalidCastException</c> interpreted - one backend answering while
+        /// the other failed, decided by the caller's declared context type rather than by anything
+        /// they wrote.
+        /// </p>
+        /// <p>
+        /// <b>Only where the value does not already satisfy the parameter</b>, which is what keeps it
+        /// free of side effects: a collection that fits is passed through untouched, so a caller's own
+        /// collection still arrives as the very instance and nothing that works today is copied. Every
+        /// value this converts is one the call would otherwise have rejected.
+        /// </p>
+        /// <p>
+        /// The conversion is <see cref="TypeConversionUtils.ConvertValueIfNecessary"/> - the same one
+        /// a property setter runs, which builds the target's kind element by element. So
+        /// <c>Strings = Ints</c> and <c>TakeStrings(Ints)</c> mean the same thing, which is the
+        /// sentence this adds to the language: <i>passing a collection to a method coerces it to the
+        /// parameter's kind, the way assigning one to a property already does.</i>
+        /// </p>
+        /// <p>
+        /// Strings are excluded on both sides: a string is an <c>IEnumerable</c>, and the converter
+        /// has its own comma-splitting rules for one, which have nothing to do with this.
+        /// </p>
+        /// </remarks>
+        public static void CoerceCollectionArguments(
+            [NotNull, ItemNotNull] ParameterInfo[] parameters,
+            [NotNull, ItemCanBeNull] object[] argValues,
+            [NotNull] bool[] engineBuilt)
+        {
+            var count = Math.Min(parameters.Length, argValues.Length);
+
+            for (var i = 0; i < count; i++)
+            {
+                // Only a collection the ENGINE built, never one the caller owns. The value alone
+                // cannot tell them apart and a probe of mine claimed otherwise: coercing every
+                // object-typed container made 'TakeSetOfInt(OwnedObjects)' - a caller's own
+                // List<object> - succeed here while the compiled path threw InvalidCastException at
+                // run time, which is a NEW divergence in a row that agreed before. The compiled path
+                // does not always refuse what it cannot convert; sometimes it compiles and throws.
+                if (i >= engineBuilt.Length || !engineBuilt[i])
+                    continue;
+
+                var value = argValues[i];
+                if (value == null || value is string || !(value is System.Collections.IEnumerable))
+                    continue;
+
+                var required = parameters[i].ParameterType;
+                if (required == typeof(string) || required.IsInstanceOfType(value))
+                    continue;
+
+                if (!required.IsArray
+                    && !typeof(System.Collections.IEnumerable).IsAssignableFrom(required))
+                {
+                    continue;
+                }
+
+                argValues[i] = Coerce(required, value);
+            }
+        }
+
+        /// <summary>
+        /// Builds the collection kind the compiled path would have handed over.
+        /// </summary>
+        /// <remarks>
+        /// A set stays a set where the parameter allows one, which the target-driven converter would
+        /// not do: asked for an <c>IEnumerable&lt;int&gt;</c> it builds a <c>List&lt;int&gt;</c>, so
+        /// <c>TakeEnumerableOfInt({1,2} + {3})</c> handed the method a list here and a
+        /// <c>HashSet&lt;int&gt;</c> compiled - the same divergence one step along. Measured.
+        /// </remarks>
+        private static object Coerce([NotNull] Type required, [NotNull] object value)
+        {
+            if (CollectionOperandUtils.IsAnySet(value))
+            {
+                var itemType = CollectionOperandUtils.GetEnumerableItemType(required);
+                if (itemType != null)
+                {
+                    var asSet = typeof(ISet<>).MakeGenericType(itemType);
+                    if (required.IsAssignableFrom(typeof(HashSet<>).MakeGenericType(itemType)))
+                        return TypeConversionUtils.ConvertValueIfNecessary(asSet, value, null);
+                }
+            }
+
+            return TypeConversionUtils.ConvertValueIfNecessary(required, value, null);
         }
 
         /// <summary>

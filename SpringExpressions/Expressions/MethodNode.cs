@@ -85,6 +85,14 @@ namespace SpringExpressions
         {
         }
 
+        /// <summary>
+        /// Whether a method name is one of the collection processors, which build the list they return.
+        /// </summary>
+        internal static bool IsCollectionProcessorName([CanBeNull] string methodName)
+        {
+            return methodName != null && collectionProcessorMap.Contains(methodName);
+        }
+
                 [NotNull]
 	    protected override LExpression GetExpressionTreeIfPossible(
             LExpression contextExpression,
@@ -227,7 +235,8 @@ namespace SpringExpressions
 		    if (methodInfo == null)
 		    {
 			    var resolved = ResolveMethod(
-				    this, contextExpressionType, methodName, arguments, argumentTypesArray);
+				    this, contextExpressionType, methodName, arguments, argumentTypesArray,
+				    compilationContext);
 
 			    if (resolved != null)
 			    {
@@ -313,7 +322,8 @@ namespace SpringExpressions
             [NotNull] Type contextType,
             [NotNull] string methodName,
             [NotNull, ItemNotNull] List<LExpression> arguments,
-            [NotNull, ItemNotNull] Type[] argumentTypes)
+            [NotNull, ItemNotNull] Type[] argumentTypes,
+            [CanBeNull] CompilationContext constructedCollections = null)
         {
             // No sandbox check here on purpose. This resolves accessors for IndexerNode as well as
             // methods for MethodNode, and indexing is gated as a language operation rather than as a
@@ -331,6 +341,27 @@ namespace SpringExpressions
 
             for (var position = 0; position < arguments.Count; position++)
             {
+                // A collection this engine built is typed here and object-typed in the interpreter,
+                // which has boxed values and nothing else. With one candidate that costs nothing - the
+                // interpreter coerces the argument into the parameter's kind and both make the same
+                // call. With several it decides WHICH candidate: 'A(Ints.!{#this})' against
+                // A(object)/A(List<int>) called A(List<int>) compiled and A(object) interpreted, both
+                // succeeding, no exception anywhere - two backends silently running different code.
+                //
+                // The interpreter cannot be brought level here: an empty projection has no items to
+                // take an item type from, so which overload applies would depend on the data. So this
+                // is the overload gate's own rule, for a value rather than a type - what the two
+                // backends cannot settle alike is refused, and the interpreter chooses alone.
+                if (constructedCollections != null
+                    && constructedCollections.IsConstructedCollection(arguments[position]))
+                {
+                    throw new CompileErrorException(
+                        node,
+                        $"Overload choice for method '{methodName}' depends on a collection this "
+                        + "engine built, which the interpreter holds object-typed; there is no "
+                        + "compiled form - the interpreter chooses from the runtime values.");
+                }
+
                 if (IsStaticallyDeterminate(arguments[position], candidates, position, arguments.Count))
                     continue;
 
@@ -958,12 +989,27 @@ namespace SpringExpressions
                 // arguments"), and the params array was packed unconditionally, which ran off the end
                 // of a short argument list and packed a caller's own array inside a second one.
                 object[] paramValues;
-                if (ArgumentBindingUtils.TryBind(cachedParameters, argValues, out paramValues)
-                    == ArgumentBinding.NotApplicable)
+                var binding = ArgumentBindingUtils.TryBind(cachedParameters, argValues, out paramValues);
+                if (binding == ArgumentBinding.NotApplicable)
                 {
                     throw new ArgumentException(string.Format(
                         "Method '{0}' with the specified number and types of arguments does not exist.",
                         methodName));
+                }
+
+                // A collection the engine built is object-typed here and typed on the compiled path,
+                // so a parameter naming an item type took the call compiled and threw interpreted.
+                // Coerced only where the value does not already fit, so nothing that works today is
+                // copied - see ArgumentBindingUtils.CoerceCollectionArguments.
+                //
+                // Only for the exact binding, where argument i IS parameter i. Once defaults have been
+                // filled or a params array packed, that correspondence is gone and the argument nodes
+                // no longer line up with the values; no such shape is known to diverge, so this is a
+                // limit rather than a gap being papered over.
+                if (binding == ArgumentBinding.Exact)
+                {
+                    ArgumentBindingUtils.CoerceCollectionArguments(
+                        cachedParameters, paramValues, ArgumentsThatBuildTheirOwnCollection());
                 }
 
                 return cachedInstanceMethod.Invoke(context, paramValues);

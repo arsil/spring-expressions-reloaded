@@ -202,6 +202,58 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
+        /// A whole column that could be null at runtime might be, and then the interpreter has no value
+        /// to take that component's type from - and it answers <c>Dictionary&lt;object, object&gt;</c>
+        /// for BOTH components, since neither can be named on its own. So the literal is declined.
+        /// </summary>
+        /// <remarks>
+        /// <c>#{1 : NullName}</c> was <c>Dictionary&lt;int, string&gt;</c> compiled against
+        /// <c>Dictionary&lt;object, object&gt;</c> interpreted - a live divergence the sweep could not
+        /// see, because it rendered every closed generic as <c>Dictionary`2</c>. The list literal's
+        /// rule, asked of each column.
+        /// </remarks>
+        [Test]
+        public void AMapColumnThatCouldBeAllNullIsDeclined()
+        {
+            var holder = new NarrowableEntryHolder();
+
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<NarrowableEntryHolder, object>("#{1 : NullName}"));
+            Assert.AreEqual(typeof(Dictionary<object, object>),
+                InterpretGetter<NarrowableEntryHolder, object>("#{1 : NullName}")
+                    .GetValue(holder).GetType());
+
+            // One value away from it: Label holds "x" today, so the interpreter answers
+            // Dictionary<int, string> - and Dictionary<object, object> the day it holds null.
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<NarrowableEntryHolder, object>("#{1 : Label}"));
+            Assert.AreEqual(typeof(Dictionary<int, string>),
+                InterpretGetter<NarrowableEntryHolder, object>("#{1 : Label}")
+                    .GetValue(holder).GetType());
+
+            // The key column asks the same question.
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<NarrowableEntryHolder, object>("#{Label : 1}"));
+        }
+
+        /// <summary>
+        /// A constant cannot be null, which is what keeps the literals anybody writes compiling:
+        /// <c>#{'a' : 1}</c> names its key in the expression.
+        /// </summary>
+        [Test]
+        public void AConstantComponentKeepsTheEntryTypes()
+        {
+            var holder = new NarrowableEntryHolder();
+
+            Assert.AreEqual(typeof(Dictionary<string, int>),
+                CompileGetter<NarrowableEntryHolder, object>("#{'a' : 1}")
+                    .GetValue(holder).GetType());
+            Assert.AreEqual(typeof(Dictionary<string, int>),
+                InterpretGetter<NarrowableEntryHolder, object>("#{'a' : 1}")
+                    .GetValue(holder).GetType());
+        }
+
+        /// <summary>
         /// The cost, stated rather than hidden: a collection is a non-sealed reference type, so a map
         /// literal holding one has no compiled form. The interpreter serves it.
         /// </summary>
@@ -222,5 +274,12 @@ namespace SpringExpressionsTests.Expressions
     public class NarrowableEntryHolder
     {
         public object Anything { get; set; } = 45;
+
+        /// <summary>
+        /// A string property holding null, for the all-null column rule.
+        /// </summary>
+        public string NullName { get; set; }
+
+        public string Label { get; set; } = "x";
     }
 }

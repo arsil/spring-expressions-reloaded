@@ -26,6 +26,7 @@ using System.Reflection;
 
 using JetBrains.Annotations;
 
+using SpringExpressions.Expressions.Compiling;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -53,6 +54,7 @@ namespace SpringExpressions
 
             var arguments = new List<LExpression>();
             Type commonType = null;
+            var sawNullLiteral = false;
             var nullValuesArgumentIndexes = new List<int>(8);
 
             while (node != null)
@@ -78,31 +80,32 @@ namespace SpringExpressions
 
                 arguments.Add(arg);
 
-
-
-                if (commonType == null)
+                // A null literal contributes no type and is skipped wherever it sits, which is what
+                // Get does with a null value. It used to be excused only when a type had already been
+                // seen, so '{Label, null}' kept 'string' while '{null, Label}' - the same literal
+                // written the other way round - collapsed to object and disagreed with the
+                // interpreter, which skips nulls whatever their position.
+                if (IsNullLiteral(arg))
+                {
+                    sawNullLiteral = true;
+                    nullValuesArgumentIndexes.Add(arguments.Count - 1);
+                }
+                else if (commonType == null)
                 {
                     commonType = arg.Type;
                 }
                 else if (arg.Type != commonType)
                 {
-                    // todo: error: nullable? - to musi nullable nawalać!
-
-                    // todo: error: gdzieś jeszcze zbieramy commonType!
-                    // todo: error: to nie działa dobrze? shit!
-                    var nullForReferenceTypeList
-                        = !commonType.IsValueType
-                        && arg is ConstantExpression constExpression
-                        && constExpression.Value == null;
-
-                    if (nullForReferenceTypeList)
-                        nullValuesArgumentIndexes.Add(arguments.Count - 1);
-                    else
-                        commonType = typeof(object);
+                    commonType = typeof(object);
                 }
 
                 node = node.getNextSibling();
             }
+
+            // A null beside a value type has nowhere to live, so the list is object-typed - Get reaches
+            // the same conclusion from 'sawNull && commonType.IsValueType'.
+            if (commonType != null && sawNullLiteral && commonType.IsValueType)
+                commonType = typeof(object);
 
             // A literal keeps its item type on both backends, or it is not compiled at all.
             //
@@ -128,6 +131,33 @@ namespace SpringExpressions
 
             if (commonType == null)
                 commonType = typeof(object);
+
+            // Every element could be null at run time, and then they all might be - leaving the
+            // interpreter nothing to read an item type off, so it answers object where this would keep
+            // the static type. '{NullName}' was List<string> compiled and List<object> interpreted for
+            // exactly that reason, and '{Label, NullName}' is the same literal one value away from it.
+            // Only asked where an item type is actually being kept: an object-typed literal is what the
+            // interpreter produces for an all-null list anyway.
+            if (commonType != typeof(object))
+            {
+                var everyElementCouldBeNull = true;
+                foreach (var argument in arguments)
+                {
+                    if (ExpressionTypeHelper.CanBeNullAtRuntime(argument))
+                        continue;
+
+                    everyElementCouldBeNull = false;
+                    break;
+                }
+
+                if (everyElementCouldBeNull)
+                {
+                    throw CannotCompile(
+                        $"every element could be null at runtime, so the interpreter may find no value "
+                        + $"to take an item type from and build a List<object> where this would keep "
+                        + $"'{commonType}'");
+                }
+            }
 
             ConstructorInfo constructor;
 

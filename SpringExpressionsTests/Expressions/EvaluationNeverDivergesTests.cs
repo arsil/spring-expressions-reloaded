@@ -343,10 +343,16 @@ namespace SpringExpressionsTests.Expressions
                 foreach (var item in items)
                     parts.Add(item == null ? "null" : item.ToString());
 
-                return value.GetType().Name + "[" + string.Join(",", parts) + "]";
+                // ToString(), not Name: Name is "List`1" for every closed generic, so List<string> and
+                // List<object> rendered identically and compared equal. The sweep was blind to the item
+                // type of every collection it has ever compared, which is how four literal shapes
+                // diverged for three days with the ledger empty - '{NullName}' among them.
+                return value.GetType() + "[" + string.Join(",", parts) + "]";
             }
 
-            return value.GetType().Name + ":" + value;
+            // Same reason as above, for a scalar that happens to be a closed generic: two different
+            // KeyValuePair<,> closures would otherwise render alike.
+            return value.GetType() + ":" + value;
         }
 
         private static readonly string[] Operators =
