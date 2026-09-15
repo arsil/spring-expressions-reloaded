@@ -246,6 +246,28 @@ namespace SpringExpressions
         }
 
         /// <summary>
+        /// What each argument was DECLARED as, where its node knows - see
+        /// <see cref="BaseNode.DeclaredResultType"/>. Read after the arguments have been resolved,
+        /// since that is when a member node has its accessor, and never cached: the same node
+        /// evaluated against a different context type resolves a different member.
+        /// </summary>
+        /// <remarks>
+        /// Null entries are the common case and are not a gap - a literal, a <c>#variable</c> or an
+        /// operator result has no declared type on the compiled path either.
+        /// </remarks>
+        [NotNull, ItemCanBeNull]
+        protected Type[] DeclaredArgumentTypes()
+        {
+            InitializeNode();
+
+            var types = new Type[args.Length];
+            for (var i = 0; i < args.Length; i++)
+                types[i] = args[i] == null ? null : args[i].DeclaredResultType;
+
+            return types;
+        }
+
+        /// <summary>
         /// Resolves the named arguments.
         /// </summary>
         /// <param name="evalContext">Current expression evaluation context.</param>

@@ -468,6 +468,20 @@ namespace SpringExpressions
             if (type.IsValueType)
                 return Nullable.GetUnderlyingType(type) == null;
 
+            // NOT asked here, deliberately: whether a NULL at run time could reach a candidate this
+            // static type does not fit. It can - a null matches every parameter that accepts one, and
+            // the interpreter, seeing only that null, ranks them all. 'Pick(Name)' with a null Name
+            // against Pick(object) and Pick(List<int>) calls Pick(object) compiled and
+            // Pick(List<int>) interpreted; 'M(NullName)' against M(string)/M(char[])/M(object)
+            // answers compiled and throws AmbiguousMatchException interpreted.
+            //
+            // Asking it was built and measured: 11 corpus rows, and - the reason it is not taken -
+            // every ordinary call of an overloaded BCL method with a string argument loses its
+            // compiled form, 'sb.Append(name)' and 'long.Parse(s)' among them, with no escape a
+            // caller can write, since a cast leaves the static type exactly as it was. That is the
+            // trade the note on RuntimeNullAgainstIncomparableOverloadsIsTheAcceptedEdge already
+            // described, and it is an open ruling rather than one to make in passing. The ledger row
+            // in EvaluationNeverDivergesTests is what keeps it visible.
             if (type.IsSealed && !type.IsArray)
                 return true;
 
@@ -639,11 +653,33 @@ namespace SpringExpressions
                 // the interpreter passes - see CompilationContext.NormalizeIfConstructed. The parameter
                 // type is the sink, so an object parameter gets a collection of object while one that
                 // names the item type keeps it.
+                // Asked before normalizing, which returns a new expression and with it loses the
+                // registration the registry is keyed on.
+                var engineBuilt = compilationContext.IsConstructedCollection(arguments[i]);
+
                 arguments[i] = compilationContext.NormalizeIfConstructed(arguments[i], parameterType);
                 var argument = arguments[i];
 
                 if (argument.Type == parameterType)
                     continue;
+
+                // A collection this engine built that the parameter cannot take. The interpreter
+                // coerces it into the parameter's kind - a List<int> into an ISet<int>, say - and
+                // emitting a downcast here instead compiles happily and throws InvalidCastException
+                // at evaluation, which is the interpreter answering while this backend fails.
+                //
+                // 36 rows, and they appeared the day the corpus first passed a built collection to a
+                // method: the interpreter's coercion had been landed without this, so the fix for one
+                // direction opened the other. Refusing rather than emitting the conversion keeps one
+                // implementation of the coercion instead of two that must agree.
+                if (engineBuilt && !parameterType.IsAssignableFrom(argument.Type))
+                {
+                    throw new CompileErrorException(
+                        node,
+                        $"{label} parameter {i} is '{parameterType}' and the argument is a collection "
+                        + $"this engine built, typed '{argument.Type}': the interpreter coerces it into "
+                        + "the parameter's kind and there is no compiled form.");
+                }
 
                 // The null literal converts to any reference or nullable parameter type.
                 if (argument is ConstantExpression constant && constant.Value == null
@@ -877,6 +913,15 @@ namespace SpringExpressions
                 if (decProcMethodInfo != null)
                 {
                     var result = LExpression.Call(decProcMethodInfo, processorArguments.ToArray());
+
+                    // Registered even though there is nothing to reshape - the bridge delegates to the
+                    // interpreter processors, so it already returns the List<object> the interpreter
+                    // builds. The registry answers a second question now: may this value be handed to
+                    // a parameter that cannot take it? 'TakeListOfInt(Old.distinct())' compiled a
+                    // downcast from the bridge's object-typed result and threw InvalidCastException at
+                    // evaluation while the interpreter coerced and answered.
+                    compilationContext.MarkAsConstructedCollection(result);
+
                     return result;
                 }
             }
@@ -948,7 +993,7 @@ namespace SpringExpressions
 
                     if (!initialized)
                     {
-                        Initialize(methodName, argValues, context, evalContext.SandboxPolicy);
+                        Initialize(methodName, argValues, DeclaredArgumentTypes(), context, evalContext.SandboxPolicy);
                         initialized = true;
                     }
                 }
@@ -1033,12 +1078,12 @@ namespace SpringExpressions
         }
 
         private void Initialize(
-            string methodName, object[] argValues, object context, [NotNull] SandboxPolicy sandboxPolicy)
+            string methodName, object[] argValues, Type[] declaredTypes, object context, [NotNull] SandboxPolicy sandboxPolicy)
         {
             Type contextType = (context is Type ? context as Type : context.GetType());
 
             // check the context type first
-            MethodInfo mi = GetBestMethod(contextType, methodName, BINDING_FLAGS, argValues);
+            MethodInfo mi = GetBestMethod(contextType, methodName, BINDING_FLAGS, argValues, declaredTypes);
 
             // A value that *is* a Type is searched for the method on the type it represents, which is
             // what makes T(System.Int32).Parse('5') work - but only a **static** method can be called
@@ -1061,7 +1106,7 @@ namespace SpringExpressions
             else
             {
                 // if not found, probe the Type's type
-                mi = GetBestMethod(typeof(Type), methodName, BINDING_FLAGS, argValues);
+                mi = GetBestMethod(typeof(Type), methodName, BINDING_FLAGS, argValues, declaredTypes);
 
                 if (mi != null)
                     sandboxPolicy.RequirePermittedMember(typeof(Type), methodName, MemberKind.Method, MemberAccess.Both);
@@ -1087,7 +1132,7 @@ namespace SpringExpressions
         /// <param name="bindingFlags">The binding flags.</param>
         /// <param name="argValues">The arg values.</param>
         /// <returns>Best matching method or null if none found.</returns>
-        public static MethodInfo GetBestMethod(Type type, string methodName, BindingFlags bindingFlags, object[] argValues)
+        public static MethodInfo GetBestMethod(Type type, string methodName, BindingFlags bindingFlags, object[] argValues, Type[] declaredTypes = null)
         {
             MethodInfo mi = null;
             try
@@ -1100,7 +1145,7 @@ namespace SpringExpressions
                 IList<MethodInfo> overloads = GetCandidateMethods(type, methodName, bindingFlags, argValues.Length);
                 if (overloads.Count > 0)
                 {
-                    mi = ReflectionUtils.GetMethodByArgumentValues(overloads, argValues);
+                    mi = ReflectionUtils.GetMethodByArgumentValues(overloads, argValues, declaredTypes);
 
                     // The widening tier: the legacy scan above knows assignability but not numeric
                     // widening, so IntAgainstLong-style overload sets found nothing here since

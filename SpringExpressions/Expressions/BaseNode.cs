@@ -38,6 +38,40 @@ namespace SpringExpressions
     //[Serializable]
     public abstract class BaseNode : SpringAST
     {
+        /// <summary>
+        /// The type this node's value is DECLARED as, if the node knows one, or null.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// The interpreter works from runtime values, and a null value carries no type at all - so
+        /// where the compiled backend sees a <c>string</c> argument and rules out every overload a
+        /// string cannot reach, the interpreter sees only the null and considers them all.
+        /// <c>Pick(Name)</c> with a null <c>Name</c> called <c>Pick(object)</c> compiled and
+        /// <c>Pick(List&lt;int&gt;)</c> interpreted: both answered, different methods ran.
+        /// </p>
+        /// <p>
+        /// <b>The type is carried beside the value, never wrapped around it.</b> A typed-null wrapper
+        /// would have to be unwrapped by every operator, comparison and conversion the value can
+        /// reach, and this repo has already measured what happens when an internal type travels with
+        /// a value: the <c>HashSet</c> subclass reached user code at five separate exits. Nothing
+        /// here changes what a node returns.
+        /// </p>
+        /// <p>
+        /// Null where there is genuinely no declared type - a null literal, a <c>#variable</c> - and
+        /// that is the right answer rather than a gap: those have no static type on the compiled path
+        /// either, so the two backends already agree about them.
+        /// </p>
+        /// <p>
+        /// Only meaningful after the node has been evaluated once, since that is when a member node
+        /// resolves its accessor.
+        /// </p>
+        /// </remarks>
+        [CanBeNull]
+        internal virtual Type DeclaredResultType
+        {
+            get { return null; }
+        }
+
         protected class ArgumentMismatchException : Exception
         {
             public ArgumentMismatchException(string message)

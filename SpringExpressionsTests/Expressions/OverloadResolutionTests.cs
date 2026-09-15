@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Reflection;
 
 using NUnit.Framework;
@@ -262,28 +263,59 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// The accepted residual edge, recorded deliberately (see MethodNode.IsStaticallyDeterminate):
-        /// a string-typed argument holding null at runtime, against INCOMPARABLE candidates - string
-        /// and Uri, neither a better conversion target. The compiled path exact-matched Report(string)
-        /// from the static type and calls it with the null; the interpreter sees only the null, which
-        /// satisfies both parameters, and no betterness can break that tie - the legacy ambiguity, at
-        /// evaluation. A null-only divergence, accepted because refusing every string argument against
-        /// overload sets would decompile ubiquitous calls; do not "fix" one side without a ruling.
+        /// A string-typed argument holding null at runtime, against INCOMPARABLE candidates - string
+        /// and Uri, neither a better conversion target. Both backends call Report(string).
         /// </summary>
+        /// <remarks>
+        /// <p>
+        /// This was the accepted residual edge until 2026-09-15: the compiled path exact-matched
+        /// <c>Report(string)</c> from the static type, and the interpreter, seeing only the null,
+        /// found it satisfied both parameters with no betterness able to break the tie - the legacy
+        /// <see cref="AmbiguousMatchException"/> at evaluation. Accepted because the obvious fix,
+        /// refusing the compiled form, would have decompiled every overloaded call with a string
+        /// argument - measured at the time, 11 corpus rows and <c>sb.Append(name)</c> among the
+        /// casualties, with no escape a caller could write.
+        /// </p>
+        /// <p>
+        /// <b>The third answer was to give the interpreter the one fact it was missing.</b> A node
+        /// that reads a member knows the member's declared type, so an argument now carries that type
+        /// beside its value (<see cref="BaseNode.DeclaredResultType"/>) and a null is matched by it.
+        /// The type is carried, never wrapped around the value: a typed-null wrapper would have to be
+        /// unwrapped by every operator it can reach, and an internal type travelling with a value is
+        /// exactly what leaked to user code once before.
+        /// </p>
+        /// </remarks>
         [Test]
-        public void RuntimeNullAgainstIncomparableOverloadsIsTheAcceptedEdge()
+        public void RuntimeNullAgainstIncomparableOverloadsAgreesToo()
         {
             var ctx = new ResolutionCases();
 
             Assert.AreEqual("string overload",
                 CompileGetter<ResolutionCases, string>("Report(StringPropNull)").GetValue(ctx));
 
-            Assert.Throws<AmbiguousMatchException>(
-                () => InterpretGetter<ResolutionCases, string>("Report(StringPropNull)").GetValue(ctx));
+            Assert.AreEqual("string overload",
+                InterpretGetter<ResolutionCases, string>("Report(StringPropNull)").GetValue(ctx));
 
-            // the shape compiles, so the weak path runs the compiled form and callers get the answer
             IExpression weak = Expression.Parse("Report(StringPropNull)");
             Assert.AreEqual("string overload", weak.GetValue(ctx));
+        }
+
+        /// <summary>
+        /// The declared type is carried only where a node knows one. A <c>#variable</c> holding null
+        /// has no declared type on either backend, so it keeps the behaviour it always had - the
+        /// interpreter chooses from the value, and the compiled path refuses the shape.
+        /// </summary>
+        [Test]
+        public void AVariableHoldingNullStillHasNoDeclaredType()
+        {
+            var ctx = new ResolutionCases();
+            var vars = new Dictionary<string, object> { { "v", null } };
+
+            Assert.Throws<CompileErrorException>(
+                () => CompileGetter<ResolutionCases, string>("Report(#v)"));
+
+            Assert.Throws<AmbiguousMatchException>(
+                () => InterpretGetter<ResolutionCases, string>("Report(#v)").GetValue(ctx, vars));
         }
 
         /// <summary>

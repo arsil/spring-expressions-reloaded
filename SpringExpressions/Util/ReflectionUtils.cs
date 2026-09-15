@@ -398,9 +398,10 @@ namespace SpringUtil
         /// <exception cref="AmbiguousMatchException">
         /// If more than 1 matching methods are found in the <paramref name="methods"/> list.
         /// </exception>
-        public static MethodInfo GetMethodByArgumentValues<T>(IEnumerable<T> methods, object[] argValues) where T : MethodBase
+        public static MethodInfo GetMethodByArgumentValues<T>(
+            IEnumerable<T> methods, object[] argValues, Type[] declaredTypes = null) where T : MethodBase
         {
-            return (MethodInfo)GetMethodBaseByArgumentValues("method", methods, argValues);
+            return (MethodInfo)GetMethodBaseByArgumentValues("method", methods, argValues, declaredTypes);
         }
 
         /// <summary>
@@ -417,7 +418,8 @@ namespace SpringUtil
         private static MethodBase GetMethodBaseByArgumentValues<T>(
             [NotNull] string methodTypeName,
             [NotNull, ItemNotNull] IEnumerable<T> methods,
-            [CanBeNull, ItemCanBeNull] object[] argValues) where T : MethodBase
+            [CanBeNull, ItemCanBeNull] object[] argValues,
+            [CanBeNull, ItemCanBeNull] Type[] declaredTypes = null) where T : MethodBase
         {
             List<MethodBase> matches = null;
             List<Type[]> matchParameterSets = null;
@@ -467,6 +469,41 @@ namespace SpringUtil
                     {
                         Type paramType = parameters[i].ParameterType;
                         object paramValue = paramValues[i];
+
+                        // A null carries no type, so it used to satisfy every reference parameter -
+                        // and the interpreter then chose between candidates the compiled backend had
+                        // already ruled out from the static type. 'Pick(Name)' with a null Name called
+                        // Pick(object) compiled and Pick(List<int>) interpreted, both answering.
+                        //
+                        // Where the argument's node knows what it was DECLARED as, that type decides,
+                        // exactly as the static type does compiled. Only for the exact binding, where
+                        // argument i is still parameter i: once defaults are filled or a params array
+                        // is packed the correspondence is gone. Everything else is unchanged, so a
+                        // null literal and a #variable behave as they always have - they have no
+                        // declared type on either backend.
+                        //
+                        // NOTHING COVERS THAT GUARD: removing it leaves both suites green, measured.
+                        // It is kept because the index correspondence genuinely breaks, not because a
+                        // test says so - a filled default or a packed array is not argument i.
+                        Type declared = declaredTypes != null
+                                        && !isOmittedOptionalsMatch && !isExpandedMatch
+                                        && i < declaredTypes.Length
+                            ? declaredTypes[i]
+                            : null;
+
+                        if (paramValue == null && declared != null)
+                        {
+                            if (!paramType.IsAssignableFrom(declared))
+                            {
+                                isMatch = false;
+                                break;
+                            }
+
+                            if (paramType != declared)
+                                isExactMatch = false;
+
+                            continue;
+                        }
 
                         if ((paramValue == null && paramType.IsValueType && !IsNullableType(paramType))
                             || (paramValue != null && !paramType.IsAssignableFrom(paramValue.GetType())))

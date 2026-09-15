@@ -198,6 +198,33 @@ namespace SpringExpressionsTests.Expressions
             public int Count(IEnumerable e) { return 1; }
             public void Nothing() { }
             public int this[int i] { get { return i; } set { } }
+
+            // Corpus gap fifteen. Every method above takes a scalar or a non-generic sequence, and
+            // none is overloaded, so no generated expression ever handed a method a collection this
+            // engine built - which is where items 49, 50, 51 and 51's computed half all lived, every
+            // one of them found by hand.
+            //
+            // A parameter that NAMES an item type is the shape that matters: the compiled path holds
+            // a List<int> for 'Ints.!{#this}' and the interpreter a List<object>, so anything less
+            // demanding than this accepts both and the difference stays invisible.
+            public string TakeListOfInt(List<int> value) { return "list"; }
+
+            /// <summary>Invariant, so it accepts neither backend's shape by accident.</summary>
+            public string TakeSetOfInt(ISet<int> value) { return "set"; }
+
+            /// <summary>
+            /// Overloaded, so the argument's item type decides WHICH method runs rather than whether
+            /// the call succeeds - the silent half of the same defect, and the worse one.
+            /// </summary>
+            public string Pick(object value) { return "Pick(object)"; }
+
+            public string Pick(List<int> value) { return "Pick(List<int>)"; }
+
+            /// <summary>
+            /// Hands its argument back, so a collection the engine built lands in the ROOT position
+            /// rather than staying inside the object graph - the exit that reaches a consumer.
+            /// </summary>
+            public object Wrap(object value) { return value; }
         }
 
         /// <summary>
@@ -562,7 +589,30 @@ namespace SpringExpressionsTests.Expressions
                 // since there is no compiled answer to compare.
                 yield return source + "[Index]";
                 yield return source + "[Length]";
+
+                // Corpus gap fifteen: a collection the ENGINE built, handed to a method. The
+                // parameter naming an item type is the one that can tell the backends apart, the
+                // overloaded pair is the one where the difference is silent, and Wrap puts the value
+                // back in the root position where a consumer would cast it. The plain-source rows
+                // are the controls: a collection the caller owns must not move.
+                yield return "TakeListOfInt(" + source + ".!{#this})";
+                yield return "TakeListOfInt(" + source + ".distinct())";
+                yield return "TakeSetOfInt(" + source + ".!{#this})";
+                yield return "Pick(" + source + ".!{#this})";
+                yield return "Pick(" + source + ")";
+                yield return "Wrap(" + source + ".!{#this})";
+                yield return "Wrap(" + source + ")";
             }
+
+            // The same shapes over a set union and a list literal, which no source above produces:
+            // a union needs two operands, and a literal is the one collection whose item type both
+            // backends can read off the expression itself.
+            yield return "TakeSetOfInt({1,2} + {3})";
+            yield return "TakeListOfInt({1,2} + {3})";
+            yield return "TakeListOfInt({1,2,3})";
+            yield return "Pick({1,2} + {3})";
+            yield return "Pick({1,2,3})";
+            yield return "Wrap({1,2} + {3})";
 
             yield return "date('2001-01-01')";
             yield return "date('2001-01-01', 'yyyy')";

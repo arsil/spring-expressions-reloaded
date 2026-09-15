@@ -444,6 +444,27 @@ namespace SpringExpressions
         /// <param name="context">Context to evaluate expressions against.</param>
         /// <param name="evalContext">Current expression evaluation context.</param>
         /// <returns>Value of the last node.</returns>
+        /// <summary>
+        /// A chain's value is its last link's, so its declared type is that link's - see
+        /// <see cref="BaseNode.DeclaredResultType"/>. 'Inner.Name' as an argument arrives as this node
+        /// with two children, and the member that matters is the second.
+        /// </summary>
+        internal override Type DeclaredResultType
+        {
+            get
+            {
+                var last = getFirstChild();
+                if (last == null)
+                    return null;
+
+                while (last.getNextSibling() != null)
+                    last = last.getNextSibling();
+
+                var node = last as BaseNode;
+                return node == null ? null : node.DeclaredResultType;
+            }
+        }
+
         protected override object Get(object context, EvaluationContext evalContext)
         {
             object result = context;

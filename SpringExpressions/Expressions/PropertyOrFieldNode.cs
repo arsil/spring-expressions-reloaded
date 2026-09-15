@@ -61,6 +61,20 @@ namespace SpringExpressions
         private IValueAccessor accessor;
 
         /// <summary>
+        /// The member's declared type, which is what the compiled backend would have seen - see
+        /// <see cref="BaseNode.DeclaredResultType"/>. Null until the accessor has been built, and null
+        /// for an accessor that stands for a type name rather than a member.
+        /// </summary>
+        internal override Type DeclaredResultType
+        {
+            get
+            {
+                var current = accessor;
+                return current == null || current is TypeValueAccessor ? null : current.TargetType;
+            }
+        }
+
+        /// <summary>
         /// What the sandbox said about this member, answered when <see cref="accessor"/> was built and
         /// invalidated with it. Two booleans rather than two lookups per evaluation - see the two-out
         /// overload of <c>GetPropertyOrFieldAccessor</c>.
