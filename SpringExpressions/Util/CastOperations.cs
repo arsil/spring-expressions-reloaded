@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Reflection;
 
 using JetBrains.Annotations;
+
+using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -63,10 +66,29 @@ namespace SpringExpressions.Util
             {
                 var value = LExpression.Parameter(typeof(object), "value");
 
+                LExpression converted = LExpression.Convert(value, key.Item1);
+
+                // A conversion operator that lands short of the target, plus the widening C# allows
+                // after it. LExpression.Convert resolves a one-step operator on its own but will not
+                // chain, so a struct whose only conversion is 'implicit operator int' could be cast to
+                // an int and not to a decimal - where C# casts it to either, and does not even ask for
+                // the cast. Measured against real C# before it was written.
+                //
+                // Safe by C#'s rule rather than ours: only a standard IMPLICIT conversion may follow
+                // the operator, so the second step always widens. The lookup already documents the two
+                // steps and PropertyOrFieldNode has run them all along.
+                MethodInfo operatorConversion;
+                if (!key.Item2.IsAssignableFrom(key.Item1)
+                    && TypeCheckingUtils.TryGetImplicitConversion(
+                        key.Item1, key.Item2, out operatorConversion)
+                    && operatorConversion.ReturnType != key.Item2)
+                {
+                    converted = LExpression.Convert(
+                        converted, operatorConversion.ReturnType, operatorConversion);
+                }
+
                 var body = LExpression.Convert(
-                    LExpression.Convert(
-                        LExpression.Convert(value, key.Item1),
-                        key.Item2),
+                    LExpression.Convert(converted, key.Item2),
                     typeof(object));
 
                 return LExpression.Lambda<Func<object, object>>(body, value).Compile();

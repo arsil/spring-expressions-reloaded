@@ -101,20 +101,42 @@ namespace SpringExpressionsTests.Expressions
             AssertRefusedButInterpreted<string>("When", "2020-01-01", new DateTime(2020, 1, 1));
         }
 
+        /// <summary>
+        /// A narrowing numeric write compiles: the value agrees on both backends, and where it does
+        /// not fit, both fail.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// Refused until 2026-09-15 on the grounds that the two failures are not the same failure -
+        /// <c>TypeMismatchException</c> interpreted against <c>OverflowException</c> emitted. Two
+        /// measurements overturned it. <b>The argument path has permitted this conversion all along</b>
+        /// (<c>MethodNode.ConvertParameters</c>: "integral widening and narrowing, both sides throw on
+        /// overflow"), so the same conversion was legal as <c>Echo(45L)</c> and illegal as
+        /// <c>Number = 45L</c> - an inconsistency rather than a rule. And this engine's stated
+        /// invariant is <b>not</b> "the same exception": <c>EvaluationNeverDivergesTests</c> treats two
+        /// failures of any kinds as agreement, and several exception-type differences are already
+        /// ruled.
+        /// </p>
+        /// <p>
+        /// <b>A real into an integral member stays refused</b>, and for a stronger reason that is easy
+        /// to conflate with this one: there the interpreter <i>rounds</i> 45.6 to 46 where an emitted
+        /// conversion truncates to 45. A different answer, not a different exception. See
+        /// <see cref="ARealIntoAnIntegralMemberIsRefusedBecauseTheInterpreterRounds"/>.
+        /// </p>
+        /// </remarks>
         [Test]
-        public void IntegralNarrowingIsRefusedOverTheExceptionItWouldThrow()
+        public void IntegralNarrowingCompilesAndOnlyTheOverflowDiffers()
         {
-            // The values agree and both sides fail on overflow, so this is the closest call in the
-            // fixture. It stays refused because the two failures are not the same failure: the
-            // interpreter throws the inherited TypeMismatchException and an emitted ConvertChecked
-            // would throw OverflowException, so a caller catching the inherited one would stop seeing
-            // it precisely when the shape happened to compile.
-            AssertRefusedButInterpreted<int>("Small", 45, (short)45);
-            AssertRefusedButInterpreted<long>("Number", 45L, 45);
+            AssertBothBackends<int>("Small", 45, (short)45);
+            AssertBothBackends<long>("Number", 45L, 45);
 
-            var overflow = Expression.ParseSetter<Target, int>("Small", EvaluationMode.MustInterpret);
+            var interpreted = Expression.ParseSetter<Target, int>("Small", EvaluationMode.MustInterpret);
             Assert.Throws<SpringCore.TypeMismatchException>(
-                () => overflow.SetValue(new Target(), 40000));
+                () => interpreted.SetValue(new Target(), 40000));
+
+            var compiled = Expression.ParseSetter<Target, int>("Small", EvaluationMode.MustCompile);
+            Assert.Throws<OverflowException>(
+                () => compiled.SetValue(new Target(), 40000));
         }
 
         [Test]
@@ -184,6 +206,26 @@ namespace SpringExpressionsTests.Expressions
             Assert.AreEqual(expected, interpreted, member + " interpreted");
             Assert.AreEqual(
                 compiled.GetType(), interpreted.GetType(), member + " runtime type");
+        }
+
+        /// <summary>
+        /// The write compiles, and both backends land the same value - the shape of a conversion this
+        /// engine is willing to emit.
+        /// </summary>
+        private static void AssertBothBackends<TValue>(
+            string member, TValue value, object expected)
+        {
+            var compiledTarget = new Target();
+            Expression.ParseSetter<Target, TValue>(member, EvaluationMode.MustCompile)
+                .SetValue(compiledTarget, value);
+
+            Assert.AreEqual(expected, Read(compiledTarget, member), member + " compiled");
+
+            var interpretedTarget = new Target();
+            Expression.ParseSetter<Target, TValue>(member, EvaluationMode.MustInterpret)
+                .SetValue(interpretedTarget, value);
+
+            Assert.AreEqual(expected, Read(interpretedTarget, member), member + " interpreted");
         }
 
         private static void AssertRefusedButInterpreted<TValue>(

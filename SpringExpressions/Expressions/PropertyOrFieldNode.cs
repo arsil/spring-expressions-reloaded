@@ -736,6 +736,33 @@ namespace SpringExpressions
             if (TryBuildCollectionOfTheSameItemType(newValueExpression, memberType, out converted))
                 return converted;
 
+            // A narrowing numeric write - 'Small = 45' into a short, 'Number = 45L' into an int.
+            // Ruled 2026-09-15 that this compiles, and the deciding facts were that the ARGUMENT path
+            // has permitted exactly this conversion all along (MethodNode.ConvertParameters: "integral
+            // widening and narrowing, both sides throw on overflow"), so refusing it here made the
+            // same conversion legal as 'Echo(45L)' and illegal as 'Number = 45L'; and that this
+            // engine's stated invariant is not "the same exception" but "never one backend answering
+            // while the other throws". Measured: the value agrees on every row, and only an overflow
+            // differs - TypeMismatchException interpreted against OverflowException emitted.
+            //
+            // Real-to-integral is excluded, exactly as in ConvertParameters, and for a stronger
+            // reason: the interpreter ROUNDS 45.6 to 46 where an emitted conversion truncates to 45,
+            // which is a different answer rather than a different exception.
+            if (TypeCheckingUtils.IsNumericType(newValueExpression.Type)
+                && TypeCheckingUtils.IsNumericType(memberType)
+                && !(TypeCheckingUtils.IsRealType(newValueExpression.Type)
+                     && TypeCheckingUtils.IsIntegralKind(memberType)))
+            {
+                try
+                {
+                    return LExpression.ConvertChecked(newValueExpression, memberType);
+                }
+                catch (InvalidOperationException)
+                {
+                    // No such conversion exists after all; fall through to the refusal below.
+                }
+            }
+
             throw CannotCompile(
                 $"no compiled assignment of a '{newValueExpression.Type}' to '{name}', which is of type "
                 + $"'{memberType}'; the interpreter converts values the emitted assignment cannot");

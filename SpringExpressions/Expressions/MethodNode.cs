@@ -689,6 +689,41 @@ namespace SpringExpressions
                     continue;
                 }
 
+                // A type's own implicit conversion operator, and then the widening C# allows after it.
+                // The second step was missing here: 'TakesInt(Counted)' compiled and
+                // 'TakesDecimal(Counted)' refused, for a struct whose only conversion is to int -
+                // while the same two-step conversion has worked at an assignment since the operator
+                // lookup landed, so 'DecimalProp = Counted' answered and 'TakesDecimal(Counted)' fell
+                // back. Measured against real C#, which performs both steps and does not even require
+                // a cast for them.
+                //
+                // Safe by C#'s own rule rather than by ours: only a standard IMPLICIT conversion may
+                // follow the operator, so the second step is always widening and can never lose a
+                // value. TryGetImplicitConversion documents the two steps and PropertyOrFieldNode has
+                // run them all along; this is the same pair of lines, one node over.
+                MethodInfo argumentConversion;
+                if (parameterType != typeof(string)
+                    && TypeCheckingUtils.TryGetImplicitConversion(
+                        argument.Type, parameterType, out argumentConversion))
+                {
+                    var applied = LExpression.Convert(
+                        argument, argumentConversion.ReturnType, argumentConversion);
+
+                    if (applied.Type == parameterType)
+                    {
+                        arguments[i] = applied;
+                        continue;
+                    }
+
+                    LExpression widened;
+                    if (SpringExpressions.Util.ArrayElementConversions.TryConvertExpression(
+                            applied, parameterType, out widened))
+                    {
+                        arguments[i] = widened;
+                        continue;
+                    }
+                }
+
                 if (TypeCheckingUtils.IsRealType(argument.Type)
                     && TypeCheckingUtils.IsIntegralKind(parameterType))
                 {

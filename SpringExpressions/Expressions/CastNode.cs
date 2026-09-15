@@ -1,6 +1,8 @@
 ﻿using SpringCore.TypeResolution;
 using SpringExpressions.Util;
+using SpringUtil;
 using System;
+using System.Reflection;
 
 using LExpression = System.Linq.Expressions.Expression;
 
@@ -60,6 +62,22 @@ namespace SpringExpressions
                         throw CannotCompile("the type name does not resolve");
                     }
                 }
+            }
+
+            // A conversion operator that lands short of the target, plus the widening C# allows after
+            // it. LExpression.Convert resolves one operator and will not chain, so a struct whose only
+            // conversion is 'implicit operator int' cast to a decimal reported "no cast from the
+            // operand's static type" - where C# casts it happily, and does not even require the cast.
+            // CastOperations does the same two steps for the interpreter, which is what keeps the one
+            // ruling - 'as' means C#'s cast - true of both backends.
+            MethodInfo conversion;
+            if (!type.IsAssignableFrom(operandExpression.Type)
+                && TypeCheckingUtils.TryGetImplicitConversion(
+                    operandExpression.Type, type, out conversion)
+                && conversion.ReturnType != type)
+            {
+                operandExpression = LExpression.Convert(
+                    operandExpression, conversion.ReturnType, conversion);
             }
 
             try

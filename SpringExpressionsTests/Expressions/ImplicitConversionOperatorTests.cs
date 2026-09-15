@@ -69,6 +69,55 @@ namespace SpringExpressionsTests.Expressions
             public string TakesInt(int v) { return "int:" + v; }
         }
 
+        /// <summary>
+        /// The conversion operator, and then the widening C# allows after it: a <c>Counter</c> whose
+        /// only conversion is to <c>int</c> reaches a <c>decimal</c> parameter, and a <c>decimal</c>
+        /// member, and a <c>decimal</c> cast.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// The <b>assignment</b> has done both steps since the conversion-operator work landed; the
+        /// <b>argument</b> and <b>cast</b> paths only ever did the first. So <c>Amount = Counter</c>
+        /// answered while <c>TakesDecimal(Counter)</c> fell back to the interpreter and
+        /// <c>Counter as decimal</c> threw on both backends - three spellings of one conversion,
+        /// three different outcomes.
+        /// </p>
+        /// <p>
+        /// <b>Measured against real C# before it was written</b>, in this very assembly:
+        /// <c>(decimal)counter</c> is 7, and <c>decimal d = counter</c> compiles too - C# does not
+        /// even require the cast. Safe by C#'s own rule rather than by ours: only a standard
+        /// <i>implicit</i> conversion may follow the operator, so the second step always widens and
+        /// can never lose a value.
+        /// </p>
+        /// </remarks>
+        [Test]
+        public void ATwoStepConversionWorksEverywhereTheOneStepDoes()
+        {
+            AssertBothBackends("TakesDecimal(Counter)", "decimal:7");
+            AssertBothBackends("Counter as decimal", 7m);
+            AssertBothBackends("Counter as long", 7L);
+
+            // The one-step rows beside them, so a regression that lost the operator entirely could not
+            // pass by leaving these alone.
+            AssertBothBackends("TakesInt(Counter)", "int:7");
+            AssertBothBackends("Counter as int", 7);
+        }
+
+        private static void AssertBothBackends(string expression, object expected)
+        {
+            Assert.AreEqual(
+                expected,
+                Expression.ParseGetter<Host, object>(expression, EvaluationMode.MustCompile)
+                    .GetValue(new Host()),
+                expression + " compiled");
+
+            Assert.AreEqual(
+                expected,
+                Expression.ParseGetter<Host, object>(expression, EvaluationMode.MustInterpret)
+                    .GetValue(new Host()),
+                expression + " interpreted");
+        }
+
         [Test]
         public void ANonRealConversionInAnArgumentNoLongerDiverges()
         {
