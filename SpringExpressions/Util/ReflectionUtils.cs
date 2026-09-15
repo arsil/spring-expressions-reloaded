@@ -645,9 +645,11 @@ namespace SpringUtil
         /// <exception cref="AmbiguousMatchException">
         /// If more than 1 matching methods are found in the <paramref name="methods"/> list.
         /// </exception>
-        public static ConstructorInfo GetConstructorByArgumentValues<T>(IList<T> methods, object[] argValues) where T : MethodBase
+        public static ConstructorInfo GetConstructorByArgumentValues<T>(
+            IList<T> methods, object[] argValues, Type[] declaredTypes = null) where T : MethodBase
         {
-            return (ConstructorInfo)GetMethodBaseByArgumentValues("constructor", methods, argValues);
+            return (ConstructorInfo)GetMethodBaseByArgumentValues(
+                "constructor", methods, argValues, declaredTypes);
         }
 
 

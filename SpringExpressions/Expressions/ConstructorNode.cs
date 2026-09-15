@@ -290,8 +290,16 @@ namespace SpringExpressions
                 {
                     if (constructor == null || resolutionKey != constructorKey)
                     {
+                        // The declared types travel beside the values, so a null argument is matched
+                        // by what its node was declared as - exactly as for a method call, see
+                        // BaseNode.DeclaredResultType. Without them 'new Thing(Name)' with a null
+                        // Name called ctor(List<int>) interpreted and ctor(object) compiled: both
+                        // succeeding, different constructors, no exception anywhere. Measured
+                        // 2026-09-15, the day after the same fix landed for methods, by asking
+                        // whether the defect existed one node over. It did.
                         constructor = InitializeNode(
-                            argValues, namedArgValues, evalContext.SandboxPolicy);
+                            argValues, DeclaredArgumentTypes(), namedArgValues,
+                            evalContext.SandboxPolicy);
                         constructorKey = resolutionKey;
                     }
                 }
@@ -337,13 +345,14 @@ namespace SpringExpressions
         /// <param name="argValues"></param>
         /// <param name="namedArgValues"></param>
         private SafeConstructor InitializeNode(
-            object[] argValues, IDictionary namedArgValues, [NotNull] SandboxPolicy sandboxPolicy)
+            object[] argValues, Type[] declaredTypes, IDictionary namedArgValues,
+            [NotNull] SandboxPolicy sandboxPolicy)
         {
             SafeConstructor ctor = null;
             Type objectType = GetObjectType(this.getText().Trim(), sandboxPolicy);
                 
             // cache constructor info
-            ConstructorInfo ci = GetBestConstructor(objectType, argValues);
+            ConstructorInfo ci = GetBestConstructor(objectType, argValues, declaredTypes);
             if (ci == null)
             {
                 throw new ArgumentException(
@@ -385,12 +394,15 @@ namespace SpringExpressions
         }
 
         [CanBeNull]
-        private static ConstructorInfo GetBestConstructor([NotNull] Type type, [NotNull, ItemCanBeNull] object[] argValues)
+        private static ConstructorInfo GetBestConstructor(
+            [NotNull] Type type, [NotNull, ItemCanBeNull] object[] argValues,
+            [CanBeNull, ItemCanBeNull] Type[] declaredTypes)
         {
             IList<ConstructorInfo> candidates = GetCandidateConstructors(type, argValues.Length);
             if (candidates.Count > 0)
             {
-                var ci = ReflectionUtils.GetConstructorByArgumentValues(candidates, argValues);
+                var ci = ReflectionUtils.GetConstructorByArgumentValues(
+                    candidates, argValues, declaredTypes);
 
                 // The widening tier, as for methods: the legacy scan above knows assignability but
                 // not numeric widening, so new Thing(45) against Thing(long) found nothing here since

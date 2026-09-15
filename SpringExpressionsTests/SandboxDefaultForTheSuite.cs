@@ -68,6 +68,7 @@ public class SandboxDefaultForTheSuite
             .AllowAllMembersOf<CtorGate>()
             .AllowAllMembersOf<CtorMoney>()
             .AllowAllMembersOf<CtorHier>()
+            .AllowAllMembersOf<CtorNull>()
             .AllowAllMembersOf<ParamArrayConstructorCases>()
             .AllowAllMembersOf<OptionalParameterConstructorCases>()
 

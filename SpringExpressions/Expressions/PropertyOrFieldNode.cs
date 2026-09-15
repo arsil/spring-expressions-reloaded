@@ -63,14 +63,23 @@ namespace SpringExpressions
         /// <summary>
         /// The member's declared type, which is what the compiled backend would have seen - see
         /// <see cref="BaseNode.DeclaredResultType"/>. Null until the accessor has been built, and null
-        /// for an accessor that stands for a type name rather than a member.
+        /// for every accessor that does not stand for a member.
         /// </summary>
+        /// <remarks>
+        /// Only the property and field accessors answer this. <see cref="BaseValueAccessor.TargetType"/>
+        /// <b>throws</b> <see cref="NotSupportedException"/> by default, and three of the six
+        /// accessors leave it that way - an enum constant, a type name, an ExpandoObject member - so
+        /// asking the wrong one turned a sandbox denial into a NotSupportedException out of the
+        /// argument walk. Caught by a sandbox test, not by review.
+        /// </remarks>
         internal override Type DeclaredResultType
         {
             get
             {
                 var current = accessor;
-                return current == null || current is TypeValueAccessor ? null : current.TargetType;
+                return current is PropertyValueAccessor || current is FieldValueAccessor
+                    ? current.TargetType
+                    : null;
             }
         }
 

@@ -42,11 +42,28 @@ namespace SpringExpressionsTests.Expressions
         public CtorHier(ResolutionDerived d) { Picked = "derived version"; }
     }
 
+    /// <summary>
+    /// Candidates a null can reach and a string cannot - the shape that told the two backends apart,
+    /// since the compiled path rules out CtorNull(Uri) from the static type and the interpreter, given
+    /// only a null, ranks both and lands on the more specific one.
+    /// </summary>
+    public class CtorNull
+    {
+        public string Picked { get; private set; }
+        public CtorNull(object o) { Picked = "object version"; }
+        public CtorNull(Uri u) { Picked = "Uri version"; }
+    }
+
     public class CtorContext
     {
         public object Payload { get { return "payload"; } }
         public MoneyLike Amount { get { return new MoneyLike(45.5m); } }
         public ResolutionDerived DerivedHoldingSealed { get { return new ResolutionSealed(); } }
+
+        /// <summary>A string-typed property holding null, for the declared-type rule.</summary>
+        public string StringPropNull { get { return null; } }
+
+        public string StringProp { get { return "text"; } }
     }
 
     /// <summary>
@@ -68,6 +85,42 @@ namespace SpringExpressionsTests.Expressions
         /// through the DefaultBinder - the invoker's argument converter now performs the int-to-long
         /// conversion the widening tier resolves.
         /// </summary>
+        /// <summary>
+        /// A null argument is matched by the type its node was declared as, so both backends rule out
+        /// the same candidates and call the same constructor.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// The method half of this landed on 2026-09-14 and the constructor half the day after, found
+        /// by asking whether the same defect existed one node over rather than by a failing test.
+        /// It did, in both of its shapes: <c>new CtorNull(StringPropNull)</c> called
+        /// <c>CtorNull(object)</c> compiled and <c>CtorNull(Uri)</c> interpreted - the silent one -
+        /// and a pair of incomparable candidates threw <c>AmbiguousMatchException</c> interpreted
+        /// while the compiled path answered.
+        /// </p>
+        /// <p>
+        /// <b>Indexers needed nothing</b>, and the reason is worth keeping: the interpreter's legacy
+        /// tier maps a null index to <c>typeof(object)</c> and exact-matches <c>this[object]</c>
+        /// (IndexerResolutionTests' quirk 2), which the compiled path replays. A quirk that has been
+        /// there since upstream happens to be exactly this rule, arrived at from the other side.
+        /// </p>
+        /// </remarks>
+        [Test]
+        public void ANullArgumentPicksTheSameConstructorOnBothBackends()
+        {
+            TestCompiledVsInterpreted<CtorContext, string>(
+                    "new SpringExpressionsTests.Expressions.CtorNull(StringPropNull).Picked",
+                    new CtorContext())
+                .ResultEqualsTo("object version");
+
+            // The same constructor set with a value present, so a regression that simply stopped
+            // considering the second candidate could not pass by leaving this alone.
+            TestCompiledVsInterpreted<CtorContext, string>(
+                    "new SpringExpressionsTests.Expressions.CtorNull(StringProp).Picked",
+                    new CtorContext())
+                .ResultEqualsTo("object version");
+        }
+
         [Test]
         public void SingleCandidateWidensOnEveryPath()
         {
