@@ -150,6 +150,18 @@ namespace SpringExpressions
             public IDictionary LocalVariables;
 
             /// <summary>
+            /// What each <b>declared</b> local was declared as, for the length of this evaluation - the
+            /// interpreter's counterpart of the typed block variables the compiled path declares.
+            /// </summary>
+            /// <remarks>
+            /// Kept beside <see cref="LocalVariables"/> rather than inside it because the values there
+            /// are boxed and a boxed value cannot say what its slot was declared as - a null in
+            /// particular says nothing at all. Every assignment to a declared name converts to the type
+            /// recorded here, which is how a declared local behaves like any other typed sink.
+            /// </remarks>
+            internal IDictionary<string, LocalDeclaration> LocalDeclarations;
+
+            /// <summary>
             /// What this evaluation is allowed to reach.
             /// </summary>
             /// <remarks>

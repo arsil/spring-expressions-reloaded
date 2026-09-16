@@ -21,13 +21,14 @@ namespace SpringExpressions
             _constructedCollections = new HashSet<LExpression>();
             _localStorage = new Dictionary<string, ParameterExpression>();
             _localStorageOrder = new List<ParameterExpression>();
+            _localDeclarers = new Dictionary<string, object>();
         }
 
         public CompilationContext CreateWithNewThisContext(LExpression thisExpression)
         {
             return new CompilationContext(
                 RootContextExpression, thisExpression, VariablesExpression, SandboxPolicy,
-                _constructedCollections, _localStorage, _localStorageOrder);
+                _constructedCollections, _localStorage, _localStorageOrder, _localDeclarers);
         }
         // todo: error: context expression != RootExpression    !!!!  !!!!! !!!!
 
@@ -38,7 +39,8 @@ namespace SpringExpressions
             [NotNull] SandboxPolicy sandboxPolicy,
             HashSet<LExpression> constructedCollections,
             Dictionary<string, ParameterExpression> localStorage,
-            List<ParameterExpression> localStorageOrder)
+            List<ParameterExpression> localStorageOrder,
+            Dictionary<string, object> localDeclarers)
         {
             RootContextExpression = rootContextExpression;
             ThisExpression = thisExpression;
@@ -60,6 +62,7 @@ namespace SpringExpressions
             // mechanical argument for making a body different from anywhere else.
             _localStorage = localStorage;
             _localStorageOrder = localStorageOrder;
+            _localDeclarers = localDeclarers;
         }
 
         /// <summary>
@@ -201,6 +204,55 @@ namespace SpringExpressions
         }
 
         /// <summary>
+        /// Storage for a <b>declared</b> local - a block variable of the declared type rather than of
+        /// <c>object</c>. False where the name is already in use, which is the caller's mistake and is
+        /// refused by the node.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// The one cell that differs from <see cref="TryGetLocalStorage"/> is the variable's type; every
+        /// other part of the machinery - collected as nodes ask, declared by whoever wraps the tree, a
+        /// read being the variable and a write an <c>Assign</c> - is shared, which is what keeps a
+        /// declared local from being a second storage mechanism living beside the undeclared one.
+        /// </p>
+        /// <p>
+        /// <b>A name already present cannot be retyped</b>, because whatever emitted earlier has already
+        /// been given the other variable. That is the same fact as the language rule - a declaration must
+        /// precede every use of its name - reached from the emitter's side, so the refusal is honest
+        /// rather than conservative.
+        /// </p>
+        /// <p>
+        /// Re-entering the same declaration is allowed and returns the variable it created: a projection
+        /// body shares this scope, and asking twice for one declaration must not read as two.
+        /// </p>
+        /// </remarks>
+        public bool TryDeclareLocalStorage(
+            [NotNull] string variableName,
+            [NotNull] System.Type declaredType,
+            [NotNull] object declaringNode,
+            out ParameterExpression storage)
+        {
+            if (_localStorage == null)
+            {
+                storage = null;
+                return false;
+            }
+
+            if (_localStorage.TryGetValue(variableName, out storage))
+            {
+                object declarer;
+                return _localDeclarers.TryGetValue(variableName, out declarer)
+                    && ReferenceEquals(declarer, declaringNode);
+            }
+
+            storage = LExpression.Variable(declaredType, "local_" + variableName);
+            _localStorage.Add(variableName, storage);
+            _localStorageOrder.Add(storage);
+            _localDeclarers.Add(variableName, declaringNode);
+            return true;
+        }
+
+        /// <summary>
         /// Every local storage variable asked for, in the order it was first reached, or an empty
         /// list - the question whoever wraps the tree asks, so an expression using no locals declares
         /// nothing.
@@ -249,5 +301,9 @@ namespace SpringExpressions
         // not.
         private readonly Dictionary<string, ParameterExpression> _localStorage;
         private readonly List<ParameterExpression> _localStorageOrder;
+
+        // Which declaration created each typed slot, so that re-entering one declaration is told from a
+        // second one claiming the same name.
+        private readonly Dictionary<string, object> _localDeclarers;
     }
 }

@@ -495,6 +495,18 @@ namespace SpringExpressionsTests.Expressions
                 yield return "true ? 2 : " + value;
                 yield return "true ? " + value + " : null";
                 yield return value + " ?? 1";
+
+                // Corpus gap sixteen: a TYPED local declaration. An undeclared '$x' is object-typed on
+                // both backends and was swept above; a declared one carries a real type compiled and a
+                // converted boxed value interpreted, so a declaration that converted differently would
+                // hand back different runtime types from the same expression. These rows bite because
+                // they ANSWER - an object-typed slot takes every value kind, and the arithmetic row
+                // reports the slot's type in its result rather than merely refusing.
+                yield return "(object $d = " + value + "; $d)";
+                yield return "(int $d = 5; $d + " + value + ")";
+                yield return "(System.Decimal $d = 5; $d + " + value + ")";
+                yield return "(object $d = " + value + "; $d ?? 1)";
+
                 yield return value + " between {1, 10}";
                 yield return value + " in {1, 2}";
                 yield return value + " is T(System.Int32)";
@@ -577,6 +589,15 @@ namespace SpringExpressionsTests.Expressions
                 // no corpus at all before this.
                 yield return "(1; " + source + ".!{#this})";
                 yield return "(1; " + source + ")";
+
+                // The same pair through a DECLARED slot, which is where a collection can be reshaped
+                // to something the other backend never builds: the first row parks a collection the
+                // engine built, the second one the caller owns and which must arrive as the very
+                // instance. A declared collection type is the only sink that names an item type and is
+                // written inside the expression rather than on the model.
+                yield return "(System.Collections.Generic.List<object> $d = " + source + ".!{#this}; $d)";
+                yield return "(System.Collections.Generic.List<object> $d = " + source + "; $d)";
+
                 yield return source + "[0]";
                 yield return source + "['a']";
 

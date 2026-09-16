@@ -71,9 +71,26 @@ tokens {
 
 expr : expression EOF!;
 
-exprList 
-    : LPAREN! expression (SEMI! expression)+ RPAREN!
+exprList
+    : LPAREN! statement (SEMI! statement)+ RPAREN!
         { #exprList = #([EXPR,"expressionList","SpringExpressions.ExpressionListNode"], #exprList); }
+    ;
+
+// An element of a "(a; b; c)" sequence is an ordinary expression, or a typed local declaration.
+// "Foo $x" is two operands with no operator between them and has always been a syntax error, so
+// the declaration form is carved out of error space and no existing expression changes meaning.
+statement
+    : (asTypeSlot DOLLAR) => localDeclaration
+    | expression
+    ;
+
+// "int $x = 5" / "int $x". The declared type is the first child and the initialiser, where one is
+// written, the second; the node's own text is the variable name, as LocalVariableNode's is. Both
+// backends execute the declaration, which is what keeps a declared local's type off the list of
+// things one backend infers and the other cannot.
+localDeclaration
+    : ts:asTypeSlot! DOLLAR! id:ID! (ASSIGN! init:expression)?
+        { #localDeclaration = #([EXPR, id.getText(), "SpringExpressions.LocalDeclarationNode"], #ts, #init); }
     ;
 
 expression	:	logicalOrExpression 
@@ -174,7 +191,7 @@ primaryExpression : startNode (node)?
 
 startNode 
     : 
-    (   (LPAREN expression SEMI) => exprList
+    (   (LPAREN statement SEMI) => exprList
     |   parenExpr
     |   asPrefixCast
     |   methodOrProperty

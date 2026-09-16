@@ -25,6 +25,8 @@ using System.Reflection;
 
 using JetBrains.Annotations;
 
+using SpringCore.TypeConversion;
+
 using LExpression = System.Linq.Expressions.Expression;
 
 namespace SpringExpressions
@@ -118,6 +120,13 @@ namespace SpringExpressions
             // the value comes back out there is no static type left to reshape. A collection merely
             // *read* is not registered and so is stored untouched - the caller's own object, identity
             // and all.
+            // A declared local is a typed sink: the value is reshaped to what the declaration asked for
+            // and then converted by the same rule a property write uses, or the shape is refused and
+            // the interpreter converts. An undeclared one is object-typed and takes the boxing below.
+            if (storage.Type != typeof(object))
+                return BuildAssign(storage, ConvertIntoDeclaredSlot(
+                    compilationContext, newValueExpression, storage.Type, variableName));
+
             if (compilationContext.IsConstructedCollection(newValueExpression))
             {
                 newValueExpression = Expressions.Compiler.NormalizeConstructedCollection(
@@ -134,6 +143,36 @@ namespace SpringExpressions
         /// </summary>
         private const string LocalsOutOfScopeReason
             = "this scope has no storage for local variables";
+
+        /// <summary>
+        /// The value converted into a declared local's slot, or a refusal.
+        /// </summary>
+        /// <remarks>
+        /// The rule is borrowed rather than invented - it is the array-initialiser conversion that
+        /// <c>new T[] {…}</c>, <c>params</c> elements and a property write all run, so a declared local
+        /// gains no conversion rule of its own. Everything it accepts, the interpreter's converter
+        /// reaches the same value for; everything it refuses is served by the interpreter alone, which
+        /// is what keeps the two backends from answering differently about a write.
+        /// </remarks>
+        [NotNull]
+        private LExpression ConvertIntoDeclaredSlot(
+            [NotNull] CompilationContext compilationContext,
+            [NotNull] LExpression newValueExpression,
+            [NotNull] Type declaredType,
+            [NotNull] string variableName)
+        {
+            var value = compilationContext.NormalizeIfConstructed(newValueExpression, declaredType);
+
+            if (SpringExpressions.Util.ArrayElementConversions.TryConvertExpression(
+                    value, declaredType, out var converted))
+            {
+                return converted;
+            }
+
+            throw CannotCompile(
+                $"no compiled assignment of a '{value.Type}' to '${variableName}', which is declared "
+                + $"'{declaredType}'; the interpreter converts values the emitted assignment cannot");
+        }
 
         private static LExpression BoxIfValueType([NotNull] LExpression expression)
         {
@@ -157,9 +196,14 @@ namespace SpringExpressions
                 locals = new Hashtable();
                 evalContext.LocalVariables = locals;
             }
+            // A declared local is a typed sink and converts on the way in, the way a property write
+            // does; an undeclared one is untyped, so the value written is the value given.
+            var declarations = evalContext.LocalDeclarations;
+            if (declarations != null && declarations.TryGetValue(varName, out var declaration))
+                newValue = TypeConversionUtils.ConvertValueIfNecessary(declaration.Type, newValue, varName);
+
             locals[varName] = newValue;
 
-            // A local is untyped, so nothing converts and the value written is the value given.
             return newValue;
         }
     }
