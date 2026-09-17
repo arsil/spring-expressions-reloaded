@@ -507,6 +507,14 @@ namespace SpringExpressionsTests.Expressions
                 yield return "(System.Decimal $d = 5; $d + " + value + ")";
                 yield return "(object $d = " + value + "; $d ?? 1)";
 
+                // A one-character string. The values list carries 'lit', which is three characters, so
+                // nothing sampled the shape the char rule turns on: a string that names a character.
+                // These rows answer rather than refuse for a char operand, which is what makes them
+                // bite - 'Letter == 'x'' is a comparison with a result, where 'Letter == 'lit'' merely
+                // throws on both backends and would agree however the rule were written.
+                yield return value + " == 'x'";
+                yield return value + " < 'x'";
+
                 yield return value + " between {1, 10}";
                 yield return value + " in {1, 2}";
                 yield return value + " is T(System.Int32)";

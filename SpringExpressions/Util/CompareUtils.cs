@@ -138,6 +138,22 @@ namespace SpringUtil
 
             if (firstArgType != secondArgType)
             {
+                // A char meeting a string: the string is read as the character it names, so
+                // 'Letter == "A"' and 'Letter < "B"' work in a language that cannot spell a char
+                // literal at all. One site serves every operator that lands here - the six comparison
+                // operators (OpEqual and OpNotEqual fall through to this for mixed types), 'between',
+                // 'min' and 'max' - and the conversion itself is shared with the compiled path.
+                if (CharTextUtils.IsCharAgainstText(firstArgType, secondArgType))
+                {
+                    if (first is string firstText)
+                        first = CharTextUtils.TextAsCharOrNull(firstText).Value;
+                    else
+                        second = CharTextUtils.TextAsCharOrNull((string)second).Value;
+
+                    // Both chars now; fall through to the same-type path below.
+                    return Methods.GetOrAdd(typeof(char), CreateMethod)(first, second);
+                }
+
                 // Mixed numeric types compare under the same binary numeric promotion the
                 // arithmetic operations and the compiled comparison run on, so the backends agree
                 // by construction, and pairs the promotion refuses (int against ulong) refuse here

@@ -48,6 +48,12 @@ namespace SpringExpressions.Expressions.Compiling
             if (TryCreateEnumAgainstName(leftExpression, rightExpression, out var byName))
                 return byName;
 
+            // A char against a string compares to the character that string names, the same way and
+            // through the same conversion. This has to sit above the string branch below, which would
+            // otherwise refuse the pair as "a string compares to a string by value".
+            if (TryCreateCharAgainstText(leftExpression, rightExpression, out var byChar))
+                return byChar;
+
             // An enum against anything else - "Type == 1" - has no compiled form: the interpreter
             // refuses the pair (CompareUtils cannot coerce them), while the boxing tail below would
             // silently answer false, which is not an answer anybody chose.
@@ -279,6 +285,43 @@ namespace SpringExpressions.Expressions.Compiling
         [NotNull]
         private static readonly MethodInfo MiEnumEqualsName = typeof(Util.EqualityUtils)
             .GetMethod(nameof(Util.EqualityUtils.EnumEqualsName));
+
+        /// <summary>
+        /// "someChar == 'A'", in either order, emitted as a call to the same conversion the interpreter
+        /// reaches through <c>CompareUtils.Compare</c> - so a string of the wrong length raises the same
+        /// ArgumentException on both backends, and a null string equals no char on both.
+        /// </summary>
+        private static bool TryCreateCharAgainstText(
+            [NotNull] LExpression leftExpression,
+            [NotNull] LExpression rightExpression,
+            out LExpression result)
+        {
+            if (!Util.CharTextUtils.IsCharAgainstText(leftExpression.Type, rightExpression.Type))
+            {
+                result = null;
+                return false;
+            }
+
+            var leftIsChar = leftExpression.Type == typeof(char);
+
+            // Hoisted in the order the interpreter reads them, left before right, and then handed to
+            // the call char-first. Without this the emitted call evaluated its arguments in the order
+            // the METHOD takes them, so 'Text() == Letter()' read the right operand first - the same
+            // counts, but a caller with side effects in both can see the difference, and the
+            // conversion can throw before the other operand is reached.
+            result = OperandLocals.UseOnce(
+                leftExpression,
+                rightExpression,
+                (hoistedLeft, hoistedRight) => leftIsChar
+                    ? LExpression.Call(MiCharEqualsText, hoistedLeft, hoistedRight)
+                    : LExpression.Call(MiCharEqualsText, hoistedRight, hoistedLeft));
+
+            return true;
+        }
+
+        [NotNull]
+        private static readonly MethodInfo MiCharEqualsText = typeof(Util.CharTextUtils)
+            .GetMethod(nameof(Util.CharTextUtils.CharEqualsText));
 
         /// <summary>
         /// For a reference type, answers the null cases before the operator is reached: two nulls are

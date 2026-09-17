@@ -42,6 +42,38 @@ namespace SpringExpressions.Expressions.Compiling
             leftExpression = BinaryNumericOperatorHelper.ConvertCustomNumber(leftExpression);
             rightExpression = BinaryNumericOperatorHelper.ConvertCustomNumber(rightExpression);
 
+            // A char meeting a string is ordered by the character that string names. The string becomes
+            // a 'char?' rather than a 'char' so that a null one keeps sorting first: the nullable
+            // machinery below already answers the three sort-order outcomes item 17 ruled, which is
+            // exactly what the interpreter does when CompareUtils.Compare sees a null operand. The
+            // conversion itself is the interpreter's, so a string of the wrong length raises the same
+            // exception on both backends.
+            //
+            // Both operands are hoisted first, and that is not tidiness: the conversion THROWS for a
+            // string that names no character, so without it the emitted tree evaluated the string,
+            // threw inside the conversion, and never read the other operand at all - while the
+            // interpreter reads both before comparing anything. Caught by
+            // OperandReadsNeverDivergeTests on the row 'Text() < Letter()', not by review.
+            if (CharTextUtils.IsCharAgainstText(leftExpression.Type, rightExpression.Type))
+            {
+                return OperandLocals.TryUseOnce(
+                    leftExpression,
+                    rightExpression,
+                    (hoistedLeft, hoistedRight) =>
+                    {
+                        CreateCompare(
+                            ConvertTextMeetingChar(hoistedLeft, hoistedRight),
+                            ConvertTextMeetingChar(hoistedRight, hoistedLeft),
+                            comparisonExpression,
+                            operatorMethodName,
+                            userDefinedFactory,
+                            out var converted);
+
+                        return converted;
+                    },
+                    out resultExpression);
+            }
+
             // Nothing sorts before everything, and a nullable holding no value is one of the kinds of
             // nothing. The three outcomes are the operator applied to the *sort order* the two operands
             // would have - so the rule is written once here rather than as twelve booleans, and
@@ -187,6 +219,24 @@ namespace SpringExpressions.Expressions.Compiling
 
             return null;
         }
+
+        /// <summary>
+        /// <paramref name="expression"/> as a <c>char?</c> where it is a string and the other operand is
+        /// a char; unchanged otherwise.
+        /// </summary>
+        [NotNull]
+        private static LExpression ConvertTextMeetingChar(
+            [NotNull] LExpression expression, [NotNull] LExpression other)
+        {
+            if (expression.Type != typeof(string) || other.Type != typeof(char))
+                return expression;
+
+            return LExpression.Call(MiTextAsCharOrNull, expression);
+        }
+
+        [NotNull]
+        private static readonly MethodInfo MiTextAsCharOrNull = typeof(Util.CharTextUtils)
+            .GetMethod(nameof(Util.CharTextUtils.TextAsCharOrNull));
 
         private static int CompareSameTypes<T>(T first, T second)
         {
