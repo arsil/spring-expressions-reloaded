@@ -28,6 +28,7 @@ namespace SpringExpressions.Expressions.GenericProcessors
         /// </p>
         /// </remarks>
         public bool TryGetMethodArguments(
+            BaseNode node,
             Type collectionType, Type itemType, List<Type> argumentTypes, out MethodInfo methodInfo)
         {
             if (itemType != null)

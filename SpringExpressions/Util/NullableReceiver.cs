@@ -88,6 +88,56 @@ namespace SpringExpressions.Util
                 });
         }
 
+        /// <summary>
+        /// <c>receiver != null ? member : Fail&lt;T&gt;(name)</c>, for a receiver that is a reference
+        /// rather than a <c>Nullable&lt;T&gt;</c>.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// The same question one type-kind over, and the compiled path was answering it differently:
+        /// a null <i>nullable</i> mid-path raised <see cref="NullValueInNestedPathException"/> through
+        /// <see cref="GuardWithHasValue"/> while a null <i>reference</i> mid-path let the CLR raise a
+        /// bare <c>NullReferenceException</c>. The interpreter has always raised the former for both -
+        /// <c>PropertyOrFieldNode.Get</c> tests <c>context == null &amp;&amp; accessor.RequiresContext</c> -
+        /// and the frozen suite pins it, so the compiled path was inconsistent with the interpreter
+        /// and with itself at once.
+        /// </p>
+        /// <p>
+        /// It stayed invisible while <c>ExpressionEvaluator</c> bound every call at <c>object</c>:
+        /// nothing reaching into a root compiled at all, so the shape was only ever interpreted. It
+        /// surfaced the moment that API carried the root's own type.
+        /// </p>
+        /// <p>
+        /// <b>The getter only.</b> An assignment cannot be wrapped this way: the void compiler admits a
+        /// void call or an <c>Assign</c> and nothing else, so putting a setter inside a
+        /// <c>Condition</c> or a <c>Block</c> would refuse every void expression that writes through a
+        /// path. The setter's null-receiver case therefore still raises the CLR's exception - recorded
+        /// rather than fixed, and mostly unreachable, since a write through a path whose last member is
+        /// not writable refuses at compile and the interpreter serves it.
+        /// </p>
+        /// </remarks>
+        [NotNull]
+        public static LExpression GuardAgainstNullReference(
+            [NotNull] LExpression referenceReceiver,
+            [NotNull] Func<LExpression, LExpression> buildMember,
+            [NotNull] string memberName)
+        {
+            return OperandLocals.UseOnce(
+                referenceReceiver,
+                receiver =>
+                {
+                    var member = buildMember(receiver);
+
+                    return LExpression.Condition(
+                        LExpression.ReferenceNotEqual(
+                            receiver, LExpression.Constant(null, receiver.Type)),
+                        member,
+                        LExpression.Call(
+                            MiFail.MakeGenericMethod(member.Type),
+                            LExpression.Constant(memberName)));
+                });
+        }
+
         private static readonly System.Reflection.MethodInfo MiFail
             = typeof(NullableReceiver).GetMethod(nameof(Fail));
     }

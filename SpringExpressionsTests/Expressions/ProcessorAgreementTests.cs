@@ -1,3 +1,4 @@
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -343,6 +344,54 @@ namespace SpringExpressionsTests.Expressions
                 CompileGetter<ProcessorSourceHolder, IEnumerable<int>>("Ints.sort()").GetValue(holder).GetType());
             Assert.AreEqual(typeof(List<object>),
                 CompileGetter<ProcessorSourceHolder, object>("Ints.distinct()").GetValue(holder).GetType());
+        }
+
+        /// <summary>
+        /// A bad processor argument is the caller's mistake, so the compile phase refuses and the
+        /// interpreter raises the error at evaluation - the standing paired shape.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// It was a raw <c>ArgumentException</c> out of
+        /// <c>GenericProcessors.DistinctProcessor.TryGetMethodArguments</c>, which runs at <i>emit</i>
+        /// time, so <c>BaseNode</c>'s absorber converted it into an <c>InternalCompilerErrorException</c>
+        /// and <c>distinct(6)</c> told the caller to <i>"report it"</i> - about their own expression.
+        /// Fifth instance of the rule that a deliberate user-error throw must not reach the absorber.
+        /// </p>
+        /// <p>
+        /// <b><c>Assert.Throws</c> is what pins the fix</b>, not decoration: NUnit 3 demands the exact
+        /// type, and <c>InternalCompilerErrorException</c> derives from <c>CompileErrorException</c>, so
+        /// a regression that let the absorber have it again fails here rather than passing on the base
+        /// type.
+        /// </p>
+        /// <p>
+        /// Found by open-issues item 27's traffic measurement, not by a sweep:
+        /// <c>CompilationNeverLeaksTests</c>' corpus calls every processor with the arguments it wants,
+        /// so a processor's <i>argument validation</i> is a surface nothing generates (corpus gap
+        /// eighteen). Only <c>DistinctProcessor</c> had emit-time throws - the other nine compiled
+        /// processors are clean, and <c>ConversionProcessor</c>'s twin throws are on the interpreter
+        /// side, where they belong.
+        /// </p>
+        /// </remarks>
+        [TestCase("Ints.distinct(6)", "must be a boolean value")]
+        [TestCase("Ints.distinct(true, 4, 'xyz')", "Only a single argument")]
+        public void ABadDistinctArgumentIsRefusedRatherThanAbsorbed(string expression, string reason)
+        {
+            var refusal = Assert.Throws<CompileErrorException>(
+                () => Expression.ParseGetter<ProcessorSourceHolder, object>(
+                    expression, EvaluationMode.MustCompile));
+
+            Assert.That(refusal.Reason, Does.Contain(reason));
+            Assert.That(refusal.NodeType, Is.EqualTo(typeof(MethodNode)),
+                "the refusal names the node the caller wrote");
+            Assert.That(refusal.Message, Does.Not.Contain("report"),
+                "this is the caller's mistake, not ours");
+
+            var holder = new ProcessorSourceHolder();
+
+            Assert.Throws<ArgumentException>(
+                () => InterpretGetter<ProcessorSourceHolder, object>(expression).GetValue(holder),
+                "the interpreter raises the real error at evaluation");
         }
     }
 }

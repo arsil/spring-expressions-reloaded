@@ -7,6 +7,7 @@ namespace SpringExpressions.Expressions.GenericProcessors
     internal class ReverseProcessor : IGenericProcessor
     {
         public bool TryGetMethodArguments(
+            BaseNode node,
             Type collectionType, Type itemType, List<Type> argumentTypes, out MethodInfo methodInfo)
         {
             return _noParamsMethods.TryGetValue(itemType, out methodInfo);

@@ -3,11 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
+using SpringExpressions.Expressions.Compiling.Expressions;
+
 namespace SpringExpressions.Expressions.GenericProcessors
 {
     internal class DistinctProcessor : IGenericProcessor
     {
         public bool TryGetMethodArguments(
+            BaseNode node,
             Type collectionType, Type itemType, List<Type> argumentTypes, out MethodInfo methodInfo)
         {
             if (argumentTypes.Count == 1)
@@ -49,11 +52,19 @@ namespace SpringExpressions.Expressions.GenericProcessors
                 return false;*/
             }
 
+            // A bad processor argument is the caller's mistake, so it is a refusal naming this node -
+            // never a raw throw out of the emit path. Thrown raw, BaseNode's absorber converted it into
+            // an InternalCompilerErrorException and told the caller to report a bug about their own
+            // expression: 'distinct(6)' said "internal compiler error ... please report it". The
+            // interpreter's twin, Processors.DistinctProcessor, raises the ArgumentException at
+            // evaluation, which is where a caller expects it - the standing paired shape.
             if (argumentTypes.Count == 2)
-                throw new ArgumentException("distinct() processor argument must be a boolean value.");
+                throw new CompileErrorException(
+                    node, "distinct() processor argument must be a boolean value.");
 
             if (argumentTypes.Count > 2)
-                throw new ArgumentException("Only a single argument can be specified for a distinct() processor.");
+                throw new CompileErrorException(
+                    node, "Only a single argument can be specified for a distinct() processor.");
 
             methodInfo = null;
             return false;

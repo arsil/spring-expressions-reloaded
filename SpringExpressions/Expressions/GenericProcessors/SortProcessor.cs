@@ -9,6 +9,7 @@ namespace SpringExpressions.Expressions.GenericProcessors
     internal class SortProcessor : IGenericProcessor
     {
         public bool TryGetMethodArguments(
+            BaseNode node,
             Type collectionType, Type itemType, List<Type> argumentTypes, out MethodInfo methodInfo)
         {
             if (argumentTypes.Count == 1)

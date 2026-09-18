@@ -75,4 +75,16 @@
     <ProjectReference Include="..\SpringExpressions\SpringExpressions.csproj" />
   </ItemGroup>
 
+
+  <PropertyGroup>
+    <!-- ExpressionEvaluator is [Obsolete] as of 2026-09-18, pointing at Expression.ParseGetter /
+         ParseSetter. This suite must keep exercising it - the frozen suite because it is upstream's
+         own code and stays verbatim, this one because the class still ships and its behaviour is
+         pinned here - so the warning is suppressed for the test projects alone. It stays on for
+         consumers, which is the whole point of it. Unsuppressed it was 12,060 warnings across the
+         five target frameworks, which buries every real one.
+         The migration cost it would otherwise report is recorded instead: 569 call sites in the
+         frozen suite, 668 in this one. -->
+    <NoWarn>$(NoWarn);618</NoWarn>
+  </PropertyGroup>
 </Project>

@@ -8,6 +8,7 @@ namespace SpringExpressions.Expressions.GenericProcessors
     internal class AverageProcessor : IGenericProcessor
     {
         public bool TryGetMethodArguments(
+            BaseNode node,
             Type collectionType, Type itemType, List<Type> argumentTypes, out MethodInfo methodInfo)
         {
             return _methods.TryGetValue(itemType, out methodInfo);

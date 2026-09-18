@@ -10,6 +10,7 @@ namespace SpringExpressions.Expressions.GenericProcessors
     internal class GenericProcessorsFacade
     {
         public static bool TryGetMethodInfo(
+            BaseNode node,
             string methodName, 
             Type collectionType, 
             Type itemType, 
@@ -17,7 +18,8 @@ namespace SpringExpressions.Expressions.GenericProcessors
             out MethodInfo methodInfo)
         {
             if (_methods.TryGetValue(methodName, out var processor))
-                return processor.TryGetMethodArguments(collectionType, itemType, argumentTypes, out methodInfo);
+                return processor.TryGetMethodArguments(
+                    node, collectionType, itemType, argumentTypes, out methodInfo);
 
             methodInfo = null;
             return false;

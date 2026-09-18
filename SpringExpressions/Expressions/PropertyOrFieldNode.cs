@@ -1,4 +1,4 @@
-#region License
+﻿#region License
 
 /*
  * Copyright © 2002-2011 the original author or authors.
@@ -393,6 +393,36 @@ namespace SpringExpressions
         }
 
 
+        /// <summary>
+        /// Wraps a member read so that a null receiver raises the exception the interpreter raises,
+        /// rather than letting the CLR raise a bare <c>NullReferenceException</c>.
+        /// </summary>
+        /// <remarks>
+        /// <c>PropertyOrFieldNode.Get</c> has always tested
+        /// <c>context == null &amp;&amp; accessor.RequiresContext</c> and thrown
+        /// <see cref="NullValueInNestedPathException"/>, and the frozen suite pins it
+        /// (<c>TestPropertyGetWithNullInThePath</c>). The compiled path did not, so
+        /// <c>Name.Length</c> over a null <c>Name</c> answered with a different exception on each
+        /// backend - and did so through <see cref="NullableReceiver.GuardWithHasValue"/>'s own
+        /// exception for a <i>nullable</i> receiver, which made it inconsistent with itself as well.
+        /// <p>
+        /// Nothing is emitted where nothing can be null: a static member has no receiver, a value-type
+        /// receiver has no null, and a nullable one was already unwrapped and guarded further up.
+        /// </p>
+        /// </remarks>
+        private static LExpression GuardReceiverAgainstNull(
+            LExpression receiverExpression,
+            bool memberIsStatic,
+            string memberName,
+            Func<LExpression, LExpression> buildMember)
+        {
+            if (receiverExpression == null || memberIsStatic || receiverExpression.Type.IsValueType)
+                return buildMember(receiverExpression);
+
+            return SpringExpressions.Util.NullableReceiver.GuardAgainstNullReference(
+                receiverExpression, buildMember, memberName);
+        }
+
         protected override LExpression GetExpressionTreeIfPossible(
             LExpression contextExpression,
             CompilationContext compilationContext)
@@ -494,9 +524,13 @@ namespace SpringExpressions
                     if (!acc.IsReadable)
                         throw CannotCompile("property '" + name + "' is not readable");
 
-                    return LExpression.Property(
+                    var propertyInfo = (PropertyInfo)propertyAcc.MemberInfo;
+
+                    return GuardReceiverAgainstNull(
                         finalContextExpression,
-                        (PropertyInfo) propertyAcc.MemberInfo);
+                        propertyInfo.GetGetMethod(true).IsStatic,
+                        name,
+                        receiver => LExpression.Property(receiver, propertyInfo));
                 }
 
                 if (acc is FieldValueAccessor fieldAcc)
@@ -512,9 +546,13 @@ namespace SpringExpressions
                     }
 
 
-                    return LExpression.Field(
+                    var fieldInfo = (FieldInfo)fieldAcc.MemberInfo;
+
+                    return GuardReceiverAgainstNull(
                         finalContextExpression,
-                        (FieldInfo)fieldAcc.MemberInfo);
+                        fieldInfo.IsStatic,
+                        name,
+                        receiver => LExpression.Field(receiver, fieldInfo));
                 }
 
                 if (acc is EnumValueAccessor enumAcc)

@@ -1430,18 +1430,16 @@ namespace SpringExpressions
             Assert.IsFalse((bool)ExpressionEvaluator.GetValue(null, "'5.0067' matches '^-?\\d+(\\.\\d{2})?$'"));
             Assert.IsTrue((bool)ExpressionEvaluator.GetValue(null, @"'5.00' matches '^-?\d+(\.\d{2})?$'"));
 
-            Assert.IsFalse(ExpressionEvaluator.GetValue2<string, bool>(
-                null, "'5.0067' matches '^-?\\d+(\\.\\d{2})?$'"));
-            Assert.IsTrue(ExpressionEvaluator.GetValue2<string, bool>(
-                null, @"'5.00' matches '^-?\d+(\.\d{2})?$'"));
+            Assert.IsFalse(Expression.ParseGetter<string, bool>("'5.0067' matches '^-?\\d+(\\.\\d{2})?$'").GetValue(null));
+            Assert.IsTrue(Expression.ParseGetter<string, bool>(@"'5.00' matches '^-?\d+(\.\d{2})?$'").GetValue(null));
 
 
             string emailCheck =
                 @"^([\w-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([\w-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)$";
 
-            ExpressionEvaluator.GetValue2<string, bool>(null, "'A' matches '" + emailCheck + "'");
+            Expression.ParseGetter<string, bool>("'A' matches '" + emailCheck + "'").GetValue(null);
 
-            ExpressionEvaluator.GetValue2<string, bool>(emailCheck, "'A' matches #root");
+            Expression.ParseGetter<string, bool>("'A' matches #root").GetValue(emailCheck);
 
             {
                 var expr = Expression.ParseGetter<string, bool>("'A' matches #root");

@@ -874,7 +874,7 @@ namespace SpringExpressions
             if (MethodBaseHelpers.IsGenericEnumerable(instance.Type, out Type itemType))
             {
                 if (GenericProcessorsFacade.TryGetMethodInfo(
-                        methodName, instance.Type, itemType, processorArgumentTypes, out var mi))
+                        this, methodName, instance.Type, itemType, processorArgumentTypes, out var mi))
                 {
                     // A null source is guarded where the processor's result type can carry the answer -
                     // see NullSourceAnswer. The source goes into a local first so the null test and the
