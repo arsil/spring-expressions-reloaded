@@ -607,5 +607,103 @@ namespace SpringExpressionsTests.Expressions
             Assert.Throws<ArgumentException>(
                 () => SandboxPolicy.NewBasedOn(SandboxPolicy.DangerouslyAllowEverything));
         }
+
+        /// <summary>
+        /// <c>Array</c> is catalogued whole, but its factory statics are refused: they turn a short
+        /// expression into an arbitrary allocation without a <c>new</c> anywhere.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// <c>T(System.Array).CreateInstance(T(System.Int32), 20000000)</c> is 39 characters and 76 MB
+        /// under the shipped policy. The type has to stay catalogued - an array reaches
+        /// <c>Length</c>, <c>Rank</c> and the rest through this entry - so the curation is per member,
+        /// which is what the member gate is for.
+        /// </p>
+        /// <p>
+        /// <b>Hygiene, not a boundary.</b> <c>new int[20000000]</c> still allocates; an allocation cap
+        /// is open-issues item 28. What this removes is the amplifier that needs no <c>new</c> at all.
+        /// <c>CreateInstanceFromArrayType</c> is the same factory under a newer name and <c>Resize</c>
+        /// allocates a replacement; a name that does not exist on a given framework is never asked
+        /// about, so one list serves all five targets.
+        /// </p>
+        /// </remarks>
+        [TestCase("T(System.Array).CreateInstance(T(System.Int32), 10)")]
+        [TestCase("T(System.Array).Resize(Numbers, 10)")]
+        public void ArraysFactoryStaticsAreRefusedByTheShippedPolicy(string expression)
+        {
+            Assert.Throws<SandboxViolationException>(
+                () => Expression.ParseGetter<ArrayHolder, object>(
+                    expression, EvaluationMode.MustCompile, SandboxPolicy.Restricted));
+
+            var interpreted = Expression.ParseGetter<ArrayHolder, object>(
+                expression, EvaluationMode.MustInterpret, SandboxPolicy.Restricted);
+
+            Assert.Throws<SandboxViolationException>(() => interpreted.GetValue(new ArrayHolder()));
+        }
+
+        /// <summary>
+        /// Refusing those three must not cost an array its own members, nor the language its array
+        /// construction - both go through the same entry.
+        /// </summary>
+        [Test]
+        public void AnArrayKeepsItsMembersAndItsConstructor()
+        {
+            foreach (var mode in new[] { EvaluationMode.MustCompile, EvaluationMode.MustInterpret })
+            {
+                Assert.AreEqual(3,
+                    Expression.ParseGetter<ArrayHolder, object>("Numbers.Length", mode,
+                        SandboxPolicy.Restricted).GetValue(new ArrayHolder()),
+                    "an array's members come from Array's entry - " + mode);
+
+                Assert.AreEqual(2,
+                    Expression.ParseGetter<ArrayHolder, object>("new int[2].Length", mode,
+                        SandboxPolicy.Restricted).GetValue(new ArrayHolder()),
+                    "construction is not a member of Array - " + mode);
+            }
+        }
+
+        /// <summary>
+        /// A consumer cannot allow the factory back on top of <c>Restricted</c>, and that is the
+        /// OR-ing rule rather than an oversight.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// Rejections accumulate and are never replaced, so that two builder calls describing one
+        /// member cannot have an order-dependent result. A refusal in the base policy therefore wins
+        /// over a later <c>AllowMethod</c> - which is what makes a shipped refusal mean something, and
+        /// it applies to every <c>Except*</c> in the built-in catalog, not only to this one.
+        /// </p>
+        /// <p>
+        /// <b>The consequence is worth stating: refusing a member here is irreversible for anyone
+        /// building on <c>Restricted</c>.</b> The only route back is not to base on it. That is the
+        /// price of the three names, and it is why the entry was measured first - no expression in
+        /// either suite calls any of them.
+        /// </p>
+        /// </remarks>
+        [Test]
+        public void ARefusalInTheBasePolicyCannotBeAllowedBackOnTopOfIt()
+        {
+            var attempted = SandboxPolicy.NewBasedOn(SandboxPolicy.Restricted)
+                .AllowMethod(typeof(System.Array), "CreateInstance")
+                .Build();
+
+            Assert.Throws<SandboxViolationException>(
+                () => Expression.ParseGetter<ArrayHolder, object>(
+                    "T(System.Array).CreateInstance(T(System.Int32), 4)",
+                    EvaluationMode.MustInterpret, attempted).GetValue(new ArrayHolder()),
+                "a base policy's refusal is not undone by a later allow");
+
+            var created = Expression.ParseGetter<ArrayHolder, object>(
+                "T(System.Array).CreateInstance(T(System.Int32), 4)",
+                EvaluationMode.MustInterpret,
+                SandboxPolicy.DangerouslyAllowEverything).GetValue(new ArrayHolder());
+
+            Assert.AreEqual(typeof(int[]), created.GetType());
+        }
+
+        public class ArrayHolder
+        {
+            public int[] Numbers { get; set; } = { 1, 2, 3 };
+        }
     }
 }

@@ -1118,6 +1118,26 @@ namespace SpringExpressions
                 builder.AllowAllMembersOf(whole);
             }
 
+            // Array is allowed whole above, because array members have to resolve through it - an
+            // array is reachable by its element type and gets Length, Rank and the rest from here -
+            // but its factory statics are refused. CreateInstance takes an element type and a length,
+            // so it turns 39 characters into an arbitrary allocation:
+            //
+            //     T(System.Array).CreateInstance(T(System.Int32), 20000000)      76 MB
+            //
+            // Measured: no expression in either suite calls any of the three, and the one thing they
+            // offer over `new T[n]` - an element type decided at run time - has no consumer in this
+            // language. CreateInstanceFromArrayType is the same factory under a newer name and Resize
+            // allocates a replacement array; Resize also takes a ref parameter, which no expression
+            // can supply, so refusing it is defence in depth rather than a live hole. Names that do
+            // not exist on a given framework are simply never asked about, so one list serves all
+            // five targets.
+            //
+            // This is hygiene, not a boundary: `new int[20000000]` still allocates, and an allocation
+            // cap is open-issues item 28. It removes the amplifier that needs no `new` at all.
+            builder.ExceptMethod(
+                typeof(Array), "CreateInstance", "CreateInstanceFromArrayType", "Resize");
+
             // CultureInfo is the one formatting type that cannot be allowed whole, and §5.3 has the
             // measurement: setting CurrentCulture through an expression changed every subsequent
             // ToString('C') in the process. Reading it is fine and genuinely wanted; writing it is an
