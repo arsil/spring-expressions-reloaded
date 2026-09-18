@@ -654,8 +654,17 @@ namespace SpringExpressions
 
                     RefuseObjectValueAgainstTypedMember(newValue, memberInfo.PropertyType);
 
+                    // A null receiver raises the exception the interpreter raises, not the CLR's.
+                    // Guarded in place rather than wrapped: the tree stays an Assign at the root, so
+                    // a void expression that writes through a path keeps compiling, and the receiver
+                    // is still mentioned once. See NullableReceiver.RequireForWrite.
                     return BuildAssign(
-                        LExpression.Property(finalContextExpression, memberInfo),
+                        LExpression.Property(
+                            SpringExpressions.Util.NullableReceiver.GuardWriteReceiver(
+                                finalContextExpression,
+                                memberInfo.GetSetMethod(true).IsStatic,
+                                name),
+                            memberInfo),
                         ConvertNewValueOrRefuse(newValue, memberInfo.PropertyType, name));
                 }
 
@@ -688,8 +697,12 @@ namespace SpringExpressions
 
                     RefuseObjectValueAgainstTypedMember(newValue, memberInfo.FieldType);
 
+                    // Guarded as the property branch above is.
                     return BuildAssign(
-                        LExpression.Field(finalContextExpression, memberInfo),
+                        LExpression.Field(
+                            SpringExpressions.Util.NullableReceiver.GuardWriteReceiver(
+                                finalContextExpression, memberInfo.IsStatic, name),
+                            memberInfo),
                         ConvertNewValueOrRefuse(newValue, memberInfo.FieldType, name));
                 }
 

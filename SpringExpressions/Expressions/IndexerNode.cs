@@ -1,4 +1,4 @@
-#region License
+﻿#region License
 
 /*
  * Copyright © 2002-2011 the original author or authors.
@@ -67,6 +67,14 @@ namespace SpringExpressions
             {
                 throw CannotCompile("no compiled indexer for this container and index type");
             }
+
+            // A null container raises the exception the interpreter raises, not the CLR's. Guarded
+            // once here, so every branch below - an array, a generic dictionary's TryGetValue, an
+            // accessor call - is covered by one edit, and guarded in place, so the setter's tree is
+            // still an Assign at the root and a void expression that writes through an index keeps
+            // compiling.
+            contextExpression = SpringExpressions.Util.NullableReceiver.GuardContainer(
+                contextExpression, forWrite: false);
 
 
                // TODO: error: może pobranie arraya? tylko trzeba przetestować, czy nie stracimy typu!.. .bo jak przez object, to syf!
@@ -211,6 +219,14 @@ namespace SpringExpressions
             {
                 throw CannotCompile("no compiled indexer for this container and index type");
             }
+
+            // A null container raises the exception the interpreter raises, not the CLR's. Guarded
+            // once here, so every branch below - an array, a generic dictionary's TryGetValue, an
+            // accessor call - is covered by one edit, and guarded in place, so the setter's tree is
+            // still an Assign at the root and a void expression that writes through an index keeps
+            // compiling.
+            contextExpression = SpringExpressions.Util.NullableReceiver.GuardContainer(
+                contextExpression, forWrite: true);
 
             if (contextExpression.Type.IsArray)
             {

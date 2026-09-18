@@ -89,6 +89,125 @@ namespace SpringExpressions.Util
         }
 
         /// <summary>
+        /// Hands the receiver back, or raises the same exception <see cref="Fail{T}"/> raises when it
+        /// is null - so a member access can be guarded <i>in place</i> rather than wrapped.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// <b>This is the shape a write needs, and it is simpler than the one a read needs.</b>
+        /// <see cref="GuardAgainstNullReference"/> builds a conditional, because a read has to
+        /// <i>produce</i> a value when the receiver is null and there is nothing to produce but an
+        /// exception; that costs a hoist as well, since the receiver is mentioned twice. A write has no
+        /// such problem: guard the receiver where it stands and the tree is still
+        /// <c>Assign(Property(receiver, pi), value)</c> - an <c>Assign</c> at the root, which is what
+        /// the void compiler admits, and the receiver mentioned once, so nothing needs hoisting.
+        /// </p>
+        /// <p>
+        /// The read form reuses <see cref="Fail{T}"/> outright, so the two cannot report the same
+        /// situation differently.
+        /// </p>
+        /// </remarks>
+        /// <summary>
+        /// Hands the receiver of a <b>write</b> back, or raises the exception the interpreter raises
+        /// when it is null.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// <b>A write is guarded in place; a read is wrapped.</b> A read has to <i>produce</i> a value
+        /// when the receiver is null, so <see cref="GuardAgainstNullReference"/> builds a conditional
+        /// and hoists the receiver, which is mentioned twice. A write cannot: the void compiler admits
+        /// a void call or an <c>Assign</c> and nothing else, so wrapping the assignment would refuse
+        /// every void expression that writes through a path. Guarding the receiver where it stands
+        /// leaves an <c>Assign</c> at the root and mentions the receiver once.
+        /// </p>
+        /// <p>
+        /// <b>The read path deliberately does not use this shape</b>, though it could. Measured, per
+        /// evaluation: one member read 13.3 ns as a conditional against 16.1 as a call, two reads 14.1
+        /// against 20.4, three reads and an addition 15.4 against 24.1 - the call does not inline away
+        /// and the cost compounds per member. A write pays it once and has no alternative.
+        /// </p>
+        /// </remarks>
+        [UsedImplicitly]
+        public static T RequireForWrite<T>(T receiver, string memberName) where T : class
+        {
+            if (receiver == null)
+            {
+                throw new NullValueInNestedPathException(
+                    "Cannot set the value of a field or property '" + memberName
+                    + "', because the value it is written to is null.");
+            }
+
+            return receiver;
+        }
+
+        /// <summary>
+        /// The container guard for reading through an indexer. It names no member, because an indexer
+        /// has no name the caller wrote - the interpreter's message does not name one either.
+        /// </summary>
+        [UsedImplicitly]
+        public static T RequireContainerForRead<T>(T container) where T : class
+        {
+            if (container == null)
+            {
+                throw new NullValueInNestedPathException(
+                    "Cannot retrieve the value of the indexer because the context for its "
+                    + "resolution is null.");
+            }
+
+            return container;
+        }
+
+        /// <summary>The write twin of <see cref="RequireContainerForRead{T}"/>.</summary>
+        [UsedImplicitly]
+        public static T RequireContainerForWrite<T>(T container) where T : class
+        {
+            if (container == null)
+            {
+                throw new NullValueInNestedPathException(
+                    "Cannot set the value of the indexer because the context for its "
+                    + "resolution is null.");
+            }
+
+            return container;
+        }
+
+        /// <summary>
+        /// Guards the container of an indexer, or hands it back where nothing can be null.
+        /// </summary>
+        /// <remarks>
+        /// Applied once at the top of each emit, so every branch below - an array, a generic
+        /// dictionary's TryGetValue, an accessor call - is guarded by one edit. The guard preserves
+        /// the expression's type, so the branch selection below is unaffected.
+        /// </remarks>
+        [NotNull]
+        public static LExpression GuardContainer([NotNull] LExpression container, bool forWrite)
+        {
+            if (container.Type.IsValueType)
+                return container;
+
+            var guard = forWrite ? MiRequireContainerForWrite : MiRequireContainerForRead;
+
+            return LExpression.Call(guard.MakeGenericMethod(container.Type), container);
+        }
+
+        /// <summary>
+        /// <c>RequireForWrite</c> applied to an emitted receiver, or the receiver unchanged where
+        /// nothing can be null - a static member has none, and a value type has no null to hold.
+        /// </summary>
+        [NotNull]
+        public static LExpression GuardWriteReceiver(
+            [CanBeNull] LExpression receiver, bool memberIsStatic, [NotNull] string memberName)
+        {
+            if (receiver == null || memberIsStatic || receiver.Type.IsValueType)
+                return receiver;
+
+            return LExpression.Call(
+                MiRequireForWrite.MakeGenericMethod(receiver.Type),
+                receiver,
+                LExpression.Constant(memberName));
+        }
+
+        /// <summary>
         /// <c>receiver != null ? member : Fail&lt;T&gt;(name)</c>, for a receiver that is a reference
         /// rather than a <c>Nullable&lt;T&gt;</c>.
         /// </summary>
@@ -140,5 +259,14 @@ namespace SpringExpressions.Util
 
         private static readonly System.Reflection.MethodInfo MiFail
             = typeof(NullableReceiver).GetMethod(nameof(Fail));
+
+        private static readonly System.Reflection.MethodInfo MiRequireForWrite
+            = typeof(NullableReceiver).GetMethod(nameof(RequireForWrite));
+
+        private static readonly System.Reflection.MethodInfo MiRequireContainerForRead
+            = typeof(NullableReceiver).GetMethod(nameof(RequireContainerForRead));
+
+        private static readonly System.Reflection.MethodInfo MiRequireContainerForWrite
+            = typeof(NullableReceiver).GetMethod(nameof(RequireContainerForWrite));
     }
 }

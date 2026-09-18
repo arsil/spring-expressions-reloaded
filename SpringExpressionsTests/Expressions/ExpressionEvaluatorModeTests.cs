@@ -40,6 +40,7 @@ namespace SpringExpressionsTests.Expressions
             public Holder Nested { get; set; }
             public string Name { get; set; } = "Ana";
             public object Slot { get; set; } = "untouched";
+            public int[] Numbers { get; set; }
         }
 
         [Test]
@@ -334,6 +335,128 @@ namespace SpringExpressionsTests.Expressions
             foreach (var signature in shipped)
                 Assert.That(actual, Contains.Item(signature),
                     "this signature shipped and must not become an optional parameter");
+        }
+
+        /// <summary>
+        /// A null mid-path raises the inherited exception when <b>writing</b> too, on both backends.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// The read half was closed first and this was left open on the grounds that a write "needs a
+        /// shape that keeps the assignment assignable". It does, and that shape is simply to guard the
+        /// <b>receiver</b> in place - <c>Assign(Property(Require(receiver), pi), value)</c> - rather
+        /// than to wrap the assignment in a conditional the way a read has to. The root is still an
+        /// <c>Assign</c>, and the receiver is still mentioned once.
+        /// </p>
+        /// <p>
+        /// <see cref="AVoidWriteThroughAPathStillCompiles"/> is the other half of this: wrapping was
+        /// rejected because the void compiler admits a void call or an <c>Assign</c> and nothing else,
+        /// so a conditional would have refused every void expression that writes through a path.
+        /// </p>
+        /// </remarks>
+        [Test]
+        public void ANullMidPathRaisesTheSameExceptionWhenWritingToo()
+        {
+            Assert.Throws<NullValueInNestedPathException>(
+                () => Expression.ParseSetter<Holder, string>(
+                    "Nested.Name", EvaluationMode.MustCompile).SetValue(new Holder(), "x"));
+
+            Assert.Throws<NullValueInNestedPathException>(
+                () => Expression.ParseSetter<Holder, string>(
+                    "Nested.Name", EvaluationMode.MustInterpret).SetValue(new Holder(), "x"));
+
+            Assert.Throws<NullValueInNestedPathException>(
+                () => ExpressionEvaluator.SetValue(new Holder(), "Nested.Name", "x"));
+        }
+
+        /// <summary>
+        /// A void expression that writes through a path still compiles - the guard must not cost that.
+        /// </summary>
+        [Test]
+        public void AVoidWriteThroughAPathStillCompiles()
+        {
+            var write = Expression.ParseVoidExpression<Holder>(
+                "Nested.Name = 'written'", EvaluationMode.MustCompile);
+
+            var root = new Holder { Nested = new Holder() };
+            write.Execute(root);
+
+            Assert.AreEqual("written", root.Nested.Name);
+        }
+
+        /// <summary>
+        /// The guard costs nothing where nothing can be null, and must not change a working write.
+        /// </summary>
+        [Test]
+        public void APresentPathStillWritesOnBothBackends()
+        {
+            var compiled = new Holder { Nested = new Holder() };
+            Expression.ParseSetter<Holder, string>("Nested.Name", EvaluationMode.MustCompile)
+                .SetValue(compiled, "a");
+            Assert.AreEqual("a", compiled.Nested.Name);
+
+            var interpreted = new Holder { Nested = new Holder() };
+            Expression.ParseSetter<Holder, string>("Nested.Name", EvaluationMode.MustInterpret)
+                .SetValue(interpreted, "b");
+            Assert.AreEqual("b", interpreted.Nested.Name);
+        }
+
+        /// <summary>
+        /// A null container raises the inherited exception too, reading and writing, on both backends.
+        /// </summary>
+        /// <remarks>
+        /// The indexer had the same untaken half as the setter. Guarded once at the top of each emit,
+        /// so the array branch, a generic dictionary's <c>TryGetValue</c> and an accessor call are all
+        /// covered - and in place, so the write is still an <c>Assign</c> at the root.
+        /// </remarks>
+        [Test]
+        public void ANullContainerRaisesTheSameExceptionOnBothBackends()
+        {
+            foreach (var mode in new[] { EvaluationMode.MustCompile, EvaluationMode.MustInterpret })
+            {
+                Assert.Throws<NullValueInNestedPathException>(
+                    () => Expression.ParseGetter<Holder, object>("Numbers[0]", mode)
+                        .GetValue(new Holder()),
+                    "reading, " + mode);
+
+                Assert.Throws<NullValueInNestedPathException>(
+                    () => Expression.ParseSetter<Holder, int>("Numbers[0]", mode)
+                        .SetValue(new Holder(), 5),
+                    "writing, " + mode);
+            }
+        }
+
+        /// <summary>
+        /// A void write through an index still compiles - the same guarantee as for a path.
+        /// </summary>
+        [Test]
+        public void AVoidWriteThroughAnIndexStillCompiles()
+        {
+            var write = Expression.ParseVoidExpression<Holder>(
+                "Numbers[0] = 5", EvaluationMode.MustCompile);
+
+            var root = new Holder { Numbers = new[] { 1, 2 } };
+            write.Execute(root);
+
+            Assert.AreEqual(5, root.Numbers[0]);
+        }
+
+        /// <summary>
+        /// The container guard costs nothing where the container is there.
+        /// </summary>
+        [Test]
+        public void APresentContainerStillReadsAndWritesOnBothBackends()
+        {
+            foreach (var mode in new[] { EvaluationMode.MustCompile, EvaluationMode.MustInterpret })
+            {
+                var root = new Holder { Numbers = new[] { 7, 8 } };
+
+                Assert.AreEqual(7,
+                    Expression.ParseGetter<Holder, object>("Numbers[0]", mode).GetValue(root));
+
+                Expression.ParseSetter<Holder, int>("Numbers[1]", mode).SetValue(root, 9);
+                Assert.AreEqual(9, root.Numbers[1]);
+            }
         }
 
         /// <summary>
