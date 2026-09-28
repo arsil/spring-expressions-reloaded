@@ -58,14 +58,17 @@ Orders.${Total > 100}                 last match
 Orders.!{Total}                       projection (map)
 Orders.!{Total}.sum()                 collection functions: sum, count, min, max, average,
                                         sort, distinct, reverse, nonNull, orderBy, convert
-Orders.orderBy({|a, b| $a.Total - $b.Total})     lambdas
-#discount * Total                     variables supplied by the caller
+Orders.orderBy({|a, b| $a.Total.CompareTo($b.Total)})   lambdas
+(#discount as decimal) * Total        a variable supplied by the caller (an object, hence the cast)
 T(System.Math).Max(A, B)              a type, and a static call on it
 new System.Text.StringBuilder()       constructors
 Total as int                          casts
 (int $x = 5; $x + Number)             typed local variables
 Author?.Name ?? 'anonymous'           null-conditional access, with a fallback
 ```
+
+Every example in this README compiles under `EvaluationMode.MustCompile` against a model with
+the obvious property types, except where the text says an example is refused.
 
 ## 1. Language additions
 
@@ -220,7 +223,7 @@ the original behaviour was ambiguous, the fork generally follows C#'s rules.
 You can ask how an expression ended up being evaluated:
 
 ```csharp
-var getter = Expression.ParseGetter<Order, decimal>("Lines.!{Price * Quantity}.sum()");
+var getter = Expression.ParseGetter<Order, decimal>("Lines.!{Product.Price * Quantity}.sum()");
 
 CompilationStatus status = Expression.GetCompilationStatus(getter);
 // status.Kind            -> Compiled or Interpreted
@@ -238,12 +241,12 @@ using SpringExpressions;
 
 // Read a value
 IGetterExpression<Order, decimal> total =
-    Expression.ParseGetter<Order, decimal>("Lines.!{Price * Quantity}.sum()");
+    Expression.ParseGetter<Order, decimal>("Lines.!{Product.Price * Quantity}.sum()");
 
 decimal value = total.GetValue(order);
 
 // Read with variables supplied by the caller
-var discounted = Expression.ParseGetter<Order, decimal>("Total * (1 - #discount)");
+var discounted = Expression.ParseGetter<Order, decimal>("Total * (1 - (#discount as decimal))");
 decimal price = discounted.GetValue(order, new Dictionary<string, object> { ["discount"] = 0.1m });
 
 // Write a value
