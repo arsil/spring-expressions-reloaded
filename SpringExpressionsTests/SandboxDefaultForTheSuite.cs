@@ -84,6 +84,11 @@ public class SandboxDefaultForTheSuite
             .AllowAllMembersOf<IsOperatorTests.Dog>()
             .AllowAllMembersOf<IsOperatorTests.Animal>()
 
+            // `Amount as Cents`, `(Cents $c = …)` and `new CentsBox(…)` - an explicit operator runs
+            // only through a cast, and a cast names its type.
+            .AllowAllMembersOf<Cents>()
+            .AllowAllMembersOf<CentsBox>()
+
             // ConstructorNodeTests builds its node by hand from typeof(...).FullName. PublicTestClass
             // is public; PrivateTestClass is not, so it cannot be named in C# and comes through
             // reflection - which is also a fair demonstration that the catalog keys on the Type and

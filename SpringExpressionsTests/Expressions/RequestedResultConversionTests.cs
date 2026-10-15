@@ -230,18 +230,20 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// An explicit operator is honoured too, exactly - its declared target or that target's
-        /// nullable form. C# would want the cast written; a typed request over such a type has
-        /// always been answered by its operator, and the type's author declared it.
+        /// An explicit operator runs only through a cast written in the expression, as in C#: it is
+        /// explicit because it can lose information, so a typed request does not apply it unasked.
+        /// <c>ExplicitConversionOperatorTests</c> pins the same rule at every other sink.
         /// </summary>
         [Test]
-        public void ATypesOwnExplicitOperatorAnswersOnBothBackends()
+        public void ATypesOwnExplicitOperatorRunsOnlyThroughACast()
         {
             var root = new Root();
 
-            AssertBothBackendsAnswer<int>("Issued", root, (int)root.Issued);
-            AssertBothBackendsAnswer<int?>("Issued", root, (int)root.Issued);
-            AssertBothBackendsAnswer<int?>("MaybeIssued", root, (int?)root.MaybeIssued);
+            AssertRefusedAndTheInterpreterThrows<int>("Issued", root);
+            AssertRefusedAndTheInterpreterThrows<int?>("Issued", root);
+            AssertRefusedAndTheInterpreterThrows<int?>("MaybeIssued", root);
+
+            AssertBothBackendsAnswer<int>("Issued as int", root, (int)root.Issued);
         }
 
         /// <summary>
@@ -301,8 +303,8 @@ namespace SpringExpressionsTests.Expressions
 
         /// <summary>
         /// Only the widening C# allows may follow an implicit operator, and decimal to double is
-        /// not one; nothing follows an explicit operator; and an operator returning a nullable does
-        /// not reach a non-nullable request.
+        /// not one; an explicit operator is not consulted at all; and an operator returning a
+        /// nullable does not reach a non-nullable request.
         /// </summary>
         [Test]
         public void AnOperatorDoesNotOpenAConversionCSharpWouldNotMake()

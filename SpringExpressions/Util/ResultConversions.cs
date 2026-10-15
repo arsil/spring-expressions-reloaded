@@ -24,15 +24,20 @@ namespace SpringExpressions.Util
     /// C#'s - request the type the expression produces, or write the cast in the expression.
     /// </p>
     /// <p>
-    /// <b>A type's own conversion operator is honoured</b>, implicit or explicit, because the type's
-    /// author declared it: <c>ParseGetter&lt;Root, decimal&gt;("Money")</c> answers through
-    /// <c>Money</c>'s operator. An implicit operator may be followed by the widening C# allows after
-    /// it (<c>implicit operator int</c> reaches a <c>decimal</c> request), may target the request's
-    /// nullable form or its underlying type, and lifts over a nullable body into a nullable request.
-    /// An explicit one is taken exactly - its declared target or that target's nullable form -
-    /// because that is the conversion <c>LExpression.Convert</c> resolves on its own. Explicit
-    /// operators go past C#, which wants the cast written; they are honoured because a typed
-    /// request over such a type has always been answered by one.
+    /// <b>A type's own implicit conversion operator is honoured</b>:
+    /// <c>ParseGetter&lt;Root, decimal&gt;("Money")</c> answers through <c>Money</c>'s operator. It
+    /// may be followed by the widening C# allows after it (<c>implicit operator int</c> reaches a
+    /// <c>decimal</c> request), may target the request's nullable form or its underlying type, and
+    /// lifts over a nullable body into a nullable request.
+    /// </p>
+    /// <p>
+    /// <b>An explicit operator is not</b>, whichever type declares it. It is explicit because it can
+    /// lose information - <c>ParseGetter&lt;Root, Cents&gt;("Amount")</c> through
+    /// <c>explicit operator Cents(decimal)</c> would truncate 12.3456 to 12.34 - and, as in C#, it
+    /// runs only through a cast written in the expression: <c>Amount as Cents</c>. Without one the
+    /// request is refused compiled and throws <c>InvalidCastException</c> interpreted, like any other
+    /// conversion C# would not make implicitly. Method arguments and property writes follow the
+    /// same rule (<c>ExpressionTypeHelper.AppliesUserDefinedExplicitOperator</c>).
     /// </p>
     /// <p>
     /// Both halves ask the same questions in the same order and convert through
@@ -103,8 +108,8 @@ namespace SpringExpressions.Util
                 if (TypeCheckingUtils.IsCSharpImplicitNumericConversion(valueType, resultUnderlyingType))
                     return (TResult)CastOperations.Cast(value, resultUnderlyingType);
 
-                // CastOperations runs the operator, and for an implicit one the widening after it, in
-                // one converter - the same LExpression.Convert steps the emitted half builds.
+                // CastOperations runs the operator and the widening after it in one converter - the
+                // same LExpression.Convert steps the emitted half builds.
                 var conversion = FindOperator(valueType, typeof(TResult));
                 if (conversion != null)
                     return (TResult)CastOperations.Cast(value, OperatorTarget(conversion, typeof(TResult)));
@@ -117,10 +122,10 @@ namespace SpringExpressions.Util
         }
 
         /// <summary>
-        /// A type's own conversion operator from <paramref name="source"/> towards
-        /// <paramref name="resultType"/>, in the order both halves ask: an implicit one to the request
-        /// itself, an implicit one to the request's underlying type, then an explicit one to either,
-        /// exactly. Null when there is none.
+        /// A type's own implicit conversion operator from <paramref name="source"/> towards
+        /// <paramref name="resultType"/>, in the order both halves ask: one to the request itself,
+        /// then one to the request's underlying type. Null when there is none - and an explicit
+        /// operator is never the answer, since it runs only through a cast written in the expression.
         /// </summary>
         [CanBeNull]
         private static MethodInfo FindOperator([NotNull] Type source, [NotNull] Type resultType)
@@ -140,13 +145,6 @@ namespace SpringExpressions.Util
 
             if (resultUnderlyingType != null
                 && TypeCheckingUtils.TryGetImplicitConversion(source, resultUnderlyingType, out conversion))
-                return conversion;
-
-            if (TypeCheckingUtils.TryGetExplicitConversion(source, resultType, out conversion))
-                return conversion;
-
-            if (resultUnderlyingType != null
-                && TypeCheckingUtils.TryGetExplicitConversion(source, resultUnderlyingType, out conversion))
                 return conversion;
 
             return null;

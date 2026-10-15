@@ -39,6 +39,32 @@ namespace SpringExpressions.Expressions.Compiling
             return !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
         }
 
+        /// <summary>
+        /// Whether LINQ built <paramref name="conversion"/> on a type's own explicit operator, which
+        /// this engine runs only where the expression writes a cast.
+        /// </summary>
+        /// <remarks>
+        /// <p>
+        /// <c>LExpression.Convert</c> and <c>ConvertChecked</c> resolve a user-defined
+        /// <c>op_Explicit</c> on their own, so a sink that converts by asking them applies one
+        /// without saying so. An operator is explicit because it can lose information - a
+        /// two-decimal-place type truncating 12.3456 to 12.34 - and C# runs it only for a written
+        /// cast. So does this engine, at every typed sink: <c>x as T</c> is the spelling.
+        /// </p>
+        /// <p>
+        /// User-defined means declared on a type the CLR does not know by type code. decimal's own
+        /// <c>op_Explicit</c> to double and to the integrals are C#'s predefined numeric
+        /// conversions, which each sink rules on separately, so they are not this question.
+        /// </p>
+        /// </remarks>
+        public static bool AppliesUserDefinedExplicitOperator([NotNull] LExpression conversion)
+        {
+            return conversion is UnaryExpression unary
+                   && unary.Method != null
+                   && unary.Method.Name == "op_Explicit"
+                   && Type.GetTypeCode(unary.Method.DeclaringType) == TypeCode.Object;
+        }
+
         public static bool IsNumericExpression([NotNull] LExpression expression)
         {
             //   0 - A null reference.

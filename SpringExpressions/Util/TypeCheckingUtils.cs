@@ -286,48 +286,6 @@ namespace SpringUtil
             return conversion != null;
         }
 
-        /// <summary>
-        /// The user-defined explicit conversion operator taking <paramref name="from"/> exactly to
-        /// <paramref name="to"/>, declared on either type, or false.
-        /// </summary>
-        /// <remarks>
-        /// Exact types only, with no widening after the operator: that is the conversion
-        /// <c>LExpression.Convert</c> resolves on its own, so an emitted conversion and
-        /// <c>CastOperations</c>' interpreted one reach the same operator by construction.
-        /// </remarks>
-        public static bool TryGetExplicitConversion(
-            [CanBeNull] Type from, [CanBeNull] Type to, [CanBeNull] out MethodInfo conversion)
-        {
-            conversion = null;
-
-            if (from == null || to == null || from == to)
-                return false;
-
-            return TryFindExplicitConversion(from, from, to, out conversion)
-                   || TryFindExplicitConversion(to, from, to, out conversion);
-        }
-
-        private static bool TryFindExplicitConversion(
-            [NotNull] Type declaringType, [NotNull] Type from, [NotNull] Type to,
-            [CanBeNull] out MethodInfo conversion)
-        {
-            foreach (var method in declaringType.GetMethods(BindingFlags.Public | BindingFlags.Static))
-            {
-                if (method.Name != "op_Explicit" || method.ReturnType != to)
-                    continue;
-
-                var parameters = method.GetParameters();
-                if (parameters.Length == 1 && parameters[0].ParameterType == from)
-                {
-                    conversion = method;
-                    return true;
-                }
-            }
-
-            conversion = null;
-            return false;
-        }
-
         private static bool IsBuiltInRealType(Type type)
         {
             return type == typeof(float) || type == typeof(double) || type == typeof(decimal);

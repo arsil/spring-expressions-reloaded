@@ -637,14 +637,16 @@ namespace SpringExpressions
                     + $"{arguments.Count} argument(s), and they do not bind to its params array.");
             }
 
-            // An unconditional ConvertChecked used to sit here, and for one conversion class it
-            // invented answers: a real argument against an integral parameter compiled to a truncation
-            // - Echo(45.5) on Echo(int) gave 45 - where the interpreter's binder converts through
-            // Convert.ChangeType and rounds - 46 - so the same call silently answered differently per
-            // backend. That class is refused now and the interpreter serves it. Every other conversion
-            // ConvertChecked can emit agrees with the interpreter's - integral widening and narrowing
-            // (both sides throw on overflow), real to real, enum to integral, object downcasts checked
-            // at runtime - so those keep their compiled form.
+            // What is left after the cases below is emitted with ConvertChecked, except two classes it
+            // would answer and the interpreter would not. A real argument against an integral
+            // parameter: ConvertChecked truncates - Echo(45.5) on Echo(int) gives 45 - where the
+            // interpreter's binder converts through Convert.ChangeType and rounds to 46. And a type's
+            // own explicit operator, which ConvertChecked resolves by itself and which runs only
+            // through a cast written in the expression - TakesCents(Amount) would truncate 12.3456 to
+            // 12.34 without the caller asking. Both are refused; the interpreter rounds the first and
+            // throws for the second. Every other conversion ConvertChecked emits agrees with the
+            // interpreter's - integral widening and narrowing (both sides throw on overflow), real to
+            // real, enum to integral, object downcasts checked at runtime.
             for (int i = 0; i < arguments.Count; i++)
             {
                 var parameterType = methodParameters[i].ParameterType;
@@ -734,9 +736,10 @@ namespace SpringExpressions
                         + "interpreter and would truncate compiled, so it has no compiled form.");
                 }
 
+                LExpression convertedArgument;
                 try
                 {
-                    arguments[i] = LExpression.ConvertChecked(argument, parameterType);
+                    convertedArgument = LExpression.ConvertChecked(argument, parameterType);
                 }
                 catch (InvalidOperationException ex)
                 {
@@ -748,6 +751,18 @@ namespace SpringExpressions
                         $"{label} parameter {i} is '{parameterType}' but the argument is "
                         + $"'{argument.Type}': {ex.Message}");
                 }
+
+                if (SpringExpressions.Expressions.Compiling.ExpressionTypeHelper.AppliesUserDefinedExplicitOperator(
+                        convertedArgument))
+                {
+                    throw new CompileErrorException(
+                        node,
+                        $"{label} parameter {i} is '{parameterType}' but the argument is "
+                        + $"'{argument.Type}': the only conversion is an explicit operator, which runs only "
+                        + $"through a cast written in the expression, 'x as T'.");
+                }
+
+                arguments[i] = convertedArgument;
             }
         }
 
