@@ -47,6 +47,61 @@ namespace SpringExpressionsTests.Expressions
             }
         }
 
+        public struct Money
+        {
+            private readonly decimal _amount;
+
+            public Money(decimal amount)
+            {
+                _amount = amount;
+            }
+
+            public static implicit operator decimal(Money money)
+            {
+                return money._amount;
+            }
+        }
+
+        /// <summary>The operator lives on the target: a decimal converts INTO a price.</summary>
+        public struct Price
+        {
+            public Price(decimal amount)
+            {
+                Amount = amount;
+            }
+
+            public decimal Amount { get; }
+
+            public static implicit operator Price(decimal amount)
+            {
+                return new Price(amount);
+            }
+        }
+
+        public struct Ticket
+        {
+            private readonly int _number;
+
+            public Ticket(int number)
+            {
+                _number = number;
+            }
+
+            public static explicit operator int(Ticket ticket)
+            {
+                return ticket._number;
+            }
+        }
+
+        /// <summary>An operator that answers a nullable - an absent price.</summary>
+        public struct Unpriced
+        {
+            public static implicit operator decimal?(Unpriced unpriced)
+            {
+                return null;
+            }
+        }
+
         public class Root
         {
             public bool Flag { get; set; } = true;
@@ -61,6 +116,14 @@ namespace SpringExpressionsTests.Expressions
             public int? NoNumber { get; set; }
             public long? MaybeBig { get; set; } = 45L;
             public Counter Counted { get; set; } = new Counter(7);
+            public Money Cash { get; set; } = new Money(45.5m);
+            public Ticket Issued { get; set; } = new Ticket(9);
+            public Money? MaybeCash { get; set; } = new Money(45.5m);
+            public Money? NoCash { get; set; }
+            public Counter? MaybeCounted { get; set; } = new Counter(7);
+            public Ticket? MaybeIssued { get; set; } = new Ticket(9);
+            public Unpriced NoPrice { get; set; }
+            public Money GetCash() => new Money(1.25m);
             public object Anything { get; set; }
         }
 
@@ -143,13 +206,127 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// A type's own conversion operator is not applied to a requested result, as it is not
-        /// applied to a declared local or an array element.
+        /// A type's own implicit operator is applied, as C# applies it without a cast - and as a
+        /// property write and a method argument already apply it here.
         /// </summary>
         [Test]
-        public void AConversionOperatorIsNotAppliedToARequestedResult()
+        public void ATypesOwnImplicitOperatorAnswersOnBothBackends()
         {
-            AssertRefusedAndTheInterpreterThrows<int>("Counted", new Root());
+            var root = new Root();
+
+            decimal cashAsDecimal = root.Cash;
+            decimal? cashAsNullableDecimal = root.Cash;
+            int countedAsInt = root.Counted;
+
+            decimal getCashAsDecimal = root.GetCash();
+            decimal? noPriceAsNullableDecimal = root.NoPrice;
+
+            AssertBothBackendsAnswer<decimal>("Cash", root, cashAsDecimal);
+            AssertBothBackendsAnswer<decimal?>("Cash", root, cashAsNullableDecimal);
+            AssertBothBackendsAnswer<int>("Counted", root, countedAsInt);
+            AssertBothBackendsAnswer<decimal>("GetCash()", root, getCashAsDecimal);
+            AssertBothBackendsAnswer<decimal>("Cash + 0", root, cashAsDecimal);
+            AssertBothBackendsAnswer<decimal?>("NoPrice", root, noPriceAsNullableDecimal);
+        }
+
+        /// <summary>
+        /// An explicit operator is honoured too, exactly - its declared target or that target's
+        /// nullable form. C# would want the cast written; a typed request over such a type has
+        /// always been answered by its operator, and the type's author declared it.
+        /// </summary>
+        [Test]
+        public void ATypesOwnExplicitOperatorAnswersOnBothBackends()
+        {
+            var root = new Root();
+
+            AssertBothBackendsAnswer<int>("Issued", root, (int)root.Issued);
+            AssertBothBackendsAnswer<int?>("Issued", root, (int)root.Issued);
+            AssertBothBackendsAnswer<int?>("MaybeIssued", root, (int?)root.MaybeIssued);
+        }
+
+        /// <summary>
+        /// The operator, then the widening C# allows after it: <c>implicit operator int</c> reaches a
+        /// <c>long</c> and a <c>decimal</c> request.
+        /// </summary>
+        [Test]
+        public void AnOperatorFollowedByAWideningAnswersOnBothBackends()
+        {
+            var root = new Root();
+
+            long countedAsLong = root.Counted;
+            decimal countedAsDecimal = root.Counted;
+            decimal? countedAsNullableDecimal = root.Counted;
+
+            AssertBothBackendsAnswer<long>("Counted", root, countedAsLong);
+            AssertBothBackendsAnswer<decimal>("Counted", root, countedAsDecimal);
+            AssertBothBackendsAnswer<decimal?>("Counted", root, countedAsNullableDecimal);
+        }
+
+        /// <summary>
+        /// C#'s lifted form: a nullable body into a nullable request, nothing in and nothing out. A
+        /// non-nullable request is the nullable-request ruling's refusal, operator or not.
+        /// </summary>
+        [Test]
+        public void ANullableCustomBodyLiftsIntoANullableRequest()
+        {
+            var root = new Root();
+
+            decimal? maybeCashAsDecimal = root.MaybeCash;
+            decimal? noCashAsDecimal = root.NoCash;
+            decimal? maybeCountedAsDecimal = root.MaybeCounted;
+
+            AssertBothBackendsAnswer<decimal?>("MaybeCash", root, maybeCashAsDecimal);
+            AssertBothBackendsAnswer<decimal?>("NoCash", root, noCashAsDecimal);
+            AssertBothBackendsAnswer<decimal?>("MaybeCounted", root, maybeCountedAsDecimal);
+
+            Assert.Throws<CompileErrorException>(
+                () => Expression.ParseGetter<Root, decimal>("MaybeCash", EvaluationMode.MustCompile));
+        }
+
+        [Test]
+        public void AnOperatorDeclaredOnTheRequestedTypeAnswersOnBothBackends()
+        {
+            var root = new Root();
+
+            Price amountAsPrice = root.Amount;
+
+            var compiled = Expression.ParseGetter<Root, Price>("Amount", EvaluationMode.MustCompile)
+                .GetValue(root);
+            var interpreted = Expression.ParseGetter<Root, Price>("Amount", EvaluationMode.MustInterpret)
+                .GetValue(root);
+
+            Assert.AreEqual(amountAsPrice.Amount, compiled.Amount);
+            Assert.AreEqual(amountAsPrice.Amount, interpreted.Amount);
+        }
+
+        /// <summary>
+        /// Only the widening C# allows may follow an implicit operator, and decimal to double is
+        /// not one; nothing follows an explicit operator; and an operator returning a nullable does
+        /// not reach a non-nullable request.
+        /// </summary>
+        [Test]
+        public void AnOperatorDoesNotOpenAConversionCSharpWouldNotMake()
+        {
+            var root = new Root();
+
+            AssertRefusedAndTheInterpreterThrows<double>("Cash", root);
+            AssertRefusedAndTheInterpreterThrows<int>("Cash", root);
+            AssertRefusedAndTheInterpreterThrows<decimal>("Issued", root);
+            AssertRefusedAndTheInterpreterThrows<decimal>("NoPrice", root);
+        }
+
+        /// <summary>
+        /// decimal declares op_Explicit to int and to double; between built-in types the widening
+        /// table is the whole rule, so those operators are not consulted.
+        /// </summary>
+        [Test]
+        public void ABuiltInTypesOwnOperatorsDoNotNarrow()
+        {
+            var root = new Root();
+
+            AssertRefusedAndTheInterpreterThrows<int>("Amount", root);
+            AssertRefusedAndTheInterpreterThrows<double>("Amount", root);
+            AssertRefusedAndTheInterpreterThrows<long>("Amount", root);
         }
 
         /// <summary>
@@ -229,6 +406,8 @@ namespace SpringExpressionsTests.Expressions
             AssertBothBackendsAnswer<long?>("Anything", new Root { Anything = 45 }, 45L);
             AssertBothBackendsAnswer<decimal>("Anything", new Root { Anything = 6m }, 6m);
             AssertBothBackendsAnswer<int>("Anything", new Root { Anything = DayOfWeek.Wednesday }, 3);
+            AssertBothBackendsAnswer<decimal>("Anything", new Root { Anything = new Money(45.5m) }, 45.5m);
+            AssertBothBackendsAnswer<decimal>("Anything", new Root { Anything = new Counter(7) }, 7m);
 
             AssertBothBackendsThrow<int, InvalidCastException>("Anything", new Root { Anything = 45L });
             AssertBothBackendsThrow<int, InvalidCastException>("Anything", new Root { Anything = true });
