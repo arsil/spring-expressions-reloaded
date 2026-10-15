@@ -185,12 +185,7 @@ namespace SpringExpressions
                     throw new SyntaxErrorException( ex.recog.Message, ex.recog.getLine(), ex.recog.getColumn(), expression );
                 }
 
-                var springAst = parser.getAST();
-                /****
-                using (TextWriter tw = Console.Out)
-                    springAst.xmlSerialize(tw);
-                ****/
-                return (BaseNode)springAst;
+                return (BaseNode)parser.getAST();
             }
             else
             {
@@ -345,6 +340,111 @@ namespace SpringExpressions
             }
 
             return ours.Status;
+        }
+
+        /// <summary>
+        /// The parsed tree of a strongly typed expression, one node per line - for a person debugging it.
+        /// </summary>
+        /// <remarks>
+        /// Each line is the node's class, the text the caller wrote for it in quotes, and <c>?.</c> or
+        /// <c>?[</c> where the node is reached null-conditionally. A node the grammar made up - the
+        /// <see cref="Expression"/> wrapped round nearly every operand, an expression list, a lambda -
+        /// has no source text, and none is printed. The tree is printed as it is, wrappers included,
+        /// because those are the nodes that run.
+        /// <p>
+        /// For reading, not parsing: the format may change with the grammar. <see cref="DescribeTreeAsXml(IStronglyTypedExpression)"/>
+        /// is the one for a program.
+        /// </p>
+        /// </remarks>
+        /// <example>
+        /// <c>Number + 2</c>:
+        /// <code>
+        /// OpADD '+'
+        /// |--Expression
+        /// |  +--PropertyOrFieldNode 'Number'
+        /// +--Expression
+        ///    +--IntLiteralNode '2'
+        /// </code>
+        /// </example>
+        /// <exception cref="ArgumentException">The expression was not created by this class.</exception>
+        [NotNull]
+        public static string DescribeTree([NotNull] IStronglyTypedExpression expression)
+        {
+            return TreeDescription.ToText(NodeOf(expression));
+        }
+
+        /// <summary>
+        /// The parsed tree of what <see cref="Parse"/> or <see cref="Wrap"/> returned, one node per line.
+        /// </summary>
+        /// <remarks>
+        /// The same format as <see cref="DescribeTree(IStronglyTypedExpression)"/>. For a node taken out
+        /// of a larger tree and wrapped, only that node and what is below it is printed.
+        /// </remarks>
+        /// <exception cref="ArgumentException">The expression was not created by this class.</exception>
+        [NotNull]
+        public static string DescribeTree([NotNull] IWeaklyTypedExpression expression)
+        {
+            return TreeDescription.ToText(NodeOf(expression));
+        }
+
+        /// <summary>
+        /// The parsed tree of a strongly typed expression as XML: one element per node, named after its
+        /// class.
+        /// </summary>
+        /// <remarks>
+        /// One root element, indented, no declaration. A node carries <c>text</c> where the caller wrote
+        /// one and <c>nullConditional="true"</c> where it is reached through <c>?.</c> or <c>?[</c>; a
+        /// node the grammar made up has no <c>text</c>. A character XML cannot carry at all, such as
+        /// U+0001 inside a string literal, is written as <c>\uXXXX</c>.
+        /// </remarks>
+        /// <exception cref="ArgumentException">The expression was not created by this class.</exception>
+        [NotNull]
+        public static string DescribeTreeAsXml([NotNull] IStronglyTypedExpression expression)
+        {
+            return TreeDescription.ToXml(NodeOf(expression));
+        }
+
+        /// <summary>
+        /// The parsed tree of what <see cref="Parse"/> or <see cref="Wrap"/> returned, as XML.
+        /// </summary>
+        /// <remarks>The same format as <see cref="DescribeTreeAsXml(IStronglyTypedExpression)"/>.</remarks>
+        /// <exception cref="ArgumentException">The expression was not created by this class.</exception>
+        [NotNull]
+        public static string DescribeTreeAsXml([NotNull] IWeaklyTypedExpression expression)
+        {
+            return TreeDescription.ToXml(NodeOf(expression));
+        }
+
+        [NotNull]
+        private static BaseNode NodeOf([NotNull] IStronglyTypedExpression expression)
+        {
+            AssertUtils.ArgumentNotNull(expression, "expression");
+
+            if (!(expression is BaseStronglyTypedExpression ours))
+            {
+                throw new ArgumentException(
+                    $"[{expression.GetType()}] was not created by Expression.ParseGetter, ParseSetter or "
+                    + "ParseVoidExpression, so there is no parsed tree to describe.",
+                    "expression");
+            }
+
+            return ours.ExpressionNode;
+        }
+
+        [NotNull]
+        private static BaseNode NodeOf([NotNull] IWeaklyTypedExpression expression)
+        {
+            AssertUtils.ArgumentNotNull(expression, "expression");
+
+            if (!(expression is WeaklyTypedExpression ours))
+            {
+                throw new ArgumentException(
+                    $"[{expression.GetType()}] was not created by Expression.Parse or Expression.Wrap, so "
+                    + "there is no parsed tree to describe.",
+                    "expression");
+            }
+
+            return ours.ExpressionNode;
         }
 
 

@@ -432,13 +432,7 @@ namespace SpringExpressions.Expressions
                // todo: error; must compile!
             
                // todo: nodeType == Assign?
-/*
-            if (exp.Type != typeof(void))
-            {
-                var tree = ((SpringExpressions.Parser.antlr.collections.AST)expressionNode).ToStringTree();
-                throw new InvalidOperationException($"Expression returns {exp.Type} instead of void! \n" + tree);
-            }
-*/
+
             Expression<Action<TContext, IDictionary<string, object>, TArgument>> lambda
                 = BuildLambda<Action<TContext, IDictionary<string, object>, TArgument>>(
                     exp, ctxParam, variablesParam, newValueParam);

@@ -231,6 +231,20 @@ CompilationStatus status = Expression.GetCompilationStatus(getter);
 // status.RefusalMessage  -> e.g. "Cannot compile OpLike 'like': ..."
 ```
 
+And what an expression parsed into — useful when it does not do what you expected:
+
+```csharp
+Console.WriteLine(Expression.DescribeTree(Expression.Parse("Number + 2")));
+// OpADD '+'
+// |--Expression
+// |  +--PropertyOrFieldNode 'Number'
+// +--Expression
+//    +--IntLiteralNode '2'
+```
+
+`DescribeTreeAsXml` gives the same tree as XML. Both accept what `Parse`, `Wrap` and the
+strongly typed `Parse*` methods return.
+
 ## 3. The strongly typed API
 
 The recommended way to use the library. You parse an expression **once**, stating the type it
