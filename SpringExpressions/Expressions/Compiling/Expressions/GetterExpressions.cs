@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using JetBrains.Annotations;
+using SpringExpressions.Util;
 using static SpringExpressions.BaseNode;
 
 namespace SpringExpressions.Expressions.Compiling.Expressions
@@ -66,8 +67,9 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
                 // A value that satisfies the request is cast, never copied - a read collection keeps
                 // its reference identity. Only the object-typed collections the interpreter itself
                 // builds are reprojected to a narrower request, mirroring what ToTypedList and
-                // ToTypedHashSet do for the compiled root; anything else falls through to the cast
-                // and its honest InvalidCastException.
+                // ToTypedHashSet do for the compiled root. Anything else goes to the rule the
+                // compiled getter delivers its result by: widened where C# widens without a cast,
+                // otherwise the cast and its honest InvalidCastException.
                 if (value is TResult || value == null)
                     return (TResult)value;
 
@@ -80,7 +82,7 @@ namespace SpringExpressions.Expressions.Compiling.Expressions
                 if (value is Dictionary<object, object> && DictionaryReprojection != null)
                     return DictionaryReprojection(value);
 
-                return (TResult)value;
+                return ResultConversions.ConvertValue<TResult>(value);
             }
 
             // Root and variables are parameters of the compiled delegate, so nothing is shared

@@ -6,6 +6,7 @@ using System.Linq.Expressions;
 using JetBrains.Annotations;
 
 using SpringExpressions.Expressions.Compiling.Expressions;
+using SpringExpressions.Util;
 using SpringUtil;
 
 using LExpression = System.Linq.Expressions.Expression;
@@ -206,6 +207,9 @@ namespace SpringExpressions.Expressions
                 nameof(CollectionOperandUtils.ToHashSetOfObjects),
                 System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
 
+        private static readonly System.Reflection.MethodInfo ConvertValueMethodInfo
+            = typeof(ResultConversions).GetMethod(nameof(ResultConversions.ConvertValue));
+
         private static readonly System.Reflection.MethodInfo ToTypedHashSetMethodInfo
             = typeof(CollectionOperandUtils).GetMethod(
                 nameof(CollectionOperandUtils.ToTypedHashSet),
@@ -283,11 +287,8 @@ namespace SpringExpressions.Expressions
                 else if (resultType != exp.Type && resultType.IsValueType)
                 {
                     // A nullable body against a non-nullable request is refused rather than
-                    // dereferenced. LExpression.ConvertChecked(int? -> int) is a legal conversion - it
-                    // is C#'s explicit '(int)n', compiling to Nullable<int>.Value - so nothing stopped
-                    // it being emitted, and it was: 'int? -> int', '-> long', '-> double', '-> short',
-                    // 'double? -> int' all silently unwrapped, and threw "Nullable object must have a
-                    // value" at evaluation if the value happened to be absent.
+                    // dereferenced. Unwrapping it is C#'s explicit '(int)n', which throws "Nullable
+                    // object must have a value" at the evaluation whose value happens to be absent.
                     //
                     // C# refuses the same thing outright: 'int x = someNullable;' is CS0266, and the
                     // programmer has to write the cast. Inserting it on their behalf means a request
@@ -297,8 +298,9 @@ namespace SpringExpressions.Expressions
                     //
                     // The escape is the cast the caller could have written: 'expr as int' makes the body
                     // non-nullable and compiles. Requests that can carry the absence - 'int?', 'long?',
-                    // 'object' - are untouched, and so is every conversion from a non-nullable body.
-                    if (Nullable.GetUnderlyingType(exp.Type) != null)
+                    // 'object' - are not refused here.
+                    if (Nullable.GetUnderlyingType(exp.Type) != null
+                        && Nullable.GetUnderlyingType(resultType) == null)
                     {
                         throw new CompileErrorException(
                             expressionNode,
@@ -307,7 +309,22 @@ namespace SpringExpressions.Expressions
                             + "explicitly in the expression");
                     }
 
-                    exp = LExpression.ConvertChecked(exp, resultType);
+                    // A requested result is a typed sink: it converts where C# converts without a
+                    // cast - an implicit numeric widening - and the interpreted getter converts by the
+                    // same rule, so 'IntValue' requested as 'long' answers on both backends. Anything
+                    // else - a bool as an int, a long as an int, 45.6 as an int, an int as a char - has
+                    // no such spelling, and the interpreter's cast throws for it, so it is refused.
+                    if (!ResultConversions.TryConvertExpression(exp, resultType, out var converted))
+                    {
+                        throw new CompileErrorException(
+                            expressionNode,
+                            $"a '{exp.Type}' cannot be delivered as '{resultType}': a requested result "
+                            + "converts only where C# converts without a cast, an implicit numeric "
+                            + $"widening; request '{exp.Type}', or write the cast explicitly in the "
+                            + "expression");
+                    }
+
+                    exp = converted;
                 }
             }
 
@@ -320,13 +337,17 @@ namespace SpringExpressions.Expressions
             }
 
             // An object-typed body carries no compile-time information, so a typed request over it is
-            // decided at runtime - the same cast the interpreted getter performs on its result. Without
-            // this, the compiled path refused shapes the interpreter satisfies, e.g. convert(decimal)
-            // requested as List<decimal>: its emitted call is object-typed because the target type is
-            // an argument value.
+            // decided at runtime, by what the interpreted getter does with its result: a cast for a
+            // reference request - convert(decimal) requested as List<decimal> is the shape this
+            // exists for, since its emitted call is object-typed - and, for a value-type request, the
+            // interpreter's own conversion, called rather than reproduced, so a boxed int requested
+            // as a long widens on both backends.
             if (exp.Type == typeof(object) && typeof(TResult) != typeof(object))
             {
-                exp = LExpression.Convert(exp, typeof(TResult));
+                if (typeof(TResult).IsValueType)
+                    exp = LExpression.Call(ConvertValueMethodInfo.MakeGenericMethod(typeof(TResult)), exp);
+                else
+                    exp = LExpression.Convert(exp, typeof(TResult));
             }
 
             exp = DeclareLocalsIfUsed(exp, compilationContext);

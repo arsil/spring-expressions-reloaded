@@ -30,9 +30,10 @@ namespace SpringExpressionsTests.Expressions
         [Test]
         public void MyEnumComplexTest()
         {
-            Assert.AreEqual(1024, CompileAndExecuteGetter<int>("2 ^ ({2,5,10}[2])"));
+            // '^' answers a double, so that is the type requested.
+            Assert.AreEqual(1024d, CompileAndExecuteGetter<double>("2 ^ ({2,5,10}[2])"));
 
-            Assert.AreEqual(8, CompileAndExecuteGetter<int>(
+            Assert.AreEqual(8d, CompileAndExecuteGetter<double>(
                 "2 ^ ( {0, 1, 2, 3, 4, 5, 6} [ T(System.Convert).ToInt32(date('2024/06/05').DayOfWeek)] )"));
         }
 

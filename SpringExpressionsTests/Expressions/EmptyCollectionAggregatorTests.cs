@@ -259,23 +259,22 @@ namespace SpringExpressionsTests.Expressions
         }
 
         /// <summary>
-        /// The refusal is about a request that cannot hold an absent value, not about narrowing in
-        /// general: a non-nullable body still converts to whatever non-nullable type was asked for.
+        /// The refusal is about a request that cannot hold an absent value: a non-nullable body
+        /// still widens to a non-nullable request, on both backends. Narrowing is refused by a
+        /// different rule - see <c>RequestedResultConversionTests</c>.
         /// </summary>
         [Test]
-        public void ANonNullableBodyStillConvertsToTheRequestedType()
+        public void ANonNullableBodyStillWidensToTheRequestedType()
         {
             var root = new EmptyAndFullCollections();
 
-            Assert.AreEqual(
-                2L,
-                Expression.ParseGetter<EmptyAndFullCollections, long>(
-                    "Ints.count()", EvaluationMode.MustCompile).GetValue(root));
+            var compiled = Expression.ParseGetter<EmptyAndFullCollections, long>(
+                "Ints.count()", EvaluationMode.MustCompile).GetValue(root);
+            var interpreted = Expression.ParseGetter<EmptyAndFullCollections, long>(
+                "Ints.count()", EvaluationMode.MustInterpret).GetValue(root);
 
-            Assert.AreEqual(
-                2,
-                Expression.ParseGetter<EmptyAndFullCollections, short>(
-                    "Ints.count()", EvaluationMode.MustCompile).GetValue(root));
+            Assert.AreEqual(2L, compiled);
+            Assert.AreEqual(2L, interpreted);
         }
 
         /// <summary>
